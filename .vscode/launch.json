@@ -1,0 +1,28 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Streamlit Dashboard",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "streamlit",
+      "args": ["run", "1_Inicio.py"],
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Serial Reader (simulação)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "serial_reader.py",
+      "args": ["--simulate"],
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Serial Reader (ESP32 real)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "serial_reader.py",
+      "console": "integratedTerminal"
+    }
+  ]
+}
