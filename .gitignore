@@ -1,0 +1,11 @@
+# binários pesados / arquivos de design
+*.zip
+*.fig
+
+# sistema
+Thumbs.db
+.DS_Store
+
+# configuração local com chaves de API (não commitar!)
+config.js
+*.env
