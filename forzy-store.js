@@ -149,6 +149,14 @@
     logHist('ativos_industrial', 'UPDATE', antes, dados);
     save(); return true;
   }
+  function excluirAtivoIndustrial(codigo) {
+    const a = db.ativos_industrial.find(x => x.codigo === codigo);
+    if (!a) return { ok: false, motivo: 'Ativo não encontrado.' };
+    if (a.origem === 'forzy') return { ok: false, motivo: 'Este ativo é do Dataset Forzy e não pode ser excluído.' };
+    db.ativos_industrial = db.ativos_industrial.filter(x => x.codigo !== codigo);
+    logHist('ativos_industrial', 'DELETE', a, null);
+    save(); return { ok: true };
+  }
 
   /* ----------  Leituras (IoT)  ---------- */
   function getLeituras(ativo_codigo = null, limit = 500) {
@@ -195,7 +203,7 @@
   window.FZStore = {
     STATUS, statusLabel, statusColor, reset,
     getPlantas, criarPlanta, editarPlanta, excluirPlanta, getAreas, criarArea, editarArea, excluirArea,
-    getAtivosIndustrial, getAtivoPorCodigo, criarAtivoIndustrial, editarAtivoIndustrial,
+    getAtivosIndustrial, getAtivoPorCodigo, criarAtivoIndustrial, editarAtivoIndustrial, excluirAtivoIndustrial,
     getLeituras, insertLeitura,
     logExecucao, getLogs, getHistorico,
   };

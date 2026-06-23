@@ -611,16 +611,15 @@ Seguindo as normas ISO 10816 e ISA-18.2, responda com:
 
       /* Loader original (uiverse.io by andrew-manzyk) */
       .fz-loader {
-        --color-one: #ffbf48;
-        --color-two: #be4a1d;
-        --color-three: #ffbf4780;
-        --color-four: #bf4a1d80;
-        --color-five: #ffbf4740;
+        --color-one: #ffffff;
+        --color-two: #cccccc;
+        --color-three: #ffffff80;
+        --color-four: #cccccc80;
+        --color-five: #ffffff40;
         --time-animation: 2s;
         position: relative;
         border-radius: 50%;
         box-shadow: 0 0 25px 0 var(--color-three), 0 20px 50px 0 var(--color-four);
-        animation: fz-colorize calc(var(--time-animation) * 3) ease-in-out infinite;
       }
       .fz-loader::before {
         content: "";

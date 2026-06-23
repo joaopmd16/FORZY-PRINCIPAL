@@ -4,12 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Vision — Marketing Dashboard</title>
-<link rel="stylesheet" href="styles.css?v=3">
+<link rel="stylesheet" href="styles.css?v=16">
 </head>
 <body>
 
 <!-- ============ APP (Dashboard + Analytics share the shell) ============ -->
 <div class="app" id="app-shell">
+
 
   <!-- ----------  SIDEBAR  ---------- -->
   <aside class="sidebar">
@@ -63,7 +64,7 @@
 
     <div class="nav-label">Inteligência</div>
     <nav class="nav-group">
-      <button class="nav-item" id="navAssistente">
+      <button class="nav-item" data-screen="assistente">
         <i data-lucide="message-square-text"></i><span class="lbl">Assistente IA</span>
       </button>
     </nav>
@@ -343,6 +344,10 @@
         <details class="fz-details" id="iotHelp"></details>
       </div>
     </section>
+    <!-- ===================  ASSISTENTE IA  =================== -->
+    <section class="screen" id="screen-assistente">
+      <div id="fz-chat-screen"></div>
+    </section>
   </main>
 </div>
 
@@ -400,16 +405,17 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script src="data/forzy-data.js"></script>
-<script src="forzy-store.js"></script>
+<script src="forzy-store.js?v=2"></script>
 <script src="forzy.js"></script>
 <script src="inicio.js"></script>
-<script src="cadastro.js?v=3"></script>
+<script src="cadastro.js?v=6"></script>
 <script src="gestao.js?v=4"></script>
 <script src="scada.js"></script>
 <script src="iot.js?v=3"></script>
 <script src="topbar.js?v=3"></script>
-<script src="app.js"></script>
+<script src="app.js?v=3"></script>
 <script src="config.js"></script>
-<script src="assistant.js?v=3"></script>
+<script src="assistant.js?v=5"></script>
+<script src="assistente-screen.js?v=1"></script>
 </body>
 </html>

@@ -25,6 +25,7 @@
     dashboard: document.getElementById('screen-dashboard'),
     scada: document.getElementById('screen-scada'),
     iot: document.getElementById('screen-iot'),
+    assistente: document.getElementById('screen-assistente'),
   };
   const navItems = document.querySelectorAll('.nav-item[data-screen]');
 
@@ -40,6 +41,7 @@
     navItems.forEach(b =>
       b.classList.toggle('active', b.dataset.screen === key));
     window.scrollTo({ top: 0 });
+    if (key === 'assistente') window.FZChatScreen?.init();
   }
   window.showScreen = showScreen;   // expõe globalmente para topbar.js e assistant.js
 

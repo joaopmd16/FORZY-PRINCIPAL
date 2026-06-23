@@ -83,6 +83,8 @@
           </div>`; }).join('') : '<div class="fz-empty" style="margin-top:10px">Nenhuma área cadastrada.</div>'}
       </div>`;
 
+    if (msg) p.querySelector('.fz-feedback')?.scrollIntoView({ block: 'center' });
+
     const pRow = b => b.closest('.lc-prow');
     const aRow = b => b.closest('.lc-arow');
 
@@ -493,8 +495,13 @@ Se algum campo não estiver visível na placa, use null.`;
           <div class="fld"><label>Longitude</label><input class="fz-input" id="eLon" type="number" step="0.000001" value="${a.longitude ?? -46.6333}"></div>
         </div>
       </details>
-      <button class="fz-btn fz-btn-save" id="eSalvar" style="margin-top:14px">Salvar Alterações</button>
+      <div class="lc-actions" style="margin-top:14px">
+        <button class="fz-btn fz-btn-save" id="eSalvar">Salvar Alterações</button>
+        ${a.origem === 'forzy' ? '' : '<button class="fz-btn danger" id="eExcluir">Excluir Ativo</button>'}
+      </div>
     </div>`;
+
+    if (msg) p.querySelector('.fz-feedback')?.scrollIntoView({ block: 'center' });
 
     el('eSel').addEventListener('change', e => { state.selEditar = e.target.value; renderEditar(); });
     el('ePlanta').addEventListener('change', () => {
@@ -511,6 +518,13 @@ Se algum campo não estiver visível na placa, use null.`;
         localizacao_descricao: el('eLoc').value.trim(),
       });
       renderEditar(feedback(`Ativo ${state.selEditar} atualizado.`));
+    });
+    el('eExcluir')?.addEventListener('click', () => {
+      const codigo = state.selEditar;
+      if (!confirm(`Excluir o ativo "${codigo}"? Esta ação não pode ser desfeita.`)) return;
+      const r = S.excluirAtivoIndustrial(codigo);
+      if (r.ok) state.selEditar = null;
+      renderEditar(feedback(r.ok ? `Ativo ${codigo} excluído.` : r.motivo, r.ok));
     });
   }
 
@@ -571,7 +585,8 @@ Se algum campo não estiver visível na placa, use null.`;
     const leituras = S.getLeituras(a.codigo, 400);
     const temIoT = leituras.length > 0;
 
-    const r = lastReading();
+    const isForzy = a.origem === 'forzy';
+    const r = (temIoT || isForzy) ? lastReading() : null;
     const z = r ? zscores(r) : {};
     const score = r ? Math.max(...Object.values(z)) : 0;
     const [classe, cor] = classify(score);
@@ -639,6 +654,7 @@ Se algum campo não estiver visível na placa, use null.`;
         </div>` : ''}
       </div>
 
+      ${(temIoT || isForzy) ? `
       <div class="fz-row2">
         <div class="fz-card">
           <div class="fz-card-title">Score de Anomalia — Baseline ML</div>
@@ -662,14 +678,19 @@ Se algum campo não estiver visível na placa, use null.`;
               </div>`; }).join('')}
           </div>
         </div>
-      </div>
+      </div>` : ''}
 
-      ${temIoT ? iotLiveBlock(leituras) : `
+      ${temIoT ? iotLiveBlock(leituras) : isForzy ? `
       <div class="fz-card" style="margin-top:16px">
         <div class="fz-card-title">Referência Operacional — Dataset Forzy</div>
-        <div class="fz-card-sub">Sem leitura IoT vinculada — exibindo histórico do dataset como referência. Conecte o ESP na aba IoT gravando neste ativo.</div>
+        <div class="fz-card-sub">Exibindo histórico do dataset Forzy como referência operacional.</div>
         <div class="fz-legend"><span><i style="background:var(--fz-m1)"></i>Motor 1 — Vel</span><span><i style="background:var(--fz-m2)"></i>Motor 2 — Vel</span></div>
         <div class="fz-chart">${refChart()}</div>
+      </div>` : `
+      <div class="fz-card" style="margin-top:16px">
+        <div class="fz-card-title">Sem dados de monitoramento</div>
+        <div class="fz-card-sub">Nenhuma leitura IoT vinculada a este ativo. Conecte o ESP32 na aba IoT e selecione este ativo para iniciar o monitoramento.</div>
+        <div class="fz-empty" style="padding:32px 0;color:var(--text-2)">Aguardando primeiras leituras…</div>
       </div>`}
 
       <div class="fz-card" style="margin-top:16px">
