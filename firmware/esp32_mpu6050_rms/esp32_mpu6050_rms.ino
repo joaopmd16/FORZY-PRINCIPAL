@@ -29,8 +29,7 @@ static const uint16_t WINDOW_SAMPLES  = 200;   // 1 s
 static const uint32_t SAMPLE_US       = 1000000UL / SAMPLE_RATE_HZ;
 
 // ── Objetos globais ────────────────────────────────────────────────────────────
-// ── Objetos globais ────────────────────────────────────────────────────────────
-MPU6050 mpu; // Se não funcionar, mude o 0x68 para 0x69;
+MPU6050 mpu;
 
 // Buffers de amostras (mag aceleração sem DC)
 float buf_ax[WINDOW_SAMPLES];
