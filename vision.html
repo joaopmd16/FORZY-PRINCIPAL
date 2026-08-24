@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vision — Marketing Dashboard</title>
+<link rel="stylesheet" href="styles.css?v=16">
+</head>
+<body>
+
+<!-- ============ APP (Dashboard + Analytics share the shell) ============ -->
+<div class="app" id="app-shell">
+
+
+  <!-- ----------  SIDEBAR  ---------- -->
+  <aside class="sidebar">
+    <div class="brand">
+      <svg class="logo-mark" viewBox="0 0 40 40" aria-hidden="true"><rect class="sq" x="15" y="6" width="21" height="27" rx="9" transform="rotate(11 25.5 19.5)"></rect><rect class="mn" x="4" y="5" width="24" height="30" rx="12"></rect></svg>
+      <span class="logo-text">IMS · Forzy</span>
+    </div>
+
+    <div class="nav-label">Principal</div>
+    <nav class="nav-group">
+      <button class="nav-item active" data-screen="inicio">
+        <i data-lucide="home"></i><span class="lbl">Início</span>
+      </button>
+      <button class="nav-item" data-screen="dashboard">
+        <i data-lucide="layout-dashboard"></i><span class="lbl">Dashboard</span>
+      </button>
+      <div class="nav-sub">
+        <button class="nav-subitem" data-screen="dashboard" data-tab="mon">Monitoramento</button>
+        <button class="nav-subitem" data-screen="dashboard" data-tab="esp">Espectral</button>
+        <button class="nav-subitem" data-screen="dashboard" data-tab="oper">Operacional</button>
+        <button class="nav-subitem" data-screen="dashboard" data-tab="hist">Histórico</button>
+        <button class="nav-subitem" data-screen="dashboard" data-tab="ml">Baseline ML</button>
+      </div>
+    </nav>
+
+    <div class="nav-label">Gestão</div>
+    <nav class="nav-group">
+      <button class="nav-item" data-screen="navegacao">
+        <i data-lucide="git-fork"></i><span class="lbl">Navegação</span>
+      </button>
+      <button class="nav-item" data-screen="cadastro">
+        <i data-lucide="clipboard-list"></i><span class="lbl">Cadastro</span>
+      </button>
+      <button class="nav-item" data-screen="rpa">
+        <i data-lucide="settings-2"></i><span class="lbl">Automação</span>
+      </button>
+      <button class="nav-item" data-screen="pipeline">
+        <i data-lucide="workflow"></i><span class="lbl">Pipeline</span>
+      </button>
+    </nav>
+
+    <div class="nav-label">Planta &amp; Sensores</div>
+    <nav class="nav-group">
+      <button class="nav-item" data-screen="scada">
+        <i data-lucide="factory"></i><span class="lbl">SCADA</span>
+      </button>
+      <button class="nav-item" data-screen="iot">
+        <i data-lucide="cpu"></i><span class="lbl">IoT ESP32</span>
+      </button>
+    </nav>
+
+    <div class="nav-label">Inteligência</div>
+    <nav class="nav-group">
+      <button class="nav-item" data-screen="assistente">
+        <i data-lucide="message-square-text"></i><span class="lbl">Assistente IA</span>
+      </button>
+    </nav>
+
+    <div class="theme-switch">
+      <i data-lucide="sun" class="ic-sun"></i>
+      <button class="switch" id="themeToggle" aria-label="Toggle theme"></button>
+      <i data-lucide="moon" class="ic-moon"></i>
+    </div>
+    <div class="copyright">
+      <i data-lucide="copyright"></i><span>Forzy · 2026</span>
+    </div>
+  </aside>
+
+  <!-- ----------  MAIN  ---------- -->
+  <main class="main">
+    <!-- topbar -->
+    <div class="topbar">
+      <div class="search" style="position:relative">
+        <input type="text" id="topbar-search" placeholder="Buscar tela, ativo, motor..." autocomplete="off">
+        <i data-lucide="search"></i>
+        <div id="topbar-search-results"></div>
+      </div>
+      <div class="pill-card date-card" id="topbar-clock"></div>
+      <div class="pill-card icon-card" id="topbar-bell" title="Alertas" style="position:relative">
+        <i data-lucide="bell"></i>
+        <span id="topbar-bell-dot" style="display:none"></span>
+        <div id="topbar-bell-panel"></div>
+      </div>
+      <div style="position:relative">
+        <button class="avatar-card" id="topbar-account" title="Conta">
+          <i data-lucide="user"></i>
+        </button>
+        <div id="topbar-account-menu" style="display:none">
+          <div id="topbar-user-info"></div>
+          <hr style="border-color:rgba(255,255,255,.08);margin:6px 0">
+          <button id="topbar-edit-profile">Editar perfil</button>
+          <button id="topbar-signout">Sair</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================  DASHBOARD (Forzy — motores) =================== -->
+    <section class="screen" id="screen-dashboard">
+      <div class="fz-dash">
+        <div class="page-head">
+          <div>
+            <div class="fz-eyebrow">Forzy · Monitoramento Industrial</div>
+            <h1 class="page-title">Dashboard de Motores</h1>
+          </div>
+          <div class="fz-toolbar" id="fzToolbar"></div>
+        </div>
+
+        <div class="fz-sourcebar" id="fzSourceBar"></div>
+
+        <div class="fz-tabs" id="fzTabs">
+          <button class="fz-tab active" data-tab="mon">Monitoramento</button>
+          <button class="fz-tab" data-tab="esp">Espectral</button>
+          <button class="fz-tab" data-tab="oper">Operacional</button>
+          <button class="fz-tab" data-tab="hist">Histórico</button>
+          <button class="fz-tab" data-tab="ml">Baseline ML</button>
+        </div>
+
+        <div class="fz-panel active" data-panel="mon"  id="fzPanel-mon"></div>
+        <div class="fz-panel"        data-panel="esp"  id="fzPanel-esp"></div>
+        <div class="fz-panel"        data-panel="oper" id="fzPanel-oper"></div>
+        <div class="fz-panel"        data-panel="hist" id="fzPanel-hist"></div>
+        <div class="fz-panel"        data-panel="ml"   id="fzPanel-ml"></div>
+      </div>
+
+    </section>
+
+    <!-- ===================  INÍCIO (Hub)  =================== -->
+    <section class="screen active" id="screen-inicio">
+      <div class="fz-dash">
+
+        <div class="fz-hero-bar">
+          <div>
+            <div class="fz-eyebrow">Forzy · Monitoramento Industrial</div>
+            <h1 class="page-title">Sistema de Monitoramento Industrial</h1>
+            <div class="fz-hero-sub">Bancada Forzy · Bombas Centrífugas · Sensor VIM32PL IO-Link</div>
+          </div>
+          <div class="fz-hero-meta">
+            <span class="fz-badge fz-badge-ok" id="inicioStatus">—</span>
+            <div class="fz-hero-time" id="inicioTime">—</div>
+          </div>
+        </div>
+
+        <div class="fz-sourcebar" id="inicioControls"></div>
+        <div class="fz-progress" id="inicioProgress" hidden>
+          <span class="p-lbl">—</span>
+          <div class="track"><div class="fill" style="width:0%"></div></div>
+        </div>
+
+        <div class="fz-kpibar" id="inicioKpis"></div>
+
+        <h3 class="fz-h">Status dos Ativos</h3>
+        <div class="fz-grid4" id="inicioAssets"></div>
+
+        <h3 class="fz-h">Atividade Recente</h3>
+        <div class="fz-activity">
+          <div class="fz-card fz-log" id="inicioLog"></div>
+          <div class="fz-side">
+            <div class="fz-actions-label">Ações Rápidas</div>
+            <button class="fz-btn ghost" id="inicioRefresh">Forçar Refresh dos Dados</button>
+            <button class="fz-btn ghost" id="inicioExport">Exportar Dataset CSV</button>
+            <button class="fz-btn" data-goto="dashboard">Ir para Monitoramento</button>
+            <button class="fz-btn ghost" data-goto="cadastro">Ir para Cadastro</button>
+            <div class="fz-iso">
+              <div class="iso-lbl">Referência ISO</div>
+              <div class="iso-row">Normal &nbsp;<b style="color:var(--fz-ok)">&lt; 1,8 mm/s</b></div>
+              <div class="iso-row">Alerta &nbsp;<b style="color:var(--fz-warn)">1,8 – 4,5</b></div>
+              <div class="iso-row">Alarme &nbsp;<b style="color:var(--fz-bad)">&gt; 4,5 mm/s</b></div>
+            </div>
+          </div>
+        </div>
+
+        <h3 class="fz-h">Módulos do Sistema</h3>
+        <div class="fz-row3">
+          <div class="fz-module" style="border-left-color:#3498db">
+            <div class="m-title">Monitoramento</div>
+            <div class="m-desc">Dados em tempo real com gauges, health score e modo de falha simulado.</div>
+          </div>
+          <div class="fz-module" style="border-left-color:#9b59b6">
+            <div class="m-title">Análise Espectral</div>
+            <div class="m-desc">FFT com marcadores de harmônicas, espectrograma e cenários de falha.</div>
+          </div>
+          <div class="fz-module" style="border-left-color:#0ea5e9">
+            <div class="m-title">SCADA Visual</div>
+            <div class="m-desc">Planta 2D com modelo STP real + Vista 3D interativa com alertas ao vivo.</div>
+          </div>
+          <div class="fz-module" style="border-left-color:#e67e22">
+            <div class="m-title">Análise Operacional</div>
+            <div class="m-desc">Timeline completa, análise de distribuição, correlação e log de eventos.</div>
+          </div>
+          <div class="fz-module" style="border-left-color:#e74c3c">
+            <div class="m-title">Histórico / Player</div>
+            <div class="m-desc">Reprodução animada do histórico de operação com scrubbing de timeline.</div>
+          </div>
+          <div class="fz-module" style="border-left-color:#38bdf8">
+            <div class="m-title">Conexão IoT / ESP32</div>
+            <div class="m-desc">Interface para monitoramento ao vivo via ESP32 + VIM32PL em produção.</div>
+          </div>
+        </div>
+
+        <div class="fz-foot">
+          <span>IMS · Forzy Industrial Monitoring System</span>
+          <span>Sensor: Pepperl+Fuchs VIM32PL · ISO 10816 / 20816</span>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ===================  NAVEGAÇÃO  =================== -->
+    <section class="screen" id="screen-navegacao">
+      <div class="fz-dash">
+        <div class="page-head">
+          <div>
+            <div class="fz-eyebrow">Gestão · Planta</div>
+            <h1 class="page-title">Navegação da Planta</h1>
+          </div>
+        </div>
+        <div class="fz-card" id="navBusca"></div>
+        <div class="fz-card" id="navDrill"></div>
+        <div id="navDetalhe"></div>
+      </div>
+    </section>
+
+    <!-- ===================  CADASTRO  =================== -->
+    <section class="screen" id="screen-cadastro">
+      <div class="fz-dash">
+        <div class="page-head">
+          <div>
+            <div class="fz-eyebrow">Gestão · Ativos</div>
+            <h1 class="page-title">Cadastro de Ativos</h1>
+            <div class="fz-hero-sub">Lista · Novo · Editar · Dashboard do Ativo</div>
+          </div>
+        </div>
+        <div class="fz-tabs" id="cadTabs">
+          <button class="fz-tab active" data-ctab="lista">Lista de Ativos</button>
+          <button class="fz-tab" data-ctab="novo">Novo Ativo</button>
+          <button class="fz-tab" data-ctab="editar">Editar Ativo</button>
+          <button class="fz-tab" data-ctab="locais">Plantas &amp; Áreas</button>
+          <button class="fz-tab" data-ctab="dash">Dashboard do Ativo</button>
+        </div>
+        <div class="fz-cpanel active" data-cpanel="lista"  id="cadLista"></div>
+        <div class="fz-cpanel"        data-cpanel="novo"   id="cadNovo"></div>
+        <div class="fz-cpanel"        data-cpanel="editar" id="cadEditar"></div>
+        <div class="fz-cpanel"        data-cpanel="locais" id="cadLocais"></div>
+        <div class="fz-cpanel"        data-cpanel="dash"   id="cadDash"></div>
+      </div>
+    </section>
+
+    <!-- ===================  RPA  =================== -->
+    <section class="screen" id="screen-rpa">
+      <div class="fz-dash">
+        <div class="page-head">
+          <div>
+            <div class="fz-eyebrow">Gestão · Automação</div>
+            <h1 class="page-title">RPA — Automação</h1>
+          </div>
+        </div>
+        <div class="fz-tabs" id="rpaTabs">
+          <button class="fz-tab active" data-rtab="assoc">Associação de TAGs</button>
+          <button class="fz-tab" data-rtab="status">Atualizar Status</button>
+          <button class="fz-tab" data-rtab="coleta">Coleta de Leitura</button>
+          <button class="fz-tab" data-rtab="logs">Log / Auditoria</button>
+        </div>
+        <div class="fz-cpanel active" data-rpanel="assoc"  id="rpaAssoc"></div>
+        <div class="fz-cpanel"        data-rpanel="status" id="rpaStatus"></div>
+        <div class="fz-cpanel"        data-rpanel="coleta" id="rpaColeta"></div>
+        <div class="fz-cpanel"        data-rpanel="logs"   id="rpaLogs"></div>
+      </div>
+    </section>
+
+    <!-- ===================  PIPELINE  =================== -->
+    <section class="screen" id="screen-pipeline">
+      <div class="fz-dash">
+        <div class="page-head">
+          <div>
+            <div class="fz-eyebrow">Gestão · Pipeline</div>
+            <h1 class="page-title">Pipeline</h1>
+          </div>
+        </div>
+        <div class="fz-tabs" id="pipeTabs">
+          <button class="fz-tab active" data-ptab="exec">Executar Pipeline</button>
+          <button class="fz-tab" data-ptab="mapa">Mapeamento de Ativos</button>
+          <button class="fz-tab" data-ptab="ocr">Simulação OCR</button>
+        </div>
+        <div class="fz-cpanel active" data-ppanel="exec" id="pipeExec"></div>
+        <div class="fz-cpanel"        data-ppanel="mapa" id="pipeMapa"></div>
+        <div class="fz-cpanel"        data-ppanel="ocr"  id="pipeOcr"></div>
+      </div>
+    </section>
+
+    <!-- ===================  SCADA  =================== -->
+    <section class="screen" id="screen-scada">
+      <div class="fz-dash">
+        <div class="page-head">
+          <div>
+            <div class="fz-eyebrow">Planta &amp; Sensores</div>
+            <h1 class="page-title">SCADA</h1>
+          </div>
+        </div>
+        <div class="fz-card" id="scadaPlayer"></div>
+        <div class="fz-row2" id="scadaAlerts"></div>
+        <div class="fz-tabs" id="scadaTabs">
+          <button class="fz-tab active" data-stab="p2d">Planta 2D</button>
+          <button class="fz-tab" data-stab="p3d">Vista 3D</button>
+          <button class="fz-tab" data-stab="hist">Histórico</button>
+        </div>
+        <div class="fz-cpanel active" data-spanel="p2d"  id="scada2d"></div>
+        <div class="fz-cpanel"        data-spanel="p3d"  id="scada3d"></div>
+        <div class="fz-cpanel"        data-spanel="hist" id="scadaHist"></div>
+      </div>
+    </section>
+
+    <!-- ===================  IoT ESP32  =================== -->
+    <section class="screen" id="screen-iot">
+      <div class="fz-dash">
+        <div class="page-head">
+          <div>
+            <div class="fz-eyebrow">Planta &amp; Sensores</div>
+            <h1 class="page-title">IoT ESP32</h1>
+          </div>
+        </div>
+        <div class="fz-sourcebar" id="iotConfig"></div>
+        <div class="fz-row3" id="iotCards"></div>
+        <h3 class="fz-h">Leituras em Tempo Real</h3>
+        <div class="fz-kpibar" id="iotKpis"></div>
+        <div class="fz-card" id="iotChartVel"></div>
+        <div class="fz-row2">
+          <div class="fz-card" id="iotChartAcel"></div>
+          <div class="fz-card" id="iotChartTemp"></div>
+        </div>
+        <div id="iotXyz"></div>
+        <details class="fz-details" id="iotHelp"></details>
+      </div>
+    </section>
+    <!-- ===================  ASSISTENTE IA  =================== -->
+    <section class="screen" id="screen-assistente">
+      <div id="fz-chat-screen"></div>
+    </section>
+  </main>
+</div>
+
+<!-- ===================  LOGIN  =================== -->
+<div class="screen login-wrap" id="screen-login">
+  <div class="login">
+    <div class="login-form">
+      <div class="brand">
+        <svg class="logo-mark" viewBox="0 0 40 40" aria-hidden="true"><rect class="sq" x="15" y="6" width="21" height="27" rx="9" transform="rotate(11 25.5 19.5)"></rect><rect class="mn" x="4" y="5" width="24" height="30" rx="12"></rect></svg>
+        <span class="logo-text">IMS · Forzy</span>
+      </div>
+      <h1 class="login-h">Acesse sua conta</h1>
+
+      <div id="login-error" style="display:none;background:rgba(231,76,60,.15);border:1px solid rgba(231,76,60,.4);border-radius:8px;padding:8px 12px;font-size:13px;color:#e74c3c;margin-bottom:12px"></div>
+
+      <div class="field-label">E-mail</div>
+      <div class="field">
+        <i data-lucide="mail"></i>
+        <input type="email" id="login-email" placeholder="seu@email.com" autocomplete="username">
+      </div>
+
+      <div class="field-label">Senha</div>
+      <div class="field">
+        <i data-lucide="lock"></i>
+        <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password">
+      </div>
+
+      <div class="login-meta">
+        <label class="remember">
+          <span class="box"><i data-lucide="check"></i></span> Manter conectado
+        </label>
+        <a class="link" href="#" id="login-forgot">Esqueceu a senha?</a>
+      </div>
+
+      <button class="btn-login" id="doLogin">Entrar</button>
+
+      <div class="copyright" style="margin-top:24px">
+        <i data-lucide="copyright"></i><span>IMS · Forzy — Sistema interno</span>
+      </div>
+    </div>
+
+    <div class="showcase">
+      <img class="sph1" src="assets/sphere-hero.png" alt="">
+      <img class="sph2" src="assets/sphere-torus.png" alt="">
+      <div class="brand">
+        <svg class="logo-mark inv" viewBox="0 0 40 40" aria-hidden="true"><rect class="sq" x="15" y="6" width="21" height="27" rx="9" transform="rotate(11 25.5 19.5)"></rect><rect class="mn" x="4" y="5" width="24" height="30" rx="12"></rect></svg>
+        <span class="logo-text">IMS · Forzy</span>
+      </div>
+      <h2 class="showcase-h">Powerfull and Easy to use Marketing Dashboard Analytic</h2>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/lucide@latest"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="data/forzy-data.js"></script>
+<script src="forzy-store.js?v=2"></script>
+<script src="forzy.js"></script>
+<script src="inicio.js"></script>
+<script src="cadastro.js?v=6"></script>
+<script src="gestao.js?v=4"></script>
+<script src="scada.js"></script>
+<script src="iot.js?v=4"></script>
+<script src="topbar.js?v=3"></script>
+<script src="app.js?v=3"></script>
+<script src="config.js"></script>
+<script src="assistant.js?v=5"></script>
+<script src="assistente-screen.js?v=1"></script>
+</body>
+</html>
