@@ -10,6 +10,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ---
 
+## Estado atual / Pendências
+
+> Mantenha esta seção enxuta e atualizada — remova o item quando resolver, não deixe virar um log histórico. Detalhes de "por quê" de cada mudança ficam nas mensagens de commit.
+
+- **`vision-v2.html` é um rascunho** de reformulação de navegação (sidebar enxuta: Início / Monitoramento / SCADA / Ativos / Sensores & Automação / Assistente IA), isolado do `vision.html` em produção via `nav-v2.js` próprio. Ainda não aprovado nem promovido — não editar `vision.html`/`app.js` assumindo que a estrutura de navegação já mudou.
+- **Tarefa Agendada do Windows `ForzyCloudBridge`** (roda `daily_bridge.py` de hora em hora) está configurada para **não iniciar com o notebook na bateria** — decisão pendente do usuário sobre desativar essa restrição.
+- **`config.js`** (chave `window.FORZY_OPENAI_KEY`) é gitignored — não existe neste repo clonado em outra máquina; precisa ser recriado manualmente a cada novo ambiente.
+- Erro de console pré-existente, não relacionado a nenhuma mudança recente: `TypeError: Cannot read properties of null (reading 'classList')` aparentando vir de `iot.js`, mas o número da linha reportado não bate com o código real — causa raiz não encontrada, não afeta funcionalidade testada.
+
+---
+
 ## Como rodar
 
 ```bash
