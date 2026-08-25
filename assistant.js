@@ -1,12 +1,12 @@
 /* ===================================================================
-   FORZY · Assistente IA — Groq (gratuito, llama-3.3-70b)
+   FORZY · Assistente IA — OpenAI (gpt-4o-mini)
    Bolinha flutuante no canto inferior direito.
    Entende o projeto, os motores, as métricas e responde em PT-BR.
    =================================================================== */
 (function () {
 
-  const GROQ_KEY = window.FORZY_GEMINI_KEY || '';   // reusa a mesma variável de config
-  const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
+  const OPENAI_KEY = window.FORZY_OPENAI_KEY || '';
+  const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
 
   /* ----------  System Prompt — contexto completo do projeto  ---------- */
   const SYSTEM = `Você é o **Assistente Técnico Forzy**, especialista em manutenção preditiva de bombas centrífugas e motores elétricos.
@@ -205,23 +205,13 @@ Use SEMPRE esse contexto. Se o usuário perguntar "onde estou?" ou "o que é iss
 
     historico.push({ role: 'user', content: userContent });
 
-    // usa modelo de visão se mensagem tiver imagem, senão usa o padrão
-    const temImagem = Array.isArray(userContent);
-    const modelo = temImagem ? 'meta-llama/llama-4-scout-17b-16e-instruct' : 'llama-3.3-70b-versatile';
+    // gpt-4o-mini é multimodal — mesmo modelo atende texto e imagem
+    const msgs = [{ role: 'system', content: SYSTEM }, ...historico];
 
-    // histórico só com texto (visão não aceita histórico com imagens anteriores)
-    const msgsSemImagens = historico.slice(0, -1).map(m =>
-      Array.isArray(m.content)
-        ? { ...m, content: m.content.find(c => c.type === 'text')?.text || '' }
-        : m
-    );
-    const msgs = [{ role: 'system', content: SYSTEM }, ...msgsSemImagens,
-                  { role: 'user', content: userContent }];
-
-    const res = await fetch(GROQ_URL, {
+    const res = await fetch(OPENAI_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_KEY}` },
-      body: JSON.stringify({ model: modelo, messages: msgs, temperature: 0.7, max_tokens: 768 })
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${OPENAI_KEY}` },
+      body: JSON.stringify({ model: 'gpt-4o-mini', messages: msgs, temperature: 0.7, max_tokens: 768 })
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -472,7 +462,7 @@ Use SEMPRE esse contexto. Se o usuário perguntar "onde estou?" ou "o que é iss
       const resp = await perguntarGemini(txt);
       typing.querySelector('.fz-ai-bubble').innerHTML = md(resp);
     } catch (e) {
-      typing.querySelector('.fz-ai-bubble').innerHTML = `⚠ Erro ao contactar a IA: <em>${e.message}</em><br><small>Verifique sua chave Gemini em assistant.js</small>`;
+      typing.querySelector('.fz-ai-bubble').innerHTML = `⚠ Erro ao contactar a IA: <em>${e.message}</em><br><small>Verifique sua chave OpenAI em config.js</small>`;
     } finally {
       carregando = false;
       document.getElementById('fz-ai-send').disabled = false;

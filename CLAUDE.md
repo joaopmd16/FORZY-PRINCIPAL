@@ -32,6 +32,12 @@ python serial_bridge.py COM4   # expõe http://localhost:8766/data
 ```
 Necessário apenas se Web Serial API falhar. O `iot.js` tenta auto-conectar ao bridge ao abrir a tela.
 
+### Forzy Cloud — coleta em background (S1/S2)
+```bash
+python daily_bridge.py   # roda 1x, consulta os endpoints ngrok e grava em dados/forzy_cloud_log.csv
+```
+Registrado como Tarefa Agendada do Windows (`ForzyCloudBridge`, `schtasks /query /tn ForzyCloudBridge /v`) — dispara sozinho de hora em hora, independente do navegador estar aberto. Consulta `GET {BASE_URL}/get_s1` e `/get_s2` (config no topo do script) e faz append no CSV (nunca sobrescreve). A API não expõe CORS, por isso não dá pra buscar direto do navegador — o `iot.js` lê o CSV estático via `fetch('dados/forzy_cloud_log.csv')` na fonte "Forzy Cloud (S1/S2)" da tela IoT.
+
 ### Verificar sintaxe JS (PowerShell)
 ```powershell
 node --check arquivo.js
@@ -48,9 +54,10 @@ app.js               ← roteamento: showScreen() + classes .screen.active
 forzy-store.js       ← camada de dados: localStorage chave forzy-db-v3
 data/forzy-data.js   ← dataset histórico estático (window.FORZY)
 topbar.js            ← topbar: relógio, busca, alertas ISA-18.2 (sininho), menu conta
-assistant.js         ← assistente IA flutuante (Groq llama-3.3-70b + visão llama-3.2-11b)
+assistant.js         ← assistente IA flutuante (OpenAI gpt-4o-mini, texto + visão)
 config.js            ← chave de API local — GITIGNORE, nunca commitar
 serial_bridge.py     ← bridge Python: porta serial → HTTP :8766
+daily_bridge.py      ← coleta Forzy Cloud (S1/S2 via ngrok) → dados/forzy_cloud_log.csv (Tarefa Agendada, hora em hora)
 ligar_html.bat       ← inicia bridge + servidor + browser
 
 Telas (um JS por tela):
@@ -99,6 +106,7 @@ forzy-data → forzy-store → forzy → inicio → cadastro → gestao → scad
 ### IoT ESP32 (iot.js)
 - **Web Serial API** (Chrome): `port.open()` + `port.setSignals({dataTerminalReady:false})` imediatamente após para evitar reset do ESP32-CAM via DTR
 - **Bridge Python** (`serial_bridge.py`): fallback — pyserial com `dsrdtr=False`, expõe último JSON em `GET /data`
+- **Forzy Cloud (S1/S2)**: 3ª fonte na tela — lê `dados/forzy_cloud_log.csv` (gravado pelo `daily_bridge.py` via Tarefa Agendada). Sem polling de servidor — `loadCloudLog()` só refaz o fetch a cada 60s enquanto essa fonte está ativa. Renderiza os dois sensores lado a lado (`renderCloudLive()` + `dualLineChart()`), não usa `st.hist`
 - `window.FZIoT = { isConnected, getHist, getLast }` — exposto globalmente
 - `push(r)` — toda leitura passa por aqui. Detecta mudança de `flag` (0→1 ou 0→2) e chama `window.FZAssistant.alertarIoT()` automaticamente
 - Botões de teste no card "Hardware Requerido": simulam P2 e P1 para testar push da IA
@@ -112,8 +120,8 @@ forzy-data → forzy-store → forzy → inicio → cadastro → gestao → scad
 - Painéis do sininho e da pessoinha usam `opacity + visibility + transform` com `transition:0.18s` (fade-in/out)
 
 ### Assistente IA (assistant.js)
-- **Groq** via `fetch` direto do browser — `llama-3.3-70b-versatile` (texto), `llama-3.2-11b-vision-preview` (imagem)
-- Chave em `config.js` como `window.FORZY_GEMINI_KEY` (gitignored)
+- **OpenAI** via `fetch` direto do browser — `gpt-4o-mini` (multimodal: texto + imagem no mesmo modelo)
+- Chave em `config.js` como `window.FORZY_OPENAI_KEY` (gitignored)
 - `perguntarGemini(texto)` gerencia `historico[]` internamente — **não fazer push manual ao historico antes de chamar essa função**
 - `window.FZAssistant = { alertarIoT, resetarAlertaIoT, alertarNotificacao }` — API pública para push automático
   - `alertarIoT({ vel, temp, flag, arms })` — disparado pelo `iot.js` em mudança de flag; cooldown por transição

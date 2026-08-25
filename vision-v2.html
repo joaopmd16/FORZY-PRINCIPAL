@@ -19,51 +19,22 @@
       <span class="logo-text">IMS · Forzy</span>
     </div>
 
-    <div class="nav-label">Principal</div>
-    <nav class="nav-group">
+    <nav class="nav-group nav-group-flat">
       <button class="nav-item active" data-screen="inicio">
         <i data-lucide="home"></i><span class="lbl">Início</span>
       </button>
       <button class="nav-item" data-screen="dashboard">
-        <i data-lucide="layout-dashboard"></i><span class="lbl">Dashboard</span>
+        <i data-lucide="layout-dashboard"></i><span class="lbl">Monitoramento</span>
       </button>
-      <div class="nav-sub">
-        <button class="nav-subitem" data-screen="dashboard" data-tab="mon">Monitoramento</button>
-        <button class="nav-subitem" data-screen="dashboard" data-tab="esp">Espectral</button>
-        <button class="nav-subitem" data-screen="dashboard" data-tab="oper">Operacional</button>
-        <button class="nav-subitem" data-screen="dashboard" data-tab="hist">Histórico</button>
-        <button class="nav-subitem" data-screen="dashboard" data-tab="ml">Baseline ML</button>
-      </div>
-    </nav>
-
-    <div class="nav-label">Gestão</div>
-    <nav class="nav-group">
-      <button class="nav-item" data-screen="navegacao">
-        <i data-lucide="git-fork"></i><span class="lbl">Navegação</span>
-      </button>
-      <button class="nav-item" data-screen="cadastro">
-        <i data-lucide="clipboard-list"></i><span class="lbl">Cadastro</span>
-      </button>
-      <button class="nav-item" data-screen="rpa">
-        <i data-lucide="settings-2"></i><span class="lbl">Automação</span>
-      </button>
-      <button class="nav-item" data-screen="pipeline">
-        <i data-lucide="workflow"></i><span class="lbl">Pipeline</span>
-      </button>
-    </nav>
-
-    <div class="nav-label">Planta &amp; Sensores</div>
-    <nav class="nav-group">
       <button class="nav-item" data-screen="scada">
         <i data-lucide="factory"></i><span class="lbl">SCADA</span>
       </button>
-      <button class="nav-item" data-screen="iot">
-        <i data-lucide="cpu"></i><span class="lbl">IoT ESP32</span>
+      <button class="nav-item" data-screen="cadastro">
+        <i data-lucide="clipboard-list"></i><span class="lbl">Ativos</span>
       </button>
-    </nav>
-
-    <div class="nav-label">Inteligência</div>
-    <nav class="nav-group">
+      <button class="nav-item" data-screen="iot">
+        <i data-lucide="cpu"></i><span class="lbl">Sensores &amp; Automação</span>
+      </button>
       <button class="nav-item" data-screen="assistente">
         <i data-lucide="message-square-text"></i><span class="lbl">Assistente IA</span>
       </button>
@@ -106,6 +77,7 @@
         </div>
       </div>
     </div>
+    <div class="fz-breadcrumb" id="breadcrumb"></div>
 
     <!-- ===================  DASHBOARD (Forzy — motores) =================== -->
     <section class="screen" id="screen-dashboard">
@@ -221,6 +193,10 @@
     <!-- ===================  NAVEGAÇÃO  =================== -->
     <section class="screen" id="screen-navegacao">
       <div class="fz-dash">
+        <div class="fz-tabs fz-group-tabs" data-group="ativos">
+          <button class="fz-tab" data-screen="cadastro">Lista de Ativos</button>
+          <button class="fz-tab active" data-screen="navegacao">Plantas &amp; Áreas</button>
+        </div>
         <div class="page-head">
           <div>
             <div class="fz-eyebrow">Gestão · Planta</div>
@@ -236,6 +212,10 @@
     <!-- ===================  CADASTRO  =================== -->
     <section class="screen" id="screen-cadastro">
       <div class="fz-dash">
+        <div class="fz-tabs fz-group-tabs" data-group="ativos">
+          <button class="fz-tab active" data-screen="cadastro">Lista de Ativos</button>
+          <button class="fz-tab" data-screen="navegacao">Plantas &amp; Áreas</button>
+        </div>
         <div class="page-head">
           <div>
             <div class="fz-eyebrow">Gestão · Ativos</div>
@@ -261,6 +241,11 @@
     <!-- ===================  RPA  =================== -->
     <section class="screen" id="screen-rpa">
       <div class="fz-dash">
+        <div class="fz-tabs fz-group-tabs" data-group="sensores">
+          <button class="fz-tab" data-screen="iot">IoT ao Vivo</button>
+          <button class="fz-tab active" data-screen="rpa">RPA</button>
+          <button class="fz-tab" data-screen="pipeline">Pipeline</button>
+        </div>
         <div class="page-head">
           <div>
             <div class="fz-eyebrow">Gestão · Automação</div>
@@ -283,6 +268,11 @@
     <!-- ===================  PIPELINE  =================== -->
     <section class="screen" id="screen-pipeline">
       <div class="fz-dash">
+        <div class="fz-tabs fz-group-tabs" data-group="sensores">
+          <button class="fz-tab" data-screen="iot">IoT ao Vivo</button>
+          <button class="fz-tab" data-screen="rpa">RPA</button>
+          <button class="fz-tab active" data-screen="pipeline">Pipeline</button>
+        </div>
         <div class="page-head">
           <div>
             <div class="fz-eyebrow">Gestão · Pipeline</div>
@@ -325,6 +315,11 @@
     <!-- ===================  IoT ESP32  =================== -->
     <section class="screen" id="screen-iot">
       <div class="fz-dash">
+        <div class="fz-tabs fz-group-tabs" data-group="sensores">
+          <button class="fz-tab active" data-screen="iot">IoT ao Vivo</button>
+          <button class="fz-tab" data-screen="rpa">RPA</button>
+          <button class="fz-tab" data-screen="pipeline">Pipeline</button>
+        </div>
         <div class="page-head">
           <div>
             <div class="fz-eyebrow">Planta &amp; Sensores</div>
@@ -414,6 +409,7 @@
 <script src="iot.js?v=5"></script>
 <script src="topbar.js?v=3"></script>
 <script src="app.js?v=3"></script>
+<script src="nav-v2.js"></script>
 <script src="config.js"></script>
 <script src="assistant.js?v=6"></script>
 <script src="assistente-screen.js?v=2"></script>
