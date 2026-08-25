@@ -203,7 +203,7 @@
 
   /* =================  OCR PLACA  ================= */
   async function lerPlacaComIA(base64, mime) {
-    const key = window.FORZY_GROQ_KEY || window.FORZY_GEMINI_KEY;
+    const key = window.FORZY_OPENAI_KEY;
     if (!key) return { dados: null, erro: 'Chave de API não configurada em config.js' };
     const prompt = `Você é um sistema de extração de dados de placas de motores elétricos industriais.
 Analise a imagem desta placa e extraia os dados técnicos no formato JSON abaixo.
@@ -228,11 +228,11 @@ Retorne APENAS o JSON, sem texto adicional, sem markdown.
 Se algum campo não estiver visível na placa, use null.`;
 
     try {
-      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      const res = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
         body: JSON.stringify({
-          model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+          model: 'gpt-4o-mini',
           messages: [{ role: 'user', content: [
             { type: 'text', text: prompt },
             { type: 'image_url', image_url: { url: `data:${mime};base64,${base64}` } }
@@ -363,7 +363,7 @@ Se algum campo não estiver visível na placa, use null.`;
           <i data-lucide="scan-line" style="width:15px;height:15px"></i> Enviar Foto da Placa
         </button>
         <input type="file" id="ocrInput" accept="image/*" style="display:none">
-        <span style="font-size:11px;color:var(--text-2)">JPG, PNG, WEBP · usa llama-4-scout-17b via Groq</span>
+        <span style="font-size:11px;color:var(--text-2)">JPG, PNG, WEBP · usa GPT-4o mini via OpenAI</span>
       </div>
       <div id="ocrPreview" style="margin-top:12px;display:none"></div>
       <div id="ocrStatus" style="margin-top:8px;font-size:12px;min-height:18px"></div>

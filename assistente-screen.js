@@ -35,7 +35,7 @@
             <div class="fz-chat-avatar"><i data-lucide="bot"></i></div>
             <div>
               <div class="fz-chat-title">Assistente Forzy</div>
-              <div class="fz-chat-sub">IA técnica · Manutenção preditiva · llama-3.3-70b</div>
+              <div class="fz-chat-sub">IA técnica · Manutenção preditiva · GPT-4o mini</div>
             </div>
           </div>
           <button class="fz-chat-clear" id="fzChatClear" title="Limpar conversa"><i data-lucide="trash-2"></i></button>
@@ -125,7 +125,7 @@
     input.style.height = 'auto';
     addBubble('user', esc(msg).replace(/\n/g, '<br>'));
 
-    const key = window.FORZY_GROQ_KEY || window.FORZY_GEMINI_KEY;
+    const key = window.FORZY_OPENAI_KEY;
     if (!key) {
       addBubble('ai', '<span style="color:var(--fz-bad)">Chave de API não configurada em config.js</span>');
       return;
@@ -142,11 +142,11 @@ Seja direto: máximo 3-4 parágrafos por resposta. Use **negrito** para destacar
     addBubble('ai', '<span class="fz-chat-thinking"><span></span><span></span><span></span></span>', thinkId);
 
     try {
-      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      const res = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
         body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
+          model: 'gpt-4o-mini',
           messages: [{ role: 'system', content: sysMsg }, ...historico],
           max_tokens: 1024,
           temperature: 0.5,

@@ -16,9 +16,11 @@
   const ativoGravavel = cod => { if (!cod || !S) return false; return !isForzyAsset(S.getAtivoPorCodigo(cod)); };
 
   const BRIDGE_URL = 'http://localhost:8766/data';   // serial_bridge.py
+  const CLOUD_LOG_URL = 'dados/forzy_cloud_log.csv';  // daily_bridge.py (Forzy Cloud S1/S2)
   const st = { modo: 'sim', porta: 'COM5', baud: 115200, hist: [], simT: 0, timer: null,
     serial: { supported: ('serial' in navigator), port: null, reader: null, connected: false, buf: [], status: 'idle' },
     bridge: { timer: null, connected: false, lastTs: 0 },
+    cloud: { rows: [], lastTs: 0, lastFetch: 0, erro: '' },
     ativo: null };
   const last = () => st.hist.length ? st.hist[st.hist.length - 1] : { vel: 0, apeak: 0, arms: 0, temp: 0, flag: 0 };
 
@@ -31,20 +33,30 @@
         <div class="fz-seg" data-act="modo">
           <button class="${st.modo === 'sim' ? 'active' : ''}" data-v="sim">Simulação</button>
           <button class="${st.modo === 'real' ? 'active' : ''}" data-v="real">ESP32 Real (USB)</button>
+          <button class="${st.modo === 'cloud' ? 'active' : ''}" data-v="cloud">Forzy Cloud (S1/S2)</button>
         </div></div>
+      ${st.modo === 'real' ? `
       <div class="fz-field"><span>Porta Serial</span>
-        <select class="fz-select" data-act="porta" ${st.modo === 'sim' ? 'disabled' : ''}>${['COM5', 'COM3', 'COM4', 'COM6', 'COM7', 'AUTO'].map(p => `<option ${p === st.porta ? 'selected' : ''}>${p}</option>`).join('')}</select></div>
+        <select class="fz-select" data-act="porta">${['COM5', 'COM3', 'COM4', 'COM6', 'COM7', 'AUTO'].map(p => `<option ${p === st.porta ? 'selected' : ''}>${p}</option>`).join('')}</select></div>
       <div class="fz-field"><span>Baud Rate</span>
-        <select class="fz-select" data-act="baud" ${st.modo === 'sim' ? 'disabled' : ''}>${[115200, 9600, 57600].map(b => `<option ${b === st.baud ? 'selected' : ''}>${b}</option>`).join('')}</select></div>
-      ${st.modo === 'real' ? `<div class="fz-field"><span>Ativo (gravar)</span>
+        <select class="fz-select" data-act="baud">${[115200, 9600, 57600].map(b => `<option ${b === st.baud ? 'selected' : ''}>${b}</option>`).join('')}</select></div>
+      <div class="fz-field"><span>Ativo (gravar)</span>
         <select class="fz-select" data-act="ativo">
           <option value="">— Não gravar (apenas visualizar) —</option>
           ${ativos.map(a => `<option value="${esc(a.codigo)}" ${isForzyAsset(a) ? 'disabled' : ''}>${esc(a.codigo)}${a.tag ? ' · ' + esc(a.tag) : ''}${isForzyAsset(a) ? ' — Forzy (dataset · só leitura)' : ''}</option>`).join('')}
         </select></div>
       <div class="fz-field"><span>&nbsp;</span><button class="fz-btn" data-act="conn">${st.serial.connected ? 'Desconectar ESP32 (Web Serial)' : 'Conectar ESP32 (Web Serial)'}</button></div>
-      <div class="fz-field"><span>&nbsp;</span><button class="fz-btn" data-act="bridge">${st.bridge.connected ? 'Desconectar Bridge' : 'Conectar via Bridge'}</button></div>` : ''}`;
+      <div class="fz-field"><span>&nbsp;</span><button class="fz-btn" data-act="bridge">${st.bridge.connected ? 'Desconectar Bridge' : 'Conectar via Bridge'}</button></div>` : ''}
+      ${st.modo === 'cloud' ? `
+      <div class="fz-field"><span>Coleta em background</span>
+        <div style="font-size:12px;color:var(--text-2);padding-top:6px">daily_bridge.py · agendado de hora em hora · grava em dados/forzy_cloud_log.csv</div></div>
+      <div class="fz-field"><span>&nbsp;</span><button class="fz-btn" data-act="cloud-refresh">Atualizar agora</button></div>` : ''}`;
     c.querySelector('[data-act="modo"]').querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
-      if (st.modo !== b.dataset.v) { st.modo = b.dataset.v; st.hist = []; st.simT = 0; for (let i = 0; i < 30 && st.modo === 'sim'; i++) stepSim(); }
+      if (st.modo !== b.dataset.v) {
+        st.modo = b.dataset.v; st.hist = []; st.simT = 0;
+        for (let i = 0; i < 30 && st.modo === 'sim'; i++) stepSim();
+        if (st.modo === 'cloud') loadCloudLog();
+      }
       renderConfig(); renderCards(); renderLive();
     }));
     const por = c.querySelector('[data-act="porta"]'); if (por) por.addEventListener('change', e => st.porta = e.target.value);
@@ -59,6 +71,7 @@
     }
     const cn = c.querySelector('[data-act="conn"]'); if (cn) cn.addEventListener('click', toggleSerial);
     const br = c.querySelector('[data-act="bridge"]'); if (br) br.addEventListener('click', toggleBridge);
+    const cr = c.querySelector('[data-act="cloud-refresh"]'); if (cr) cr.addEventListener('click', loadCloudLog);
   }
 
   /* ----------  cards (status / protocolo / hardware)  ---------- */
@@ -66,6 +79,12 @@
     const c = el('iotCards'); if (!c) return;
     let dot, txt, cor, sub;
     if (st.modo === 'sim') { dot = 'dot-waiting'; txt = 'SIMULAÇÃO'; cor = cssVar('--fz-warn'); sub = 'Modo demonstração ativo'; }
+    else if (st.modo === 'cloud') {
+      if (st.cloud.erro) { dot = 'dot-offline'; txt = 'ERRO'; cor = cssVar('--fz-bad'); sub = st.cloud.erro; }
+      else if (!st.cloud.rows.length) { dot = 'dot-waiting'; txt = 'AGUARDANDO COLETA'; cor = cssVar('--fz-warn'); sub = 'Nenhuma leitura ainda — rode daily_bridge.py 1x pra testar'; }
+      else { dot = 'dot-online'; txt = 'ONLINE (Forzy Cloud)'; cor = cssVar('--fz-ok');
+        sub = `Última coleta: ${new Date(st.cloud.lastTs).toLocaleString('pt-BR')} · ${st.cloud.rows.length} leituras no log`; }
+    }
     else if (st.bridge.connected) { dot = 'dot-online'; txt = 'ONLINE (Bridge)'; cor = cssVar('--fz-ok');
       sub = `Bridge Python ativo · ${st.bridge.rxCount || 0} leituras · rode serial_bridge.py`; }
     else if (st.serial.connected) { dot = 'dot-online'; txt = 'ONLINE'; cor = cssVar('--fz-ok');
@@ -94,8 +113,77 @@
     });
   }
 
+  /* ----------  Forzy Cloud (S1/S2 via daily_bridge.py)  ---------- */
+  function parseCloudCsv(text) {
+    const lines = text.trim().split(/\r?\n/);
+    if (lines.length < 2) return [];
+    const header = lines[0].split(',');
+    return lines.slice(1).filter(Boolean).map(line => {
+      const cols = line.split(',');
+      const row = {}; header.forEach((h, i) => row[h] = cols[i]);
+      return {
+        timestamp: row.timestamp,
+        sensor: row.sensor,
+        velocidade: row.velocidade !== '' && row.velocidade != null ? +row.velocidade : null,
+        aceleracao: row.aceleracao !== '' && row.aceleracao != null ? +row.aceleracao : null,
+        temperatura: row.temperatura !== '' && row.temperatura != null ? +row.temperatura : null,
+        erro: row.erro || ''
+      };
+    }).filter(r => !r.erro && r.velocidade != null);
+  }
+  async function loadCloudLog() {
+    try {
+      const res = await fetch(CLOUD_LOG_URL + '?_=' + Date.now());
+      if (!res.ok) throw new Error('Log ainda não existe — rode daily_bridge.py pelo menos 1x');
+      const text = await res.text();
+      st.cloud.rows = parseCloudCsv(text);
+      st.cloud.lastTs = st.cloud.rows.length ? Date.parse(st.cloud.rows[st.cloud.rows.length - 1].timestamp) : 0;
+      st.cloud.erro = '';
+    } catch (e) { st.cloud.erro = e.message; }
+    if (st.modo === 'cloud') { renderCards(); renderLive(); }
+  }
+  function dualLineChart(arr1, arr2, color1, color2) {
+    color1 = color1 || '#3498db'; color2 = color2 || '#e67e22';
+    const W = 700, H = 160, padL = 40, padR = 12, padT = 10, padB = 18;
+    const n = Math.max(arr1.length, arr2.length);
+    const [mn, mx] = scaleY(arr1, arr2);
+    const X = i => padL + (n < 2 ? 0 : i * (W - padL - padR) / (n - 1));
+    const Y = v => padT + (1 - (v - mn) / (mx - mn)) * (H - padT - padB);
+    let grid = ''; for (let g = 0; g <= 3; g++) { const v = mn + (mx - mn) * g / 3, y = Y(v); grid += `<line class="fz-grid-line" x1="${padL}" x2="${W - padR}" y1="${y.toFixed(1)}" y2="${y.toFixed(1)}"/><text class="fz-axis-label" x="${padL - 6}" y="${(y + 3).toFixed(1)}" text-anchor="end">${v.toFixed(2)}</text>`; }
+    return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="width:100%;height:auto">${grid}
+      <path d="${pathOf(arr1, X, Y)}" fill="none" stroke="${color1}" stroke-width="1.8"/>
+      <path d="${pathOf(arr2, X, Y)}" fill="none" stroke="${color2}" stroke-width="1.8"/></svg>`;
+  }
+  function renderCloudLive() {
+    const s1 = st.cloud.rows.filter(r => r.sensor === 's1');
+    const s2 = st.cloud.rows.filter(r => r.sensor === 's2');
+    const lastOf = arr => arr.length ? arr[arr.length - 1] : null;
+    const l1 = lastOf(s1), l2 = lastOf(s2);
+    const k = el('iotKpis');
+    if (k) {
+      const cell = (lbl, v, c) => `<div class="fz-kpi-cell"><div class="k-lbl">${lbl}</div><div class="k-val" style="color:${c}">${v}</div></div>`;
+      const cellsFor = (nome, l) => l
+        ? [cell(`${nome} · Vel.`, l.velocidade.toFixed(3) + ' mm/s', cssVar('--text')),
+           cell(`${nome} · Acel.`, l.aceleracao.toFixed(4) + ' g', cssVar('--text')),
+           cell(`${nome} · Temp.`, l.temperatura.toFixed(1) + ' °C', cssVar('--text'))]
+        : [cell(nome, '—', cssVar('--text-2'))];
+      k.innerHTML = [...cellsFor('S1', l1), ...cellsFor('S2', l2)].join('');
+    }
+    const vel = el('iotChartVel');
+    if (vel) vel.innerHTML = `<div class="fz-card-title">Velocidade RMS — Forzy Cloud (S1 azul · S2 laranja)</div>
+      <div class="fz-chart">${dualLineChart(s1.map(r => r.velocidade), s2.map(r => r.velocidade))}</div>`;
+    const ac = el('iotChartAcel');
+    if (ac) ac.innerHTML = `<div class="fz-card-title">Aceleração — Forzy Cloud (S1 roxo · S2 laranja)</div>
+      <div class="fz-chart">${dualLineChart(s1.map(r => r.aceleracao), s2.map(r => r.aceleracao), '#9b59b6', '#e67e22')}</div>`;
+    const tp = el('iotChartTemp');
+    if (tp) tp.innerHTML = `<div class="fz-card-title">Temperatura — Forzy Cloud (S1 azul · S2 laranja)</div>
+      <div class="fz-chart">${dualLineChart(s1.map(r => r.temperatura), s2.map(r => r.temperatura), '#3498db', '#e67e22')}</div>`;
+    const xyz = el('iotXyz'); if (xyz) xyz.innerHTML = '';
+  }
+
   /* ----------  KPIs + charts  ---------- */
   function renderLive() {
+    if (st.modo === 'cloud') { renderCloudLive(); return; }
     const [cOk, cW, cB] = COR(); const cols = [cOk, cW, cB];
     const L = last(); const hasXYZ = st.modo === 'real' && L.AX != null;
     const k = el('iotKpis');
@@ -441,7 +529,15 @@
 
   /* ----------  loop  ---------- */
   const iotOn = () => document.getElementById('screen-iot').classList.contains('active');
-  function tick() { if (!iotOn()) return; if (st.modo === 'sim') stepSim(); if (!st.bridge.connected || st.modo === 'sim') renderLive(); }
+  function tick() {
+    if (!iotOn()) return;
+    if (st.modo === 'sim') stepSim();
+    else if (st.modo === 'cloud') {
+      if (Date.now() - (st.cloud.lastFetch || 0) > 60000) { st.cloud.lastFetch = Date.now(); loadCloudLog(); }
+      return;
+    }
+    if (!st.bridge.connected || st.modo === 'sim') renderLive();
+  }
 
   function init() {
     if (!el('iotConfig')) return;
@@ -453,6 +549,10 @@
 
     // Auto-bridge: tenta conectar ao bridge na abertura da tela
     tryAutoBridge();
+
+    // Forzy Cloud: carrega o log em background, independente da tela ativa
+    // (o Dashboard também consome via window.FZCloud, mesmo sem visitar a tela IoT)
+    loadCloudLog();
 
     // Plug-and-play Web Serial (fallback)
     if (st.serial.supported) {
@@ -468,6 +568,12 @@
     isConnected: () => st.serial.connected || st.bridge.connected,
     getHist:     () => st.hist,
     getLast:     () => st.hist.length ? st.hist[st.hist.length - 1] : null,
+  };
+  // Expõe o log da Forzy Cloud para o Dashboard (fonte "Forzy Cloud")
+  window.FZCloud = {
+    isLoaded: () => !!st.cloud.rows.length,
+    getRows:  sensor => sensor ? st.cloud.rows.filter(r => r.sensor === sensor) : st.cloud.rows,
+    getLast:  sensor => { const rs = st.cloud.rows.filter(r => r.sensor === sensor); return rs.length ? rs[rs.length - 1] : null; },
   };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();

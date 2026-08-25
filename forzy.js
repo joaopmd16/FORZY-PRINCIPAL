@@ -251,10 +251,24 @@
     if(!window.FZIoT) return [];
     return window.FZIoT.getHist();
   }
+  // Fonte "Forzy Cloud": S1/S2 via daily_bridge.py (window.FZCloud, exposto por iot.js)
+  function cloudWindow(){
+    if(!window.FZCloud) return [];
+    const s1=window.FZCloud.getRows('s1'), s2=window.FZCloud.getRows('s2');
+    const n=Math.min(s1.length, s2.length);
+    const win=[];
+    for(let i=0;i<n;i++) win.push({
+      ts: s1[i].timestamp,
+      m1_vel:+s1[i].velocidade||0, m1_acel:+s1[i].aceleracao||0, m1_temp:+s1[i].temperatura||0,
+      m2_vel:+s2[i].velocidade||0, m2_acel:+s2[i].aceleracao||0, m2_temp:+s2[i].temperatura||0,
+    });
+    return win;
+  }
   function curReading(){
     if(state.fonte==='sim') return state.simReading || readingAt(F.meta.n-1);
     if(state.fonte==='ativo'){ const ls=ativoLeituras(); return ls.length ? ativoReadingFrom(ls[ls.length-1]) : ZERO_R; }
     if(state.fonte==='esp32'){ const h=window.FZIoT&&window.FZIoT.getLast(); return h ? esp32ReadingFrom(h) : ZERO_R; }
+    if(state.fonte==='cloud'){ const w=cloudWindow(); return w.length ? w[w.length-1] : ZERO_R; }
     return readingAt(state.fidx);
   }
   function curIso(){ return NORMAS[state.norma]; }
@@ -275,7 +289,8 @@
     const p=document.getElementById('fzPanel-mon'); const iso=curIso();
     const isAtivo  = state.fonte==='ativo';
     const isEsp32  = state.fonte==='esp32';
-    const isObj    = state.fonte==='sim' || isAtivo || isEsp32;
+    const isCloud  = state.fonte==='cloud';
+    const isObj    = state.fonte==='sim' || isAtivo || isEsp32 || isCloud;
     let r, objWin=null, tx=null;
     if(isEsp32){
       const hist=esp32Leituras();
@@ -286,6 +301,10 @@
       const ls=ativoLeituras();
       objWin=ls.map(ativoReadingFrom);
       tx=ls.map(l=>new Date(l.coletado_em).toLocaleTimeString('pt-BR',{hour12:false}));
+      r=objWin.length?objWin[objWin.length-1]:ZERO_R;
+    } else if(isCloud){
+      objWin=cloudWindow();
+      tx=objWin.map(o=>new Date(o.ts).toLocaleString('pt-BR',{hour12:false}));
       r=objWin.length?objWin[objWin.length-1]:ZERO_R;
     } else if(state.fonte==='sim'){
       r=state.simReading||(simStep(),state.simReading);
@@ -302,6 +321,7 @@
     const prog = isObj ? 100 : Math.round(state.fidx/(F.meta.n-1)*100);
     const tsLabel = isEsp32 ? (window.FZIoT&&window.FZIoT.isConnected()?'ESP32 ao vivo':'ESP32 desconectado')
       : isAtivo ? (objWin.length?('leituras: '+objWin.length):'sem dados do ESP')
+      : isCloud ? (objWin.length?('última coleta: '+tx[tx.length-1]):'aguardando 1ª coleta do daily_bridge.py')
       : state.fonte==='sim' ? new Date().toLocaleTimeString('pt-BR',{hour12:false}) : tlabel(state.fidx);
 
     p.innerHTML='';
@@ -313,7 +333,7 @@
         <div class="fz-field"><span>Passo</span><select class="fz-select" data-act="step">${[1,5,10,20].map(v=>`<option value="${v}" ${v==state.step?'selected':''}>+${v} frames</option>`).join('')}</select></div>
         ${state.fonte==='sim'?`<div class="fz-field"><span>Cenário</span><select class="fz-select" data-act="sim">${[['normal','Normal'],['desbalanco','Desbalanceamento'],['cavitacao','Cavitação'],['desalinhamento','Desalinhamento']].map(([v,l])=>`<option value="${v}" ${v==state.simMode?'selected':''}>${l}</option>`).join('')}</select></div>`:''}
       </div>
-      <div class="fz-progress"><span>${isEsp32?'ESP32 ao vivo':isAtivo?('Ativo '+(state.ativoCod||'')):state.fonte==='sim'?'Simulado':'Dataset'} ${isObj?'':'frame '+(state.fidx+1)+'/'+F.meta.n}</span><div class="track"><div class="fill" style="width:${prog}%"></div></div><span>${tsLabel}</span></div>`;
+      <div class="fz-progress"><span>${isEsp32?'ESP32 ao vivo':isAtivo?('Ativo '+(state.ativoCod||'')):isCloud?'Forzy Cloud (S1/S2)':state.fonte==='sim'?'Simulado':'Dataset'} ${isObj?'':'frame '+(state.fidx+1)+'/'+F.meta.n}</span><div class="track"><div class="fill" style="width:${prog}%"></div></div><span>${tsLabel}</span></div>`;
     p.appendChild(head);
 
     // cards motores
@@ -660,11 +680,15 @@
     const ativos=ativosReais();
     if(state.fonte==='ativo' && !state.ativoCod && ativos.length) state.ativoCod=ativos[0].codigo;
     const esp32Connected = window.FZIoT && window.FZIoT.isConnected();
+    const cloudLoaded = window.FZCloud && window.FZCloud.isLoaded();
     sb.innerHTML=`
       <div class="fz-field"><span>Fonte de dados</span><div class="fz-seg" data-act="fonte">
         ${[['forzy','Dataset Forzy'],['ativo','Ativo Cadastrado'],['sim','Simulado']].map(([v,l])=>`<button data-v="${v}" class="${v==state.fonte?'active':''}">${l}</button>`).join('')}
         <button data-v="esp32" class="${'esp32'==state.fonte?'active':''}" style="${esp32Connected?'color:var(--fz-ok)':'opacity:.55'}">
           ⬤ ESP32
+        </button>
+        <button data-v="cloud" class="${'cloud'==state.fonte?'active':''}" style="${cloudLoaded?'color:var(--fz-ok)':'opacity:.55'}" title="S1/S2 via daily_bridge.py — só a aba Monitoramento usa essa fonte">
+          ⬤ Forzy Cloud
         </button>
       </div></div>
       ${state.fonte==='ativo'?`<div class="fz-field"><span>Ativo</span><select class="fz-select" data-act="ativocod">${ativos.length?ativos.map(a=>`<option value="${a.codigo}" ${a.codigo==state.ativoCod?'selected':''}>${a.codigo}${a.tag?' · '+a.tag:''}</option>`).join(''):'<option value="">— nenhum ativo criado —</option>'}</select></div>`:''}

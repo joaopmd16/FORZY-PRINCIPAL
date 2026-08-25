@@ -1491,3 +1491,14 @@ html[data-theme='dark'] .card,
 html[data-theme='dark'] .panel {
   box-shadow: 0 10px 28px -22px rgba(0,0,0,.9);
 }
+
+/* =====================================================================
+   BREADCRUMB (vision-v2 — reformulação de navegação)
+   ===================================================================== */
+.fz-breadcrumb {
+  padding: 10px 4px 4px;
+  font-size: 12.5px;
+  color: var(--text-2);
+  letter-spacing: .1px;
+}
+.fz-breadcrumb b { color: var(--text); font-weight: 600; }
