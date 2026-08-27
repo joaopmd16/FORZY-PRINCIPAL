@@ -11,5 +11,7 @@ Thumbs.db
 # configuração local com chaves de API (não commitar!)
 config.js
 *.env
+.env*
 
 .vercel
+.env.local
