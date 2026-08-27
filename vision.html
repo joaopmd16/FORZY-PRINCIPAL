@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Vision — Marketing Dashboard</title>
-<link rel="stylesheet" href="styles.css?v=23">
+<link rel="stylesheet" href="styles.css?v=24">
 <style>
 /* v2 — Início simplificado: some com a barra de KPIs técnicos e os
    cards de Sensor/Dataset, deixando só o status dos motores em destaque. */
@@ -41,6 +41,9 @@
       </button>
       <button class="nav-item" data-screen="iot">
         <i data-lucide="cpu"></i><span class="lbl">Sensores &amp; Automação</span>
+      </button>
+      <button class="nav-item" data-screen="copiloto">
+        <i data-lucide="clipboard-check"></i><span class="lbl">Copiloto de Manutenção</span>
       </button>
       <button class="nav-item" data-screen="assistente">
         <i data-lucide="bot"></i><span class="lbl">Assistente IA</span><span class="fz-nav-dot" id="navAssistenteDot"></span>
@@ -337,6 +340,20 @@
         <details class="fz-details" id="iotHelp"></details>
       </div>
     </section>
+    <!-- ===================  COPILOTO DE MANUTENÇÃO  =================== -->
+    <section class="screen" id="screen-copiloto">
+      <div class="fz-dash">
+        <div class="page-head">
+          <div>
+            <div class="fz-eyebrow">Forzy · Manutenção Preditiva</div>
+            <h1 class="page-title">Copiloto de Manutenção</h1>
+            <div class="fz-hero-sub">Diagnóstico automático do modo de falha + Ordem de Serviço gerada</div>
+          </div>
+        </div>
+        <div id="copilotoRoot"></div>
+      </div>
+    </section>
+
     <!-- ===================  ASSISTENTE IA  =================== -->
     <section class="screen" id="screen-assistente">
       <div id="fz-chat-screen"></div>
@@ -406,10 +423,11 @@
 <script src="scada.js"></script>
 <script src="iot.js?v=5"></script>
 <script src="topbar.js?v=6"></script>
-<script src="app.js?v=4"></script>
+<script src="app.js?v=5"></script>
 <script src="nav-v2.js?v=2"></script>
 <script src="config.js"></script>
 <script src="assistant.js?v=9"></script>
 <script src="assistente-screen.js?v=10"></script>
+<script src="copiloto.js?v=1"></script>
 </body>
 </html>

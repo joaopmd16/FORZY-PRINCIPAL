@@ -1857,3 +1857,67 @@ html[data-theme='dark'] .panel {
 /* input que a IA não conseguiu preencher — sugestão fica visível no placeholder */
 .fz-input-sugerido { border-color: var(--fz-warn) !important; }
 .fz-input-sugerido::placeholder { color: var(--fz-warn); opacity: .85; }
+
+/* =====================================================================
+   COPILOTO DE MANUTENÇÃO (copiloto.js) — diagnóstico + Ordem de Serviço
+   ===================================================================== */
+.fz-btn-primary{ background:var(--teal); color:var(--accent-ink); }
+.fz-btn-primary:hover{ filter:brightness(1.08); }
+.fz-btn:disabled{ opacity:.45; cursor:not-allowed; }
+
+.fz-cop-controls{ display:flex; flex-wrap:wrap; gap:16px; align-items:flex-end; }
+.fz-cop-controls label{ display:flex; flex-direction:column; gap:5px; font-size:11.5px; font-weight:700;
+  text-transform:uppercase; letter-spacing:.04em; color:var(--text-2); }
+.fz-cop-controls select{ background:var(--field); color:var(--text); border:1px solid var(--hairline);
+  border-radius:9px; padding:8px 12px; font-weight:600; font-size:13px; min-width:200px; }
+
+.fz-cop-grid{ display:grid; grid-template-columns:1.4fr 1fr; gap:18px; margin-top:18px; }
+@media (max-width:980px){ .fz-cop-grid{ grid-template-columns:1fr; } }
+
+.fz-cop-modo{ font-size:20px; font-weight:800; color:var(--text); margin:6px 0 10px; }
+.fz-cop-meta{ display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:12px; }
+.fz-cop-conf,.fz-cop-trend{ font-size:12px; font-weight:700; color:var(--text-2); }
+.fz-cop-causa{ font-size:13.5px; line-height:1.65; color:var(--text); margin:0 0 14px; }
+
+.fz-cop-tag{ display:inline-block; padding:3px 9px; border-radius:999px; font-size:11px; font-weight:800;
+  background:var(--field); color:var(--text-2); border:1px solid var(--hairline); }
+.fz-cop-ok{ background:rgba(46,204,113,.14); color:var(--fz-ok); border-color:var(--fz-ok); }
+.fz-cop-warn{ background:rgba(243,156,18,.14); color:var(--fz-warn); border-color:var(--fz-warn); }
+.fz-cop-bad{ background:rgba(231,76,60,.14); color:var(--fz-bad); border-color:var(--fz-bad); }
+
+.fz-cop-table{ width:100%; border-collapse:collapse; margin:8px 0; }
+.fz-cop-table th{ text-align:left; color:var(--text-2); font-weight:700; font-size:11px; text-transform:uppercase;
+  letter-spacing:.04em; padding:7px 9px; border-bottom:1px solid var(--hairline); }
+.fz-cop-table td{ padding:8px 9px; border-bottom:1px solid var(--hairline); color:var(--text); font-size:13px; }
+.fz-cop-sub{ font-size:11.5px; color:var(--text-2); margin-top:8px; }
+
+.fz-cop-actions ol,.fz-cop-actions ul{ margin:6px 0 0; padding-left:18px; line-height:1.8; font-size:13px; color:var(--text); }
+
+.fz-cop-cta{ margin:18px 0; }
+
+.fz-cop-os{ border:1px solid var(--teal); }
+.fz-cop-os-head{ display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px; }
+.fz-cop-os-num{ font-size:22px; font-weight:800; color:var(--text); }
+.fz-cop-os-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:10px 20px; margin-bottom:14px; }
+.fz-cop-os-grid > div{ display:flex; flex-direction:column; }
+.fz-cop-os-grid span{ font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--text-2); }
+.fz-cop-os-grid b{ font-size:13.5px; color:var(--text); }
+.fz-cop-os-sec{ font-size:13px; line-height:1.65; color:var(--text); margin:10px 0; }
+.fz-cop-os-sec ol,.fz-cop-os-sec ul{ margin:6px 0 0; padding-left:18px; line-height:1.8; }
+.fz-cop-os-fields{ display:flex; flex-wrap:wrap; gap:16px; margin:14px 0; }
+.fz-cop-os-fields label{ display:flex; flex-direction:column; gap:5px; font-size:11px; font-weight:700;
+  text-transform:uppercase; letter-spacing:.04em; color:var(--text-2); }
+.fz-cop-os-fields input{ background:var(--field); color:var(--text); border:1px solid var(--hairline);
+  border-radius:9px; padding:8px 12px; font-size:13px; min-width:220px; }
+.fz-cop-os-cta{ display:flex; flex-wrap:wrap; gap:10px; margin-top:14px; }
+.fz-cop-refino{ background:var(--field); border:1px solid var(--hairline); border-left:3px solid var(--teal);
+  border-radius:9px; padding:12px 14px; margin:12px 0; }
+.fz-cop-refino p{ margin:6px 0 0; font-size:13px; line-height:1.65; color:var(--text); }
+
+.fz-cop-hist{ margin-top:18px; }
+
+.fz-cop-toast{ position:fixed; left:50%; bottom:30px; transform:translateX(-50%) translateY(20px);
+  background:var(--card); color:var(--text); border:1px solid var(--hairline); box-shadow:var(--shadow);
+  border-radius:10px; padding:11px 18px; font-size:13px; font-weight:600; opacity:0; pointer-events:none;
+  transition:opacity .2s, transform .2s; z-index:9999; }
+.fz-cop-toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
