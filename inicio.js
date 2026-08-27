@@ -43,8 +43,8 @@
     const ev = [];
     const lim = Math.min(N, 500);
     for (let i = 1; i < lim; i++) {
-      if (st(m1[i]) !== st(m1[i - 1])) ev.push({ i, motor: 'Motor 1', f: st(m1[i]), vel: m1[i] });
-      if (st(m2[i]) !== st(m2[i - 1])) ev.push({ i, motor: 'Motor 2', f: st(m2[i]), vel: m2[i] });
+      if (st(m1[i]) !== st(m1[i - 1])) ev.push({ i, motor: 'Eixo 1', f: st(m1[i]), vel: m1[i] });
+      if (st(m2[i]) !== st(m2[i - 1])) ev.push({ i, motor: 'Eixo 2', f: st(m2[i]), vel: m2[i] });
     }
     ev.push({ i: N - 1, motor: 'Dataset', f: -1, det: `${N.toLocaleString('pt-BR')} amostras · forzy.csv` });
     ev.sort((a, b) => b.i - a.i);
@@ -52,17 +52,19 @@
   })();
 
   /* ----------  sparkline  ---------- */
-  function sparkPath(arr) {
+  function sparkPath(arr, threshold) {
     const W = 200, H = 48, n = arr.length;
-    if (n < 2) return { line: '', area: '' };
+    if (n < 2) return { line: '', area: '', threshY: null };
     let mn = Infinity, mx = -Infinity;
     for (const v of arr) { if (v < mn) mn = v; if (v > mx) mx = v; }
+    if (threshold != null) mx = Math.max(mx, threshold);
     if (mx - mn < 1e-6) { mn -= 1; mx += 1; }
     const X = i => (i * W / (n - 1));
     const Y = v => (H - 4 - ((v - mn) / (mx - mn)) * (H - 8));
     let d = 'M' + X(0).toFixed(1) + ',' + Y(arr[0]).toFixed(1);
     for (let i = 1; i < n; i++) d += ' L' + X(i).toFixed(1) + ',' + Y(arr[i]).toFixed(1);
-    return { line: d, area: `${d} L${W},${H} L0,${H} Z` };
+    const threshY = threshold != null ? Y(threshold) : null;
+    return { line: d, area: `${d} L${W},${H} L0,${H} Z`, threshY };
   }
 
   /* ----------  geração simulada (simples)  ---------- */
@@ -169,7 +171,7 @@
         ['Disponibilidade', KPI.uptime + '%', cOk],
         ['Total de Alarmes', String(KPI.alarmes), KPI.alarmes > 0 ? cBad : cOk],
         ['Horas em Operação', KPI.horas + 'h', cssVar('--text')],
-        ['Tendência Vel M1', `${ti} ${Math.abs(KPI.tend).toFixed(3)} mm/s`, tc],
+        ['Tendência Vel Eixo 1', `${ti} ${Math.abs(KPI.tend).toFixed(3)} mm/s`, tc],
         ['Amostras', KPI.total.toLocaleString('pt-BR'), cssVar('--text-2')],
       ];
       kbar.innerHTML = cells.map(([l, v, c]) =>
@@ -180,22 +182,25 @@
     const assets = el('inicioAssets');
     if (assets) {
       const motor = (nome, vel, temp, f, win) => {
-        const sp = sparkPath(win);
+        const sp = sparkPath(win, VEL_ALM);
         const cls = ['fz-asset-ok', 'fz-asset-warn', 'fz-asset-bad'][f];
+        const thresh = (sp.threshY != null && sp.threshY >= 0 && sp.threshY <= 48)
+          ? `<line class="a-thresh" x1="0" y1="${sp.threshY.toFixed(1)}" x2="200" y2="${sp.threshY.toFixed(1)}"/>` : '';
         return `<div class="fz-asset ${cls}">
           <div class="a-name">${nome}</div>
           <div class="a-status" style="color:${cols[f]}">${NOME[f]}</div>
           <div class="a-read">Vel: <b>${fmt(vel, 3)} mm/s</b> &nbsp; Temp: <b>${fmt(temp, 1)} °C</b></div>
           <svg class="a-spark" viewBox="0 0 200 48" preserveAspectRatio="none">
             <path fill="${soft[f]}" d="${sp.area}"/>
+            ${thresh}
             <path fill="none" stroke="${cols[f]}" stroke-width="1.6" d="${sp.line}"/>
           </svg></div>`;
       };
       const dur = F.t[N - 1] - F.t[0];
       const dh = Math.floor(dur / 3600), dm = Math.floor((dur % 3600) / 60);
       assets.innerHTML =
-        motor('Motor 1 — Bomba Principal', r.v1, r.t1, f1, r.win1) +
-        motor('Motor 2 — Bomba Auxiliar', r.v2, r.t2, f2, r.win2) +
+        motor('Eixo 1', r.v1, r.t1, f1, r.win1) +
+        motor('Eixo 2', r.v2, r.t2, f2, r.win2) +
         `<div class="fz-info-card"><div class="i-lbl">Sensor</div>
            <div class="i-body">VIM32PL-E1AC8<br>IO-Link 1.1<br>38,4 kBit/s<br><b style="color:${cOk}">Ativo</b></div></div>
          <div class="fz-info-card"><div class="i-lbl">Dataset</div>
@@ -205,14 +210,33 @@
     // log
     const log = el('inicioLog');
     if (log) {
-      log.innerHTML = EVENTS.map(e => {
+      const ACAO = ['Nenhuma ação necessária.', 'Recomenda-se verificação na próxima ronda.', 'Intervenção imediata recomendada.'];
+      const alertas = EVENTS.filter(e => e.f >= 1);
+      if (!alertas.length) {
+        log.innerHTML = `<div class="fz-log-empty">Nenhum alerta ou alarme recente — motor operando normalmente.</div>`;
+        return;
+      }
+      log.innerHTML = alertas.map((e, idx) => {
         const c = e.f < 0 ? cssVar('--text-3') : cols[e.f];
         const status = e.f < 0 ? 'COLETADO' : NOME[e.f];
         const det = e.det || `Vel = ${fmt(e.vel, 3)} mm/s`;
-        return `<div class="fz-log-row"><div class="l-time">${hm(e.i)}</div>
+        const full = new Date(T0 + F.t[e.i] * 1000).toLocaleString('pt-BR');
+        const acao = e.f < 0 ? 'Dataset carregado com sucesso.' : ACAO[e.f];
+        return `<div class="fz-log-row" data-idx="${idx}"><div class="l-time">${hm(e.i)}</div>
           <div class="l-dot" style="background:${c}"></div>
-          <div class="l-txt"><b style="color:${c}">${e.motor}</b> → ${status}<span class="l-det">${det}</span></div></div>`;
+          <div class="l-txt"><b style="color:${c}">${e.motor}</b> → ${status}<span class="l-det">${det}</span>
+            <div class="l-more"><span class="l-more-row"><b>Horário completo:</b> ${full}</span><span class="l-more-row"><b>Recomendação:</b> ${acao}</span></div>
+          </div>
+          <div class="l-chev">›</div></div>`;
       }).join('');
+      if (!log.dataset.expandBound) {
+        log.dataset.expandBound = '1';
+        log.addEventListener('click', (ev) => {
+          const row = ev.target.closest('.fz-log-row');
+          if (!row || !log.contains(row)) return;
+          row.classList.toggle('expanded');
+        });
+      }
     }
   }
 

@@ -1,8 +1,8 @@
 # IMS · Forzy — Industrial Monitoring System
 
-> **Sprint 2 completa** — Visualização operacional, drill-down hierárquico, baseline ML, IoT ESP32, OCR de placa por IA, assistente conversacional Groq
+> **Sprint 2 completa** — Visualização operacional, drill-down hierárquico, baseline ML, IoT ESP32, OCR de placa por IA, assistente conversacional com chat por ativo (OpenAI gpt-4o-mini)
 
-Sistema de monitoramento industrial de bombas centrífugas. Dashboard **HTML + CSS + JS vanilla** (zero framework, zero build). Monitora 2 motores com dados históricos do dataset Forzy, análise espectral FFT, SCADA 2D/3D, integração com ESP32 + MPU6050 em tempo real, gestão de ativos e IA conversacional.
+Sistema de monitoramento industrial de bombas centrífugas. Dashboard **HTML + CSS + JS vanilla** (zero framework, zero build). Monitora 1 motor (2 eixos) com dados históricos do dataset Forzy, análise espectral FFT, SCADA 2D/3D, integração com ESP32 + MPU6050 em tempo real, gestão de ativos e IA conversacional.
 
 ---
 
@@ -15,8 +15,8 @@ Sistema de monitoramento industrial de bombas centrífugas. Dashboard **HTML + C
 | Dados | localStorage (`forzy-db-v3`) + dataset estático `forzy-data.js` |
 | Hardware | ESP32-CAM + MPU6050 (I2C) via Web Serial API |
 | ML / Anomalia | Z-score multivariado (JS puro) |
-| IA Conversacional | Groq — `llama-3.3-70b-versatile` |
-| IA Visão (OCR) | Groq — `llama-3.2-11b-vision-preview` |
+| IA Conversacional | OpenAI — `gpt-4o-mini` |
+| IA Visão (OCR) | OpenAI — `gpt-4o-mini` (multimodal) |
 | Normas | ISO 10816 · ISA-18.2:2016 |
 
 ---
@@ -37,38 +37,26 @@ python -m http.server 8760
 python serial_bridge.py COM4   # expõe http://localhost:8766/data
 ```
 
-### Configurar chave de API (Groq)
-Edite `config.js`:
+### Configurar chave de API (OpenAI)
+Edite `config.js` (gitignored, precisa ser recriado a cada novo ambiente):
 ```js
-window.FORZY_GROQ_KEY = 'gsk_sua_chave_aqui';
+window.FORZY_OPENAI_KEY = 'sk-sua-chave-aqui';
 ```
-Obtenha gratuitamente em [console.groq.com](https://console.groq.com).
+Obtenha em [platform.openai.com](https://platform.openai.com/api-keys).
 
 ---
 
 ## Estrutura de Navegação
 
+Sidebar enxuta (6 itens), com grupos que abrem sub-abas internas:
+
 ```
-PRINCIPAL
-  Início              — Hub central com KPIs, sparklines e log de eventos
-
-GESTÃO
-  Navegação           — Drill-down visual: Fábrica → Área → Equipamento → Sensores
-  Cadastro            — CRUD de ativos + OCR de placa por IA (llama-3.2-11b-vision)
-  RPA                 — Automação: associação TAG, status em lote, coleta, auditoria
-  Pipeline            — Execução de pipeline, mapeamento, simulação OCR
-
-ANÁLISE
-  Dashboard
-    Monitoramento     — Motor 1 e Motor 2 ao vivo (Dataset Forzy / Ativo / Simulado)
-    Espectral         — FFT parametrizada pelo dado real
-    Operacional       — Análise histórica completa do dataset Forzy
-    Histórico         — Player/timelapse animado
-    Baseline ML       — Z-score multivariado, gauge de anomalia
-
-PLANTA & SENSORES
-  SCADA               — Planta 2D SVG + modelo 3D (mesh real .npy) com rotação
-  IoT ESP32           — Leitura ao vivo via Web Serial API ou bridge Python
+Início               — Hub central com KPIs, sparklines e log de eventos
+Monitoramento        — Dashboard: Monitoramento / Histórico / Baseline ML
+SCADA                — Planta 2D SVG + modelo 3D (mesh real .npy) com rotação
+Ativos               — Lista de Ativos (CRUD + OCR de placa por IA) · Plantas & Áreas (drill-down)
+Sensores & Automação — IoT ao Vivo (ESP32) · RPA · Pipeline (execução, mapeamento, OCR com IA)
+Assistente IA        — Chat técnico com conversa dedicada por ativo (contexto injetado automaticamente)
 ```
 
 ---
@@ -95,7 +83,7 @@ Em cada nível: cards clicáveis com status colorido (verde/amarelo/vermelho), c
 
 ## OCR de Placa por IA
 
-No cadastro de novo ativo, o botão **"Enviar Foto da Placa"** envia a imagem da plaqueta para o `llama-3.2-11b-vision-preview` (Groq) e extrai automaticamente:
+No cadastro de novo ativo (e na tela Pipeline), o botão de envio de foto manda a imagem da plaqueta para o `gpt-4o-mini` (OpenAI, visão) e extrai automaticamente:
 
 - TAG / código do motor
 - Fabricante, tipo de motor
@@ -112,17 +100,19 @@ Os campos do formulário são preenchidos automaticamente. O usuário revisa e c
 vision.html          ← única página (todas as telas em divs .screen)
 styles.css           ← tokens CSS + estilos (tema dark/light)
 app.js               ← roteamento: showScreen() + classes .screen.active
+nav-v2.js            ← sidebar enxuta + breadcrumb (roda ao lado do app.js)
 forzy-store.js       ← camada de dados: localStorage (forzy-db-v3)
 data/forzy-data.js   ← dataset histórico estático (window.FORZY)
 topbar.js            ← topbar: relógio, busca, alertas ISA-18.2 (sininho)
-assistant.js         ← assistente IA flutuante (Groq llama-3.3-70b + visão)
+assistant.js         ← assistente IA (fallback bolinha flutuante; cede lugar à tela dedicada)
+assistente-screen.js ← tela dedicada "Assistente IA" — conversa por ativo + geral (gpt-4o-mini)
 config.js            ← chave de API — GITIGNORE, nunca commitar
 
 Telas:
   inicio.js          ← Início: KPIs ao vivo, sparklines, log, export CSV
-  forzy.js           ← Dashboard: Monitoramento/Espectral/Operacional/Histórico/Baseline ML
+  forzy.js           ← Dashboard: Monitoramento/Histórico/Baseline ML
   cadastro.js        ← Cadastro: CRUD ativos, OCR de placa, Dashboard do Ativo
-  gestao.js          ← Navegação drill-down, RPA, Pipeline
+  gestao.js          ← Navegação drill-down, RPA, Pipeline (OCR com IA de visão)
   scada.js           ← SCADA: Planta 2D SVG, Vista 3D canvas (mesh real .npy)
   iot.js             ← IoT ESP32: Web Serial + bridge HTTP
 

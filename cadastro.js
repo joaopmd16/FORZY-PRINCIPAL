@@ -684,7 +684,7 @@ Se algum campo não estiver visível na placa, use null.`;
       <div class="fz-card" style="margin-top:16px">
         <div class="fz-card-title">Referência Operacional — Dataset Forzy</div>
         <div class="fz-card-sub">Exibindo histórico do dataset Forzy como referência operacional.</div>
-        <div class="fz-legend"><span><i style="background:var(--fz-m1)"></i>Motor 1 — Vel</span><span><i style="background:var(--fz-m2)"></i>Motor 2 — Vel</span></div>
+        <div class="fz-legend"><span><i style="background:var(--fz-m1)"></i>Eixo 1 — Vel</span><span><i style="background:var(--fz-m2)"></i>Eixo 2 — Vel</span></div>
         <div class="fz-chart">${refChart()}</div>
       </div>` : `
       <div class="fz-card" style="margin-top:16px">

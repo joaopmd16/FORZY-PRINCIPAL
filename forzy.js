@@ -1,5 +1,5 @@
 /* ===================================================================
-   FORZY — Dashboard de Motores (porte estático do app Streamlit)
+   FORZY — Dashboard do Motor (porte estático do app Streamlit)
    Consome window.FORZY (data/forzy-data.js). Sem build, sem libs.
    Gráficos SVG feitos à mão (gauge, linha, área/FFT, heatmap, boxplot).
    =================================================================== */
@@ -324,6 +324,7 @@
       : isCloud ? (objWin.length?('última coleta: '+tx[tx.length-1]):'aguardando 1ª coleta do daily_bridge.py')
       : state.fonte==='sim' ? new Date().toLocaleTimeString('pt-BR',{hour12:false}) : tlabel(state.fidx);
 
+    const scrollY=window.scrollY;
     p.innerHTML='';
     // progress / player
     const head=el('div','fz-card');
@@ -341,22 +342,22 @@
       const label = isEsp32 ? ('ESP32 ao vivo' + (window.FZIoT&&window.FZIoT.isConnected()?' · <span style="color:var(--fz-ok)">⬤ ONLINE</span>':' · <span style="color:var(--fz-bad)">⬤ OFF</span>')) : ('Sensor do Ativo · '+(state.ativoCod||''));
       const row=el('div'); row.appendChild(motorCard(label, r, iso, 'm1')); p.appendChild(row);
       const note=el('div','fz-card-sub'); note.style.margin='8px 2px 0';
-      note.textContent='ESP32 = 1 sensor (mapeado como Motor 1). Espectral, Operacional e Baseline ML continuam usando o Dataset Forzy.';
+      note.textContent='ESP32 = 1 sensor (mapeado como Eixo 1). Espectral, Operacional e Baseline ML continuam usando o Dataset Forzy.';
       p.appendChild(note);
     } else {
-      const row=el('div','fz-row2'); row.appendChild(motorCard('Motor 1', r, iso, 'm1')); row.appendChild(motorCard('Motor 2', r, iso, 'm2')); p.appendChild(row);
+      const row=el('div','fz-row2'); row.appendChild(motorCard('Eixo 1', r, iso, 'm1')); row.appendChild(motorCard('Eixo 2', r, iso, 'm2')); p.appendChild(row);
     }
 
     // histórico recente
     const singleSensor = isAtivo || isEsp32;
-    const hc=el('div','fz-card'); hc.innerHTML='<div class="fz-card-title">Histórico Recente</div><div class="fz-card-sub">Janela deslizante — últimos 120 pontos</div>'+legend(singleSensor?[{name:'ESP32',color:C.m1}]:[{name:'Motor 1',color:C.m1},{name:'Motor 2',color:C.m2}]);
+    const hc=el('div','fz-card'); hc.innerHTML='<div class="fz-card-title">Histórico Recente</div><div class="fz-card-sub">Janela deslizante — últimos 120 pontos</div>'+legend(singleSensor?[{name:'ESP32',color:C.m1}]:[{name:'Eixo 1',color:C.m1},{name:'Eixo 2',color:C.m2}]);
     const charts=el('div','fz-row3');
     const specs=[['vel','Velocidade RMS','mm/s',iso.alerta,iso.alarme],['acel','Aceleração','g',ACEL_A,ACEL_AL],['temp','Temperatura','°C',TEMP_A,TEMP_AL]];
     specs.forEach(([k,title,unit,la,lal])=>{ const box=el('div'); box.innerHTML=`<div class="fz-section-label">${title} (${unit})</div>`; const ch=el('div','fz-chart fz-chart-live'); box.appendChild(ch); charts.appendChild(box);
       lineChart(ch,{ n:nWin, height:200, unit:' '+unit, dec: k==='temp'?1:3, xLabel:xlab,
         series: singleSensor
           ? [{name:'ESP32',color:C.m1,data:getWin('m1_'+k)}]
-          : [{name:'Motor 1',color:C.m1,data:getWin('m1_'+k)},{name:'Motor 2',color:C.m2,data:getWin('m2_'+k)}],
+          : [{name:'Eixo 1',color:C.m1,data:getWin('m1_'+k)},{name:'Eixo 2',color:C.m2,data:getWin('m2_'+k)}],
         thresholds:[{y:la,color:C.warn},{y:lal,color:C.bad}] });
     });
     hc.appendChild(charts); p.appendChild(hc);
@@ -366,6 +367,7 @@
       if(act==='auto') node.addEventListener('click',()=>{ state.auto=!state.auto; node.classList.toggle('on',state.auto); manageMonTimer(); });
       else node.addEventListener('change',e=>{ const v=e.target.value; if(act==='interval'){state.interval=+v; manageMonTimer();} if(act==='step')state.step=+v; if(act==='sim'){state.simMode=v; simStep();} renderMon(); });
     });
+    window.scrollTo(0, scrollY);
     manageMonTimer();
   }
   function manageMonTimer(){
@@ -398,7 +400,7 @@
     ctl.innerHTML=`<div class="fz-card-title">Análise Espectral de Vibração</div>
       <div class="fz-card-sub">FFT sintética parametrizada pelo RMS real do dataset (fs=1000 Sa/s · Hanning)</div>
       <div class="fz-controls">
-        <div class="fz-field"><span>Motor</span><div class="fz-seg" data-act="motor">${[['m1','Motor 1'],['m2','Motor 2']].map(([v,l])=>`<button data-v="${v}" class="${v==esp.motor?'active':''}">${l}</button>`).join('')}</div></div>
+        <div class="fz-field"><span>Motor</span><div class="fz-seg" data-act="motor">${[['m1','Eixo 1'],['m2','Eixo 2']].map(([v,l])=>`<button data-v="${v}" class="${v==esp.motor?'active':''}">${l}</button>`).join('')}</div></div>
         <div class="fz-field"><span>RPM (harmônicas): ${esp.rpm}</span><input class="fz-range" type="range" min="500" max="4000" step="10" value="${esp.rpm}" data-act="rpm"></div>
         <div class="fz-field"><span>Janela FFT: ${esp.janela}</span><input class="fz-range" type="range" min="64" max="1024" step="64" value="${esp.janela}" data-act="janela"></div>
         <label class="fz-toggle ${esp.harm?'on':''}" data-act="harm"><span class="sw"></span>Harmônicas</label>
@@ -406,7 +408,7 @@
       </div>`;
     p.appendChild(ctl);
 
-    const fc=el('div','fz-card'); fc.innerHTML=`<div class="fz-card-sub">Espectro FFT — ${esp.motor==='m1'?'Motor 1':'Motor 2'} · Acel RMS ${fmt(acelRms,3)} g</div>`;
+    const fc=el('div','fz-card'); fc.innerHTML=`<div class="fz-card-sub">Espectro FFT — ${esp.motor==='m1'?'Eixo 1':'Eixo 2'} · Acel RMS ${fmt(acelRms,3)} g</div>`;
     const fchart=el('div','fz-chart'); fc.appendChild(fchart); p.appendChild(fc);
     spectrumChart(fchart,{ freqs, mag, vlines, bands, height:360 });
 
@@ -463,14 +465,14 @@
     const ctl=el('div','fz-card');
     ctl.innerHTML=`<div class="fz-card-title">Operacional — Dataset Forzy</div>
       <div class="fz-controls">
-        <div class="fz-field"><span>Exibir</span><div class="fz-seg" data-act="motor">${[['both','Ambos'],['m1','Motor 1'],['m2','Motor 2']].map(([v,l])=>`<button data-v="${v}" class="${v==oper.motor?'active':''}">${l}</button>`).join('')}</div></div>
+        <div class="fz-field"><span>Exibir</span><div class="fz-seg" data-act="motor">${[['both','Ambos'],['m1','Eixo 1'],['m2','Eixo 2']].map(([v,l])=>`<button data-v="${v}" class="${v==oper.motor?'active':''}">${l}</button>`).join('')}</div></div>
         <div class="fz-field"><span>Vel alerta/alarme</span><div style="display:flex;gap:6px"><input class="fz-select" style="width:70px" type="number" step="0.1" value="${oper.va}" data-act="va"><input class="fz-select" style="width:70px" type="number" step="0.1" value="${oper.val}" data-act="val"></div></div>
       </div>`;
     p.appendChild(ctl);
 
     // cards
     const cards=el('div','fz-row2');
-    [['m1','Motor 1',v1,a1,t1,f1,showM1],['m2','Motor 2',v2,a2,t2,f2,showM2]].forEach(([pre,nome,vv,aa,tt,ff])=>{
+    [['m1','Eixo 1',v1,a1,t1,f1,showM1],['m2','Eixo 2',v2,a2,t2,f2,showM2]].forEach(([pre,nome,vv,aa,tt,ff])=>{
       const nAl=o[pre+'_vel'].filter(x=>x>=oper.val).length;
       const card=el('div','fz-card'); card.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><span style="font-weight:700;color:${pre==='m1'?C.m1:C.m2}">${nome}</span>${badge(ff)}</div>
         <div class="fz-metrics fz-m4">${metric('Velocidade',fmt(vv,3)+' mm/s')}${metric('Aceleração',fmt(aa,3)+' g')}${metric('Temperatura',fmt(tt,1)+' °C')}${metric('Alarmes',nAl)}</div>`;
@@ -484,7 +486,7 @@
     p.appendChild(st);
     const sub=st.querySelector('#operSub');
 
-    function mkSeries(k){ const arr=[]; if(showM1)arr.push({name:'Motor 1',color:C.m1,data:o['m1_'+k]}); if(showM2)arr.push({name:'Motor 2',color:C.m2,data:o['m2_'+k]}); return arr; }
+    function mkSeries(k){ const arr=[]; if(showM1)arr.push({name:'Eixo 1',color:C.m1,data:o['m1_'+k]}); if(showM2)arr.push({name:'Eixo 2',color:C.m2,data:o['m2_'+k]}); return arr; }
 
     if(oper.sub==='timeline'){
       const c1=el('div'); c1.innerHTML='<div class="fz-section-label">Velocidade RMS (mm/s)</div>'; const ch1=el('div','fz-chart'); c1.appendChild(ch1); sub.appendChild(c1);
@@ -496,7 +498,7 @@
     }
     else if(oper.sub==='analise'){
       const g=el('div','fz-row2');
-      [['Motor 1',v1,a1,t1],['Motor 2',v2,a2,t2]].forEach(([nm,vv,aa,tt])=>{ const card=el('div','fz-card'); card.innerHTML=`<div class="fz-card-title">${nm}</div><div class="fz-gauges">
+      [['Eixo 1',v1,a1,t1],['Eixo 2',v2,a2,t2]].forEach(([nm,vv,aa,tt])=>{ const card=el('div','fz-card'); card.innerHTML=`<div class="fz-card-title">${nm}</div><div class="fz-gauges">
         <div class="fz-gauge">${gaugeSVG(vv,Math.max(oper.val*1.5,10),oper.va,oper.val,'mm/s',3)}<div class="g-cap">Velocidade</div></div>
         <div class="fz-gauge">${gaugeSVG(aa,1,oper.aa,oper.aal,'g',3)}<div class="g-cap">Aceleração</div></div>
         <div class="fz-gauge">${gaugeSVG(tt,85,oper.ta,oper.tal,'°C',1)}<div class="g-cap">Temperatura</div></div></div>`; g.appendChild(card); });
@@ -509,7 +511,7 @@
     }
     else if(oper.sub==='comp'){
       const row=el('div','fz-row2');
-      const bp=el('div','fz-card'); bp.innerHTML='<div class="fz-card-title">Distribuição M1 × M2</div>'+legend([{name:'Motor 1',color:C.m1},{name:'Motor 2',color:C.m2}]); const bpc=el('div','fz-chart'); bp.appendChild(bpc); row.appendChild(bp);
+      const bp=el('div','fz-card'); bp.innerHTML='<div class="fz-card-title">Distribuição M1 × M2</div>'+legend([{name:'Eixo 1',color:C.m1},{name:'Eixo 2',color:C.m2}]); const bpc=el('div','fz-chart'); bp.appendChild(bpc); row.appendChild(bp);
       boxplot(bpc,[ {title:'Velocidade',boxes:[{name:'M1',color:C.m1,data:o.m1_vel},{name:'M2',color:C.m2,data:o.m2_vel}]},
         {title:'Aceleração',boxes:[{name:'M1',color:C.m1,data:o.m1_acel},{name:'M2',color:C.m2,data:o.m2_acel}]},
         {title:'Temperatura',boxes:[{name:'M1',color:C.m1,data:o.m1_temp},{name:'M2',color:C.m2,data:o.m2_temp}]} ]);
@@ -522,7 +524,7 @@
     }
     else if(oper.sub==='eventos'){
       const evs=[];
-      [['m1','Motor 1'],['m2','Motor 2']].forEach(([pre,nm])=>{ [['vel',oper.va,oper.val,'mm/s'],['acel',oper.aa,oper.aal,'g'],['temp',oper.ta,oper.tal,'°C']].forEach(([k,la,lal,u])=>{ const arr=o[pre+'_'+k]; [[2,'ALARME',lal],[1,'Alerta',la]].forEach(([lvl,tipo,th])=>{ const pts=arr.map((x,i)=>x>=th && (lvl===2? x>=lal : (x>=la && x<lal))?i:-1).filter(i=>i>=0); if(pts.length){ const vals=pts.map(i=>arr[i]); evs.push({nm,vr:k,tipo,ini:tlabel(o.idx[pts[0]]),fim:tlabel(o.idx[pts[pts.length-1]]),pico:fmt(Math.max(...vals),3)+' '+u,oc:pts.length}); } }); }); });
+      [['m1','Eixo 1'],['m2','Eixo 2']].forEach(([pre,nm])=>{ [['vel',oper.va,oper.val,'mm/s'],['acel',oper.aa,oper.aal,'g'],['temp',oper.ta,oper.tal,'°C']].forEach(([k,la,lal,u])=>{ const arr=o[pre+'_'+k]; [[2,'ALARME',lal],[1,'Alerta',la]].forEach(([lvl,tipo,th])=>{ const pts=arr.map((x,i)=>x>=th && (lvl===2? x>=lal : (x>=la && x<lal))?i:-1).filter(i=>i>=0); if(pts.length){ const vals=pts.map(i=>arr[i]); evs.push({nm,vr:k,tipo,ini:tlabel(o.idx[pts[0]]),fim:tlabel(o.idx[pts[pts.length-1]]),pico:fmt(Math.max(...vals),3)+' '+u,oc:pts.length}); } }); }); });
       const card=el('div','fz-card');
       if(evs.length) card.innerHTML='<div class="fz-card-title">Eventos detectados</div>'+`<table class="fz-table"><thead><tr><th>Motor</th><th>Variável</th><th>Tipo</th><th>Primeiro</th><th>Último</th><th>Pico</th><th>Ocorrências</th></tr></thead><tbody>${evs.sort((a,b)=>a.tipo<b.tipo?1:-1).map(e=>`<tr><td>${e.nm}</td><td>${e.vr}</td><td>${badge(e.tipo==='ALARME'?2:1)}</td><td>${e.ini}</td><td>${e.fim}</td><td>${e.pico}</td><td>${e.oc}</td></tr>`).join('')}</tbody></table>`;
       else card.innerHTML='<div class="fz-card-title">Eventos detectados</div><div class="fz-banner" style="background:'+C.ok+'">Nenhum evento no período.</div>';
@@ -561,8 +563,8 @@
       <div class="fz-controls">
         <div class="fz-field"><span>Variável</span><div class="fz-seg" data-act="var">${Object.entries(HVAR).map(([k,c])=>`<button data-v="${k}" class="${k==hist.variavel?'active':''}">${c.lbl}</button>`).join('')}</div></div>
         <div class="fz-field"><span>Velocidade: ${hist.speed} ms/frame</span><input class="fz-range" type="range" min="50" max="800" step="50" value="${hist.speed}" data-act="speed"></div>
-        <label class="fz-toggle ${hist.motores.m1?'on':''}" data-act="m1"><span class="sw"></span>Motor 1</label>
-        <label class="fz-toggle ${hist.motores.m2?'on':''}" data-act="m2"><span class="sw"></span>Motor 2</label>
+        <label class="fz-toggle ${hist.motores.m1?'on':''}" data-act="m1"><span class="sw"></span>Eixo 1</label>
+        <label class="fz-toggle ${hist.motores.m2?'on':''}" data-act="m2"><span class="sw"></span>Eixo 2</label>
       </div>
       <div class="fz-controls" style="margin-top:10px">
         <button class="fz-btn" data-act="play">${hist.playing?'⏸ Pause':'▶ Play'}</button>
@@ -573,8 +575,8 @@
 
     const card=el('div','fz-card'); const ch=el('div','fz-chart'); card.appendChild(ch); p.appendChild(card);
     const sl=hist.frame; const ser=[];
-    if(hist.motores.m1) ser.push({name:'Motor 1',color:C.m1,data:d['m1_'+hist.variavel].slice(0,sl)});
-    if(hist.motores.m2) ser.push({name:'Motor 2',color:C.m2,data:d['m2_'+hist.variavel].slice(0,sl)});
+    if(hist.motores.m1) ser.push({name:'Eixo 1',color:C.m1,data:d['m1_'+hist.variavel].slice(0,sl)});
+    if(hist.motores.m2) ser.push({name:'Eixo 2',color:C.m2,data:d['m2_'+hist.variavel].slice(0,sl)});
     let ymax=0; ['m1','m2'].forEach(pp=>d[pp+'_'+hist.variavel].forEach(v=>{if(v>ymax)ymax=v;})); ymax*=1.15;
     const markers=ser.map(s=>({data:s.data,color: s.data[sl-1]>=cfg.lal?C.bad:(s.data[sl-1]>=cfg.la?C.warn:C.ok), idx:[sl-1]}));
     lineChart(ch,{n:sl,height:420,yMax:ymax,unit:' '+cfg.u,dec:cfg.dec,xLabel:i=>tlabel(d.idx[i]),series:ser,
@@ -675,32 +677,95 @@
     if(!window.FZStore) return [];
     return window.FZStore.getAtivosIndustrial().filter(a=> a.origem!=='forzy' && !['FZ-M1','FZ-M2','FZ-M3'].includes(a.tag));
   }
+  function updateLiveBadge(){ const b=document.getElementById('fzLiveBadge'); if(!b)return; const z=zscore(curReading()); const [cl,co]=classify(maxZ(z)); b.innerHTML=`<span class="fz-badge" style="background:${co}22;color:${co};border:1px solid ${co}">${cl.toUpperCase()}</span>`; }
   function renderSourceBar(){
     const sb=document.getElementById('fzSourceBar');
     const ativos=ativosReais();
     if(state.fonte==='ativo' && !state.ativoCod && ativos.length) state.ativoCod=ativos[0].codigo;
     const esp32Connected = window.FZIoT && window.FZIoT.isConnected();
     const cloudLoaded = window.FZCloud && window.FZCloud.isLoaded();
+    const isV2 = !!document.getElementById('breadcrumb'); // seletor colapsável é exclusivo da sidebar nova (nav-v2.js)
+
+    if(!isV2){
+      // ---- vision.html (produção): barra original, sem colapsar ----
+      sb.innerHTML=`
+        <div class="fz-field"><span>Fonte de dados</span><div class="fz-seg" data-act="fonte">
+          ${[['forzy','Dataset Forzy'],['ativo','Ativo Cadastrado'],['sim','Simulado']].map(([v,l])=>`<button data-v="${v}" class="${v==state.fonte?'active':''}">${l}</button>`).join('')}
+          <button data-v="esp32" class="${'esp32'==state.fonte?'active':''}" style="${esp32Connected?'color:var(--fz-ok)':'opacity:.55'}">
+            ⬤ ESP32
+          </button>
+          <button data-v="cloud" class="${'cloud'==state.fonte?'active':''}" style="${cloudLoaded?'color:var(--fz-ok)':'opacity:.55'}" title="S1/S2 via daily_bridge.py — só a aba Monitoramento usa essa fonte">
+            ⬤ Forzy Cloud
+          </button>
+        </div></div>
+        ${state.fonte==='ativo'?`<div class="fz-field"><span>Ativo</span><select class="fz-select" data-act="ativocod">${ativos.length?ativos.map(a=>`<option value="${a.codigo}" ${a.codigo==state.ativoCod?'selected':''}>${a.codigo}${a.tag?' · '+a.tag:''}</option>`).join(''):'<option value="">— nenhum ativo criado —</option>'}</select></div>`:''}
+        <div class="fz-field"><span>Norma ISO</span><select class="fz-select" data-act="norma">${Object.keys(NORMAS).map(k=>`<option ${k==state.norma?'selected':''}>${k}</option>`).join('')}</select><span class="fz-badge fz-badge-isa-sb" title="ISA-18.2:2016 — Management of Alarm Systems">ISA-18.2</span></div>
+        <div class="fz-field" style="margin-left:auto"><span>Estado atual</span><div id="fzLiveBadge"></div></div>`;
+      sb.querySelector('[data-act="fonte"]').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{ state.fonte=b.dataset.v; if(state.fonte==='sim'){ simStep(); } if(state.fonte==='ativo' && !state.ativoCod){ state.ativoCod=ativos[0]?ativos[0].codigo:null; } renderSourceBar(); rerenderActive(true); }));
+      const acs0=sb.querySelector('[data-act="ativocod"]'); if(acs0) acs0.addEventListener('change',e=>{ state.ativoCod=e.target.value; rerenderActive(true); });
+      sb.querySelector('[data-act="norma"]').addEventListener('change',e=>{ state.norma=e.target.value; rerenderActive(true); });
+      updateLiveBadge();
+      return;
+    }
+
+    // ---- sidebar nova: seletor colapsável + Norma ISO atrás de engrenagem ----
+    const FONTES=[
+      ['forzy','Dataset Forzy', true],
+      ['ativo','Ativo Cadastrado', true],
+      ['sim','Simulado', true],
+      ['esp32','ESP32', esp32Connected],
+      ['cloud','Forzy Cloud', cloudLoaded],
+    ];
+    const cur = FONTES.find(f=>f[0]===state.fonte) || FONTES[0];
     sb.innerHTML=`
-      <div class="fz-field"><span>Fonte de dados</span><div class="fz-seg" data-act="fonte">
-        ${[['forzy','Dataset Forzy'],['ativo','Ativo Cadastrado'],['sim','Simulado']].map(([v,l])=>`<button data-v="${v}" class="${v==state.fonte?'active':''}">${l}</button>`).join('')}
-        <button data-v="esp32" class="${'esp32'==state.fonte?'active':''}" style="${esp32Connected?'color:var(--fz-ok)':'opacity:.55'}">
-          ⬤ ESP32
-        </button>
-        <button data-v="cloud" class="${'cloud'==state.fonte?'active':''}" style="${cloudLoaded?'color:var(--fz-ok)':'opacity:.55'}" title="S1/S2 via daily_bridge.py — só a aba Monitoramento usa essa fonte">
-          ⬤ Forzy Cloud
-        </button>
-      </div></div>
+      <div class="fz-field">
+        <span>Fonte de dados</span>
+        <div class="fz-fonte-picker" data-act="fonte">
+          <button class="fz-fonte-current" data-act="toggle-fonte" type="button">
+            <span class="fz-fonte-dot" style="background:${cur[2]?'var(--fz-ok)':'var(--text-3)'}"></span>
+            <span>${cur[1]}</span>
+            <i data-lucide="chevron-down"></i>
+          </button>
+          <div class="fz-fonte-drop" id="fzFonteDrop">
+            ${FONTES.filter(f=>f[0]!==state.fonte).map(([v,l,on])=>`<button data-v="${v}" ${v==='cloud'?'title="S1/S2 via daily_bridge.py — só a aba Monitoramento usa essa fonte"':''}><span class="fz-fonte-dot" style="background:${on?'var(--fz-ok)':'var(--text-3)'}"></span>${l}</button>`).join('')}
+          </div>
+        </div>
+      </div>
       ${state.fonte==='ativo'?`<div class="fz-field"><span>Ativo</span><select class="fz-select" data-act="ativocod">${ativos.length?ativos.map(a=>`<option value="${a.codigo}" ${a.codigo==state.ativoCod?'selected':''}>${a.codigo}${a.tag?' · '+a.tag:''}</option>`).join(''):'<option value="">— nenhum ativo criado —</option>'}</select></div>`:''}
-      <div class="fz-field"><span>Norma ISO</span><select class="fz-select" data-act="norma">${Object.keys(NORMAS).map(k=>`<option ${k==state.norma?'selected':''}>${k}</option>`).join('')}</select><span class="fz-badge fz-badge-isa-sb" title="ISA-18.2:2016 — Management of Alarm Systems">ISA-18.2</span></div>
-      <div class="fz-field" style="margin-left:auto"><span>Estado atual</span><div id="fzLiveBadge"></div></div>`;
-    sb.querySelector('[data-act="fonte"]').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{ state.fonte=b.dataset.v; if(state.fonte==='sim'){ simStep(); } if(state.fonte==='ativo' && !state.ativoCod){ state.ativoCod=ativos[0]?ativos[0].codigo:null; } renderSourceBar(); rerenderActive(true); }));
+      <div class="fz-field" style="margin-left:auto"><span>Estado atual</span><div id="fzLiveBadge"></div></div>
+      <div class="fz-norm-wrap">
+        <button class="fz-btn ghost fz-norm-gear" id="fzNormGear" type="button" title="Norma ISO / ISA-18.2"><i data-lucide="settings-2"></i></button>
+        <div class="fz-norm-pop" id="fzNormPop">
+          <div class="fz-field"><span>Norma ISO</span><select class="fz-select" data-act="norma">${Object.keys(NORMAS).map(k=>`<option ${k==state.norma?'selected':''}>${k}</option>`).join('')}</select></div>
+          <span class="fz-badge fz-badge-isa-sb" title="ISA-18.2:2016 — Management of Alarm Systems">ISA-18.2</span>
+        </div>
+      </div>`;
+    const picker = sb.querySelector('.fz-fonte-picker');
+    picker.querySelector('[data-act="toggle-fonte"]').addEventListener('click', e=>{ e.stopPropagation(); document.querySelectorAll('.fz-norm-pop.open').forEach(p=>p.classList.remove('open')); picker.classList.toggle('open'); });
+    picker.querySelectorAll('.fz-fonte-drop button').forEach(b=>b.addEventListener('click',e=>{
+      e.stopPropagation();
+      state.fonte=b.dataset.v; picker.classList.remove('open');
+      if(state.fonte==='sim'){ simStep(); }
+      if(state.fonte==='ativo' && !state.ativoCod){ state.ativoCod=ativos[0]?ativos[0].codigo:null; }
+      renderSourceBar(); rerenderActive(true);
+    }));
     const acs=sb.querySelector('[data-act="ativocod"]'); if(acs) acs.addEventListener('change',e=>{ state.ativoCod=e.target.value; rerenderActive(true); });
     sb.querySelector('[data-act="norma"]').addEventListener('change',e=>{ state.norma=e.target.value; rerenderActive(true); });
+    const gear = sb.querySelector('#fzNormGear'), pop = sb.querySelector('#fzNormPop');
+    gear.addEventListener('click', e=>{ e.stopPropagation(); picker.classList.remove('open'); pop.classList.toggle('open'); });
+    if(!document.body.dataset.fzSbOutsideBound){
+      document.body.dataset.fzSbOutsideBound='1';
+      document.addEventListener('click', ()=>{
+        document.querySelectorAll('.fz-fonte-picker.open').forEach(p=>p.classList.remove('open'));
+        document.querySelectorAll('.fz-norm-pop.open').forEach(p=>p.classList.remove('open'));
+      });
+    }
+    if(window.lucide) lucide.createIcons();
     updateLiveBadge();
   }
-  function updateLiveBadge(){ const b=document.getElementById('fzLiveBadge'); if(!b)return; const z=zscore(curReading()); const [cl,co]=classify(maxZ(z)); b.innerHTML=`<span class="fz-badge" style="background:${co}22;color:${co};border:1px solid ${co}">${cl.toUpperCase()}</span>`; }
   function updateEsp32Btn(){
+    const btnV2 = document.querySelector('#fzSourceBar .fz-fonte-drop [data-v="esp32"] .fz-fonte-dot');
+    if(btnV2){ const on = window.FZIoT && window.FZIoT.isConnected(); btnV2.style.background = on ? 'var(--fz-ok)' : 'var(--text-3)'; return; }
     const btn = document.querySelector('#fzSourceBar [data-v="esp32"]');
     if(!btn) return;
     const on = window.FZIoT && window.FZIoT.isConnected();

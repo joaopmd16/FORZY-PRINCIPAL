@@ -1,7 +1,8 @@
 /* ===================================================================
-   FORZY · Navegação v2 — sidebar enxuta (6 itens), grupos com aba
+   FORZY · Navegação — sidebar enxuta (6 itens), grupos com aba
    interna (Ativos, Sensores & Automação) e breadcrumb.
-   Só usado por vision-v2.html. Não altera app.js (versão em produção).
+   Usado por vision.html. Roda ao lado do app.js (roteamento base),
+   sem alterá-lo — apenas registra listeners paralelos.
    =================================================================== */
 (function () {
   // telas "órfãs" (sem item próprio na sidebar, vivem dentro de um grupo)
@@ -63,4 +64,14 @@
   });
 
   atualizarBreadcrumb('inicio');
+
+  // Início v2 — engrenagem abre/fecha o painel de Fonte/Auto-refresh
+  const gear = document.getElementById('inicioSettingsBtn');
+  const drop = document.getElementById('inicioControlsDrop');
+  if (gear && drop) {
+    gear.addEventListener('click', () => {
+      const open = drop.classList.toggle('open');
+      gear.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+  }
 })();

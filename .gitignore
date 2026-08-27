@@ -1,6 +1,8 @@
 # binários pesados / arquivos de design
 *.zip
 *.fig
+*.rar
+sprint_faculdade/
 
 # sistema
 Thumbs.db

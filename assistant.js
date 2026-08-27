@@ -16,7 +16,7 @@ Você faz parte do sistema IMS · Forzy — um dashboard industrial de monitoram
 - Monitora bombas centrífugas via sensor MPU6050 acoplado a ESP32
 - Mede vibração (aceleração RMS e velocidade RMS), temperatura e frequência
 - Usa a norma ISO 10816 para classificação de severidade
-- Possui dois motores do dataset histórico: BBA-001 (Motor 1, 7.5 kW) e BBA-002 (Motor 2, 5.5 kW)
+- Possui um motor do dataset histórico monitorado em dois eixos: BBA-001 (Eixo 1) e BBA-002 (Eixo 2)
 - Fabricante: WEG · Tensão: 380V · IP55
 
 ## Norma ISO 10816 — Limites (motores < 15 kW, Classe I)
@@ -74,6 +74,13 @@ Use SEMPRE esse contexto. Se o usuário perguntar "onde estou?" ou "o que é iss
   let aberto = false;
   let carregando = false;
 
+  // vision.html tem uma tela dedicada de chat (assistente-screen.js) — nesse caso
+  // não criamos a bolinha flutuante duplicada, e os alertas automáticos são
+  // empurrados pra lá em vez do painel flutuante.
+  function telaDedicada() {
+    return document.getElementById('fz-chat-screen') ? window.FZChatScreen : null;
+  }
+
   /* ----------  Lê contexto ao vivo do sistema  ---------- */
   function contextoAtual() {
     const ctx = [];
@@ -81,7 +88,7 @@ Use SEMPRE esse contexto. Se o usuário perguntar "onde estou?" ou "o que é iss
     // --- 1. Qual tela está ativa ---
     const telaMap = {
       'screen-inicio':   'Início (KPIs ao vivo)',
-      'screen-forzy':    'Dashboard de Motores',
+      'screen-forzy':    'Dashboard do Motor',
       'screen-cadastro': 'Cadastro de Ativos',
       'screen-gestao':   'Gestão',
       'screen-scada':    'SCADA (Planta 2D / Vista 3D)',
@@ -175,7 +182,7 @@ Use SEMPRE esse contexto. Se o usuário perguntar "onde estou?" ou "o que é iss
 
         // dataset histórico Forzy (BBA-001 / BBA-002)
         if (window.FORZY) {
-          ctx.push('Dataset histórico Forzy: BBA-001 (Motor 1, 7.5kW, WEG, 380V, IP55) | BBA-002 (Motor 2, 5.5kW, WEG, 380V, IP55)');
+          ctx.push('Dataset histórico Forzy: um motor (WEG, 380V, IP55) monitorado em dois eixos — BBA-001 (Eixo 1) e BBA-002 (Eixo 2)');
         }
       }
     } catch(_) {}
@@ -497,6 +504,9 @@ Por favor, analise esse desvio operacional seguindo a norma ISO 10816 e ISA-18.2
 2. **Risco** se não tratado
 3. **Ação corretiva recomendada**`;
 
+    const dedicada = telaDedicada();
+    if (dedicada) { dedicada.enviarAlerta(msg); return; }
+
     // abre o painel e envia automaticamente
     if (!aberto) abrirPanel();
     await new Promise(r => setTimeout(r, 400));
@@ -546,6 +556,9 @@ Seguindo as normas ISO 10816 e ISA-18.2, responda com:
 2. **Risco** se não houver intervenção
 3. **Ação corretiva recomendada** (imediata e preventiva)`;
 
+    const dedicada = telaDedicada();
+    if (dedicada) { dedicada.enviarAlerta(msgIA); return; }
+
     if (!aberto) abrirPanel();
     await new Promise(r => setTimeout(r, 400));
 
@@ -574,6 +587,9 @@ Seguindo as normas ISO 10816 e ISA-18.2, responda com:
 
   /* ----------  Inicia  ---------- */
   function init() {
+    // vision.html usa a tela dedicada (assistente-screen.js) — não duplica a bolinha
+    if (document.getElementById('fz-chat-screen')) return;
+
     injectCSS();
     montar();
     // notifica se ESP32 conectar enquanto painel fechado
