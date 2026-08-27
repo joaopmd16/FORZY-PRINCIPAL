@@ -14,7 +14,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 > Mantenha esta seção enxuta e atualizada — remova o item quando resolver, não deixe virar um log histórico. Detalhes de "por quê" de cada mudança ficam nas mensagens de commit.
 
-- **`vision-v2.html` é um rascunho** de reformulação de navegação (sidebar enxuta: Início / Monitoramento / SCADA / Ativos / Sensores & Automação / Assistente IA), isolado do `vision.html` em produção via `nav-v2.js` próprio. Ainda não aprovado nem promovido — não editar `vision.html`/`app.js` assumindo que a estrutura de navegação já mudou.
+- **Produto diferencial:** ainda não definido — item em aberto, aguardando decisão do usuário. Não propor/implementar sem pedido explícito.
 - **Tarefa Agendada do Windows `ForzyCloudBridge`** (roda `daily_bridge.py` de hora em hora) está configurada para **não iniciar com o notebook na bateria** — decisão pendente do usuário sobre desativar essa restrição.
 - **`config.js`** (chave `window.FORZY_OPENAI_KEY`) é gitignored — não existe neste repo clonado em outra máquina; precisa ser recriado manualmente a cada novo ambiente.
 - Erro de console pré-existente, não relacionado a nenhuma mudança recente: `TypeError: Cannot read properties of null (reading 'classList')` aparentando vir de `iot.js`, mas o número da linha reportado não bate com o código real — causa raiz não encontrada, não afeta funcionalidade testada.
@@ -65,7 +65,9 @@ app.js               ← roteamento: showScreen() + classes .screen.active
 forzy-store.js       ← camada de dados: localStorage chave forzy-db-v3
 data/forzy-data.js   ← dataset histórico estático (window.FORZY)
 topbar.js            ← topbar: relógio, busca, alertas ISA-18.2 (sininho), menu conta
-assistant.js         ← assistente IA flutuante (OpenAI gpt-4o-mini, texto + visão)
+assistant.js         ← assistente IA flutuante — legado, cede lugar à tela dedicada quando ela existe (ver assistente-screen.js)
+assistente-screen.js ← tela dedicada "Assistente IA" — uma conversa por ativo + conversa geral (OpenAI gpt-4o-mini)
+nav-v2.js            ← sidebar enxuta (Início/Monitoramento/SCADA/Ativos/Sensores & Automação/Assistente IA) + breadcrumb; roda ao lado do app.js, sem alterá-lo
 config.js            ← chave de API local — GITIGNORE, nunca commitar
 serial_bridge.py     ← bridge Python: porta serial → HTTP :8766
 daily_bridge.py      ← coleta Forzy Cloud (S1/S2 via ngrok) → dados/forzy_cloud_log.csv (Tarefa Agendada, hora em hora)
@@ -75,7 +77,7 @@ Telas (um JS por tela):
   inicio.js          ← Início: KPIs ao vivo, sparklines, log, export CSV
   forzy.js           ← Dashboard: Monitoramento/Espectral/Operacional/Histórico/Baseline ML
   cadastro.js        ← Cadastro: CRUD ativos, plantas/áreas, Dashboard do Ativo
-  gestao.js          ← Navegação, RPA, Pipeline
+  gestao.js          ← Navegação, RPA, Pipeline (inclui OCR de plaqueta com IA de visão)
   scada.js           ← SCADA: Planta 2D SVG, Vista 3D canvas (mesh real .npy)
   iot.js             ← IoT ESP32: Web Serial + bridge HTTP
 
@@ -96,9 +98,12 @@ streamlit-backup/    ← versão Streamlit original
 
 ### Ordem dos scripts em vision.html
 ```
-forzy-data → forzy-store → forzy → inicio → cadastro → gestao → scada → iot → topbar → app → assistant
+forzy-data → forzy-store → forzy → inicio → cadastro → gestao → scada → iot → topbar → app → nav-v2 → config → assistant → assistente-screen
 ```
 **Importante:** `topbar.js` carrega antes de `assistant.js`. A topbar chama `checarAlertas()` imediatamente ao iniciar — nesse momento `window.FZAssistant` ainda não existe. Por isso existe o flag `_topbarInicializado` em `topbar.js`: a primeira checagem só estabelece o estado baseline sem disparar a IA.
+
+### Assistente IA — bolinha flutuante vs. tela dedicada
+`vision.html` tem uma tela dedicada `#fz-chat-screen` (`assistente-screen.js`) na sidebar. `assistant.js` detecta essa tela em `init()`/`alertarIoT()`/`alertarNotificacao()` e, se ela existir, **encaminha tudo pra lá** em vez de abrir a bolinha flutuante — a bolinha só aparece se a tela dedicada não existir no HTML. Isso evita duas UIs de IA duplicadas coexistindo.
 
 ### Dados (forzy-store.js)
 - `window.FZStore` — CRUD sobre `localStorage` (`forzy-db-v3`)
@@ -130,14 +135,18 @@ forzy-data → forzy-store → forzy → inicio → cadastro → gestao → scad
 - **Push automático:** `adicionarAlerta()` chama `window.FZAssistant.alertarNotificacao()` a cada novo alarme (após `_topbarInicializado = true`)
 - Painéis do sininho e da pessoinha usam `opacity + visibility + transform` com `transition:0.18s` (fade-in/out)
 
-### Assistente IA (assistant.js)
+### Assistente IA (assistant.js + assistente-screen.js)
 - **OpenAI** via `fetch` direto do browser — `gpt-4o-mini` (multimodal: texto + imagem no mesmo modelo)
 - Chave em `config.js` como `window.FORZY_OPENAI_KEY` (gitignored)
-- `perguntarGemini(texto)` gerencia `historico[]` internamente — **não fazer push manual ao historico antes de chamar essa função**
-- `window.FZAssistant = { alertarIoT, resetarAlertaIoT, alertarNotificacao }` — API pública para push automático
+- `window.FZAssistant = { alertarIoT, resetarAlertaIoT, alertarNotificacao }` — API pública para push automático (implementada em `assistant.js`, mas encaminha pra tela dedicada quando ela existe — ver seção acima)
   - `alertarIoT({ vel, temp, flag, arms })` — disparado pelo `iot.js` em mudança de flag; cooldown por transição
   - `alertarNotificacao({ prioridade, titulo, msg, nivel, valor, unidade })` — disparado pelo `topbar.js`; cooldown 30s
-- Bolinha flutuante fixed bottom-right; botão expandir abre painel lateral (estilo VS Code)
+- **Tela dedicada (`assistente-screen.js`):** `window.FZChatScreen = { init, enviarAlerta, limparTudo }`
+  - **Uma conversa por ativo** — seletor no cabeçalho (`#fzChatAtivoSel`) troca entre "Conversa geral" e cada ativo cadastrado; histórico e `historico[]` da API são isolados por chave (em memória, não persiste em localStorage)
+  - Ao focar num ativo, `contextoAtivo(codigo)` injeta specs + última leitura no prompt — a IA "trabalha dentro" do ativo selecionado
+  - Alertas automáticos (`enviarAlerta`) sempre caem na conversa geral e renderizam como bolha cinza (`role:'alerta'`, `.fz-chat-alerta` no CSS) — visualmente distinta da bolha do usuário (teal) pra não parecer que o usuário digitou o alerta
+  - `limparTudo()` (botão de lixeira no cabeçalho) zera todas as conversas de uma vez, não só a aba aberta
+- `assistant.js` mantém a bolinha flutuante fixed bottom-right como fallback (só usada se `#fz-chat-screen` não existir no HTML)
 
 ### Vista 3D SCADA (scada.js)
 - Carrega mesh real da bomba de `data/bomba_verts.npy` + `data/bomba_faces.npy` (parser `.npy` próprio, sem dependências)

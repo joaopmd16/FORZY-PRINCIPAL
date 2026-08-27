@@ -883,10 +883,31 @@ html[data-theme='dark'] .btn-login { background:#fff; color:#000; }
 .fz-toolbar{ display:flex; gap:10px; flex-wrap:wrap; }
 
 /* fonte / norma bar */
-.fz-sourcebar{ display:flex; gap:14px; align-items:center; flex-wrap:wrap;
+.fz-sourcebar{ display:flex; gap:14px; align-items:center; flex-wrap:wrap; position:relative;
   background:var(--card); border-radius:var(--radius-inner); padding:14px 18px; box-shadow:var(--shadow); }
 .fz-field{ display:flex; flex-direction:column; gap:5px; }
 .fz-field > span{ font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--label); }
+
+/* seletor de fonte de dados — colapsado, expande em dropdown animado */
+.fz-fonte-picker{ position:relative; }
+.fz-fonte-current{ display:flex; align-items:center; gap:8px; background:var(--field); border-radius:9px; padding:8px 12px; font-weight:700; font-size:13px; color:var(--text); }
+.fz-fonte-current i{ width:14px; height:14px; transition:transform .18s ease; }
+.fz-fonte-picker.open .fz-fonte-current i{ transform:rotate(180deg); }
+.fz-fonte-dot{ width:8px; height:8px; border-radius:50%; flex:none; }
+.fz-fonte-drop{ position:absolute; top:calc(100% + 6px); left:0; min-width:200px; background:var(--card); border-radius:10px;
+  box-shadow:var(--shadow); padding:6px; z-index:30; display:flex; flex-direction:column; gap:2px;
+  opacity:0; visibility:hidden; transform:translateY(-6px); transition:opacity .18s ease,transform .18s ease,visibility .18s; pointer-events:none; }
+.fz-fonte-picker.open .fz-fonte-drop{ opacity:1; visibility:visible; transform:translateY(0); pointer-events:auto; }
+.fz-fonte-drop button{ display:flex; align-items:center; gap:8px; padding:8px 10px; border-radius:7px; background:none; color:var(--text-2); font-weight:600; font-size:13px; text-align:left; }
+.fz-fonte-drop button:hover{ background:var(--field); color:var(--text); }
+
+/* norma ISO / ISA — escondida atrás do ícone de engrenagem */
+.fz-norm-wrap{ position:relative; }
+.fz-norm-gear{ padding:9px; }
+.fz-norm-pop{ position:absolute; top:calc(100% + 6px); right:0; background:var(--card); border-radius:10px;
+  box-shadow:var(--shadow); padding:14px; z-index:30; display:flex; align-items:center; gap:10px; white-space:nowrap;
+  opacity:0; visibility:hidden; transform:translateY(-6px); transition:opacity .18s ease,transform .18s ease,visibility .18s; pointer-events:none; }
+.fz-norm-pop.open{ opacity:1; visibility:visible; transform:translateY(0); pointer-events:auto; }
 
 /* tabs */
 .fz-tabs{ display:flex; gap:6px; background:var(--field); border-radius:14px; padding:5px; overflow:auto; }
@@ -1019,6 +1040,24 @@ html[data-theme='dark'] .btn-login { background:#fff; color:#000; }
 .fz-hero-meta{ text-align:right; }
 .fz-hero-time{ font-size:12px; color:var(--text-2); margin-top:8px; }
 
+/* v2 — cabeçalho compacto do Início: só a tag de status + hora, sem repetir título/subtítulo */
+.fz-hero-compact{ padding:12px 20px; }
+.fz-hero-compact .fz-hero-meta{ display:flex; align-items:center; gap:12px; text-align:left; }
+.fz-hero-compact .fz-hero-time{ margin-top:0; }
+.fz-icon-btn{ width:34px; height:34px; border-radius:10px; border:1px solid var(--hairline); background:var(--field);
+  font-size:15px; line-height:1; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; transition:background .15s, transform .15s; flex:none; }
+.fz-icon-btn:hover{ background:var(--card); transform:translateY(-1px); }
+.fz-icon-btn[aria-expanded="true"]{ background:var(--teal); }
+
+/* v2 — painel de configurações (Fonte/Auto-refresh) escondido atrás da engrenagem */
+.fz-controls-drop{ display:grid; grid-template-rows:0fr; opacity:0; transform:translateY(-6px);
+  transition:grid-template-rows .25s ease, opacity .2s ease, transform .2s ease, margin .25s ease; margin:0; }
+.fz-controls-drop > *{ overflow:hidden; }
+.fz-controls-drop.open{ grid-template-rows:1fr; opacity:1; transform:translateY(0); margin:14px 0 0; }
+
+.fz-h-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.fz-h-row .fz-h{ margin-bottom:0; }
+
 .fz-badge-ok{ background:var(--fz-ok-soft); color:var(--fz-ok); border:1px solid var(--fz-ok); }
 .fz-badge-warn{ background:var(--fz-warn-soft); color:var(--fz-warn); border:1px solid var(--fz-warn); }
 .fz-badge-bad{ background:var(--fz-bad-soft); color:var(--fz-bad); border:1px solid var(--fz-bad); }
@@ -1044,6 +1083,7 @@ html[data-theme='dark'] .btn-login { background:#fff; color:#000; }
 .fz-asset .a-read{ font-size:13px; color:var(--text-2); }
 .fz-asset .a-read b{ color:var(--text); }
 .fz-asset .a-spark{ width:100%; height:48px; margin-top:10px; display:block; }
+.fz-asset .a-thresh{ stroke:var(--fz-bad); stroke-width:1; stroke-dasharray:4 3; opacity:.55; vector-effect:non-scaling-stroke; }
 
 .fz-info-card{ background:var(--card); border:1px solid var(--hairline); border-radius:var(--radius-inner); padding:16px 18px; box-shadow:var(--shadow); }
 .fz-info-card .i-lbl{ font-size:11px; color:var(--text-2); text-transform:uppercase; letter-spacing:.06em; font-weight:700; margin-bottom:10px; }
@@ -1063,6 +1103,15 @@ html[data-theme='dark'] .btn-login { background:#fff; color:#000; }
 .fz-log-row .l-dot{ width:7px; height:7px; border-radius:50%; margin-top:6px; flex:none; }
 .fz-log-row .l-txt{ font-size:13px; color:var(--text); }
 .fz-log-row .l-det{ color:var(--text-2); margin-left:6px; font-size:12px; }
+.fz-log-row{ cursor:pointer; border-radius:10px; padding:9px 8px; margin:0 -8px; transition:background .15s; }
+.fz-log-row:hover{ background:var(--field); }
+.fz-log-row .l-chev{ margin-left:auto; align-self:center; color:var(--text-3); font-size:16px; transition:transform .25s ease; flex:none; }
+.fz-log-row.expanded .l-chev{ transform:rotate(90deg); }
+.fz-log-row .l-more{ display:block; max-height:0; opacity:0; transform:translateY(-4px); overflow:hidden; transition:max-height .25s ease, opacity .2s ease, transform .2s ease, margin-top .25s ease; margin-top:0; }
+.fz-log-row.expanded .l-more{ max-height:80px; opacity:1; transform:translateY(0); margin-top:6px; }
+.fz-log-row .l-more-row{ display:block; font-size:12px; color:var(--text-2); padding:2px 0; }
+.fz-log-row .l-more-row b{ color:var(--text); }
+.fz-log-empty{ padding:22px 8px; text-align:center; color:var(--text-2); font-size:13px; }
 
 .fz-side{ display:flex; flex-direction:column; gap:10px; }
 .fz-actions-label{ font-size:11px; color:var(--text-2); font-weight:700; text-transform:uppercase; letter-spacing:.1em; }
@@ -1110,6 +1159,8 @@ html[data-theme='dark'] .btn-login { background:#fff; color:#000; }
 .fz-btn-cad:hover{ background:#e74c3c; }
 .fz-btn-save{ background:#fff; color:var(--accent-ink); }
 .fz-btn-save:hover{ background:#e6e6e6; }
+.fz-btn-ghost{ background:transparent; color:var(--text-2); border:1px solid var(--hairline-2); }
+.fz-btn-ghost:hover{ color:var(--text); border-color:var(--teal); }
 
 .fz-feedback{ border-radius:9px; padding:10px 14px; font-size:13px; font-weight:600; margin-bottom:14px; }
 .fz-feedback.ok{ background:var(--fz-ok-soft); color:var(--fz-ok); border:1px solid var(--fz-ok); }
@@ -1493,7 +1544,7 @@ html[data-theme='dark'] .panel {
 }
 
 /* =====================================================================
-   BREADCRUMB (vision-v2 — reformulação de navegação)
+   BREADCRUMB (sidebar enxuta — nav-v2.js)
    ===================================================================== */
 .fz-breadcrumb {
   padding: 10px 4px 4px;
@@ -1502,3 +1553,28 @@ html[data-theme='dark'] .panel {
   letter-spacing: .1px;
 }
 .fz-breadcrumb b { color: var(--text); font-weight: 600; }
+
+/* =====================================================================
+   ASSISTENTE IA — seletor de conversa por ativo (assistente-screen.js)
+   ===================================================================== */
+.fz-chat-ativo-sel {
+  background: var(--field);
+  border: 1px solid var(--hairline-2);
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 12.5px;
+  color: var(--text);
+  max-width: 220px;
+  cursor: pointer;
+}
+.fz-chat-ativo-sel:focus { outline: none; border-color: var(--teal); }
+
+/* bolha de alerta automático (ISA-18.2 / IoT) — cinza, distinta da bolha do usuário */
+.fz-chat-alerta { align-self: stretch; max-width: 100%; }
+.fz-chat-alerta .fz-chat-bubble-inner {
+  background: var(--field);
+  color: var(--text);
+  border: 1px solid var(--fz-warn);
+  border-left: 3px solid var(--fz-warn);
+  width: 100%;
+}

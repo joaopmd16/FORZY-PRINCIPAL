@@ -628,55 +628,133 @@
     draw();
   }
 
-  const OCR = { campos: null };
+  const OCR = { campos: null, imagemUpload: null };
+
+  // rasteriza a plaqueta SVG de demonstração em PNG (base64) pra poder mandar como imagem pra IA de visão
+  function svgToPngDataUrl(svgMarkup, w = 520, h = 300) {
+    return new Promise((resolve, reject) => {
+      const blob = new Blob([svgMarkup], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        URL.revokeObjectURL(url);
+        resolve(canvas.toDataURL('image/png'));
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Falha ao renderizar imagem da plaqueta')); };
+      img.src = url;
+    });
+  }
+
   function pipeOcr() {
     const p = el('pipeOcr'); if (!p) return;
     const cods = S.getAtivosIndustrial().map(a => a.codigo);
     p.innerHTML = `<div class="fz-row2">
       <div class="fz-card">
         <p class="fz-section-label">Imagem da Plaqueta</p>
-        ${nameplateSVG()}
-        <button class="fz-btn" id="ocrBtn" style="margin-top:12px;width:100%">Processar OCR</button>
+        <div id="ocrImgHost">${nameplateSVG()}</div>
+        <input type="file" id="ocrImgInput" accept="image/*" style="display:none">
+        <div style="display:flex;gap:8px;margin-top:12px">
+          <button class="fz-btn fz-btn-ghost" id="ocrUploadBtn" style="flex:1">Enviar foto real</button>
+          <button class="fz-btn fz-btn-ghost" id="ocrDemoBtn" style="flex:1" hidden>Usar imagem demo</button>
+        </div>
+        <button class="fz-btn" id="ocrBtn" style="margin-top:8px;width:100%">Processar OCR com IA</button>
       </div>
       <div class="fz-card">
         <p class="fz-section-label">Resultado da Extração</p>
-        <div id="ocrRes"><div class="fz-empty">Clique em "Processar OCR" para extrair os campos.</div></div>
+        <div id="ocrRes"><div class="fz-empty">Clique em "Processar OCR com IA" para extrair os campos.</div></div>
       </div></div>`;
+
+    const imgHost = el('ocrImgHost');
+    const demoBtn = el('ocrDemoBtn');
+
+    el('ocrUploadBtn').addEventListener('click', () => el('ocrImgInput').click());
+    el('ocrImgInput').addEventListener('change', e => {
+      const file = e.target.files[0]; if (!file) return;
+      const reader = new FileReader();
+      reader.onload = ev => {
+        OCR.imagemUpload = ev.target.result;
+        imgHost.innerHTML = `<img src="${ev.target.result}" style="width:100%;border-radius:8px;display:block">`;
+        demoBtn.hidden = false;
+      };
+      reader.readAsDataURL(file);
+      e.target.value = '';
+    });
+    demoBtn.addEventListener('click', () => {
+      OCR.imagemUpload = null;
+      imgHost.innerHTML = nameplateSVG();
+      demoBtn.hidden = true;
+    });
+
     el('ocrBtn').addEventListener('click', async () => {
-      el('ocrRes').innerHTML = `<div class="fz-empty">Processando OCR...</div>`;
-      await sleep(800);
-      const noise = (Math.random() * 0.06 - 0.03);
-      const campos = { fabricante: 'WEG', potencia_kw: +(75 * (1 + noise)).toFixed(1), tensao_v: 380, corrente_nom: +(140 * (1 + noise)).toFixed(1), ip_rating: 'IP55', rpm: 1780, confianca: +(0.88 + Math.random() * 0.09).toFixed(2) };
-      OCR.campos = campos;
-      const avisos = [];
-      if (![220, 380, 440, 690].includes(campos.tensao_v)) avisos.push(`Tensão ${campos.tensao_v} V fora dos valores típicos`);
-      if (campos.confianca < 0.80) avisos.push('Confiança OCR baixa — confirme manualmente');
-      const cc = campos.confianca >= 0.90 ? cssVar('--fz-ok') : campos.confianca >= 0.80 ? cssVar('--fz-warn') : cssVar('--fz-bad');
-      el('ocrRes').innerHTML = `
-        <div class="fz-card" style="background:var(--field)">
-          <div style="display:flex;justify-content:space-between;margin-bottom:10px"><b>Campos Extraídos</b><span style="color:${cc};font-weight:700">Confiança: ${(campos.confianca * 100).toFixed(0)}%</span></div>
-          <div class="ocr-grid">
-            ${ocrField('Fabricante', campos.fabricante)}${ocrField('Potência', campos.potencia_kw + ' kW')}
-            ${ocrField('Tensão', campos.tensao_v + ' V')}${ocrField('Corrente', campos.corrente_nom + ' A')}
-            ${ocrField('Proteção', campos.ip_rating)}${ocrField('RPM', campos.rpm)}
+      el('ocrRes').innerHTML = `<div class="fz-empty">Processando OCR com IA (gpt-4o-mini visão)...</div>`;
+      const key = window.FORZY_OPENAI_KEY;
+      if (!key) { el('ocrRes').innerHTML = `<div class="fz-feedback bad">Chave de API não configurada em config.js</div>`; return; }
+
+      try {
+        const dataUrl = OCR.imagemUpload || await svgToPngDataUrl(nameplateSVG());
+        const prompt = `Você é um sistema de OCR industrial. Extraia os dados da placa de identificação (nameplate) do motor elétrico na imagem.
+Responda APENAS com um JSON válido, sem markdown e sem texto adicional, exatamente neste formato:
+{"fabricante":string,"potencia_kw":number,"tensao_v":number,"corrente_nom":number,"ip_rating":string,"rpm":number,"confianca":number}
+Se um campo não estiver legível ou não existir na imagem, use null nesse campo e reduza "confianca" (0 a 1) de acordo.`;
+
+        const res = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+          body: JSON.stringify({
+            model: 'gpt-4o-mini',
+            messages: [{ role: 'user', content: [
+              { type: 'text', text: prompt },
+              { type: 'image_url', image_url: { url: dataUrl } }
+            ] }],
+            max_tokens: 400,
+            temperature: 0,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error?.message || `HTTP ${res.status}`);
+
+        let raw = (data.choices?.[0]?.message?.content || '').trim();
+        raw = raw.replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/```$/, '').trim();
+        const campos = JSON.parse(raw);
+        OCR.campos = campos;
+
+        const confianca = Number(campos.confianca) || 0;
+        const avisos = [];
+        if (campos.tensao_v != null && ![220, 380, 440, 690].includes(campos.tensao_v)) avisos.push(`Tensão ${campos.tensao_v} V fora dos valores típicos`);
+        if (confianca < 0.80) avisos.push('Confiança OCR baixa — confirme manualmente');
+        const cc = confianca >= 0.90 ? cssVar('--fz-ok') : confianca >= 0.80 ? cssVar('--fz-warn') : cssVar('--fz-bad');
+
+        el('ocrRes').innerHTML = `
+          <div class="fz-card" style="background:var(--field)">
+            <div style="display:flex;justify-content:space-between;margin-bottom:10px"><b>Campos Extraídos</b><span style="color:${cc};font-weight:700">Confiança: ${(confianca * 100).toFixed(0)}%</span></div>
+            <div class="ocr-grid">
+              ${ocrField('Fabricante', campos.fabricante)}${ocrField('Potência', campos.potencia_kw != null ? campos.potencia_kw + ' kW' : null)}
+              ${ocrField('Tensão', campos.tensao_v != null ? campos.tensao_v + ' V' : null)}${ocrField('Corrente', campos.corrente_nom != null ? campos.corrente_nom + ' A' : null)}
+              ${ocrField('Proteção', campos.ip_rating)}${ocrField('RPM', campos.rpm)}
+            </div>
           </div>
-        </div>
-        ${avisos.map(a => `<div class="fz-feedback bad" style="margin-top:8px">${esc(a)}</div>`).join('')}
-        <p class="fz-section-label" style="margin-top:10px">Aplicar a ativo</p>
-        <div class="fz-form"><div class="fld col2"><select class="fz-select" id="ocrAlvo">${cods.map(c => `<option>${esc(c)}</option>`).join('')}</select></div></div>
-        <button class="fz-btn fz-btn-save" id="ocrApply" style="margin-top:10px">Aplicar dados ao ativo</button>
-        <div id="ocrApplyRes"></div>`;
-      el('ocrApply').addEventListener('click', () => {
-        const alvo = el('ocrAlvo').value;
-        S.editarAtivoIndustrial(alvo, { fabricante: campos.fabricante, potencia_kw: campos.potencia_kw, tensao_v: campos.tensao_v, corrente_nom: campos.corrente_nom, ip_rating: campos.ip_rating });
-        S.logExecucao('OCR Pipeline', 'sucesso', 1, 0, `Dados da plaqueta aplicados ao ativo ${alvo}`);
-        el('ocrApplyRes').innerHTML = `<div class="fz-feedback ok" style="margin-top:10px">Dados aplicados ao ativo ${esc(alvo)}.</div>`;
-      });
+          ${avisos.map(a => `<div class="fz-feedback bad" style="margin-top:8px">${esc(a)}</div>`).join('')}
+          <p class="fz-section-label" style="margin-top:10px">Aplicar a ativo</p>
+          <div class="fz-form"><div class="fld col2"><select class="fz-select" id="ocrAlvo">${cods.map(c => `<option>${esc(c)}</option>`).join('')}</select></div></div>
+          <button class="fz-btn fz-btn-save" id="ocrApply" style="margin-top:10px">Aplicar dados ao ativo</button>
+          <div id="ocrApplyRes"></div>`;
+        el('ocrApply').addEventListener('click', () => {
+          const alvo = el('ocrAlvo').value;
+          S.editarAtivoIndustrial(alvo, { fabricante: campos.fabricante, potencia_kw: campos.potencia_kw, tensao_v: campos.tensao_v, corrente_nom: campos.corrente_nom, ip_rating: campos.ip_rating });
+          S.logExecucao('OCR Pipeline', 'sucesso', 1, 0, `Dados da plaqueta aplicados ao ativo ${alvo}`);
+          el('ocrApplyRes').innerHTML = `<div class="fz-feedback ok" style="margin-top:10px">Dados aplicados ao ativo ${esc(alvo)}.</div>`;
+        });
+      } catch (e) {
+        el('ocrRes').innerHTML = `<div class="fz-feedback bad">Erro no OCR: ${esc(e.message)}</div>`;
+      }
     });
   }
-  const ocrField = (l, v) => `<div><span style="color:var(--text-2)">${l}:</span> <span style="color:var(--text);font-weight:600">${esc(v)}</span></div>`;
+  const ocrField = (l, v) => `<div><span style="color:var(--text-2)">${l}:</span> <span style="color:var(--text);font-weight:600">${v == null ? '—' : esc(v)}</span></div>`;
   function nameplateSVG() {
-    return `<svg class="fz-nameplate" viewBox="0 0 520 300" preserveAspectRatio="xMidYMid meet">
+    return `<svg xmlns="http://www.w3.org/2000/svg" class="fz-nameplate" viewBox="0 0 520 300" preserveAspectRatio="xMidYMid meet">
       <rect x="0" y="0" width="520" height="300" rx="8" fill="#1e2d46"/>
       <rect x="4" y="4" width="512" height="292" rx="6" fill="none" stroke="#50a0dc" stroke-width="2"/>
       <rect x="10" y="10" width="500" height="40" fill="#14233" opacity="0.6"/>

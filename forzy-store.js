@@ -46,11 +46,11 @@
     d.areas.push(a1, a2);
 
     const ativos = [
-      { codigo: 'BBA-001', tag: 'FZ-M1', origem: 'forzy', area_id: a1.id, descricao: 'Motor 1 — Dataset Forzy',
+      { codigo: 'BBA-001', tag: 'FZ-M1', origem: 'forzy', area_id: a1.id, descricao: 'Eixo 1 — Dataset Forzy',
         fabricante: 'WEG', potencia_kw: 7.5, tensao_v: 380, corrente_nom: 15.2, ip_rating: 'IP55',
         status: 'ativo', latitude: -23.5505, longitude: -46.6333, localizacao_descricao: 'Skid 01 · linha A',
         data_install: '2024-03-12' },
-      { codigo: 'BBA-002', tag: 'FZ-M2', origem: 'forzy', area_id: a1.id, descricao: 'Motor 2 — Dataset Forzy',
+      { codigo: 'BBA-002', tag: 'FZ-M2', origem: 'forzy', area_id: a1.id, descricao: 'Eixo 2 — Dataset Forzy',
         fabricante: 'WEG', potencia_kw: 5.5, tensao_v: 380, corrente_nom: 11.4, ip_rating: 'IP55',
         status: 'ativo', latitude: -23.5512, longitude: -46.6340, localizacao_descricao: 'Skid 01 · linha B',
         data_install: '2024-03-12' },

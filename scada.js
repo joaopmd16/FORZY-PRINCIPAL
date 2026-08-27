@@ -58,7 +58,7 @@
       const cls = f === 2 ? 'al-red' : f === 1 ? 'al-yellow' : 'al-ok';
       return `<div class="scada-alert ${cls}">${nome} — Temp ${temp.toFixed(1)}°C | Vel ${vel.toFixed(2)} mm/s — ${NOME[f]}</div>`;
     };
-    box.innerHTML = banner('MOTOR 1', r.t1, r.v1, r.a1) + banner('MOTOR 2', r.t2, r.v2, r.a2);
+    box.innerHTML = banner('EIXO 1', r.t1, r.v1, r.a1) + banner('EIXO 2', r.t2, r.v2, r.a2);
   }
 
   /* ----------  Planta 2D (SVG)  ---------- */
@@ -91,8 +91,8 @@
     const sensor = (x, y) => `<circle cx="${x}" cy="${y}" r="11" fill="#8e44ad" stroke="#d7bde2" stroke-width="2"/><text x="${x}" y="${y - 16}" text-anchor="middle" fill="#b07cd0" font-size="9" font-family="var(--font-num)">VIM32PL</text>`;
     p.innerHTML = `<div class="fz-card"><div class="scada-2d">
       <svg viewBox="0 0 900 300" preserveAspectRatio="xMidYMid meet">
-        ${panel(10, 'MOTOR 1', 'Port 1', r.v1, r.a1, r.t1, flag(r.v1, TH.velA, TH.velAl), flag(r.t1, TH.tempA, TH.tempAl), f1)}
-        ${panel(700, 'MOTOR 2', 'Port 2', r.v2, r.a2, r.t2, flag(r.v2, TH.velA, TH.velAl), flag(r.t2, TH.tempA, TH.tempAl), f2)}
+        ${panel(10, 'EIXO 1', 'Port 1', r.v1, r.a1, r.t1, flag(r.v1, TH.velA, TH.velAl), flag(r.t1, TH.tempA, TH.tempAl), f1)}
+        ${panel(700, 'EIXO 2', 'Port 2', r.v2, r.a2, r.t2, flag(r.v2, TH.velA, TH.velAl), flag(r.t2, TH.tempA, TH.tempAl), f2)}
         ${bench()}
         ${wire(200, 140, 360, 140)}${sensor(360, 140)}
         ${wire(700, 140, 540, 140)}${sensor(540, 140)}
@@ -237,8 +237,8 @@
     const SLABEL = ['Normal', 'Alerta', 'Alarme'];
     const SCOL = [cOk, cW, cB];
     const motors = [
-      { name: 'Motor 1 — BBA-001', v: r.v1, a: r.a1, t: r.t1 },
-      { name: 'Motor 2 — BBA-002', v: r.v2, a: r.a2, t: r.t2 },
+      { name: 'Eixo 1 — BBA-001', v: r.v1, a: r.a1, t: r.t1 },
+      { name: 'Eixo 2 — BBA-002', v: r.v2, a: r.a2, t: r.t2 },
     ];
     const m = motors[motorIdx - 1];
     const sv = Math.max(flag(m.v, TH.velA, TH.velAl), flag(m.t, TH.tempA, TH.tempAl));
@@ -344,8 +344,8 @@
       ctx.fillText('clique para info', cx0, H + 4);
     }
 
-    drawMotor(W * 0.27, f1, rot1, status1, 'Motor 1');
-    drawMotor(W * 0.73, f2, rot2, status2, 'Motor 2');
+    drawMotor(W * 0.27, f1, rot1, status1, 'Eixo 1');
+    drawMotor(W * 0.73, f2, rot2, status2, 'Eixo 2');
   }
   function normal(vs) {
     const a = vs[0], b = vs[1], c = vs[2];
@@ -361,7 +361,7 @@
     const chart = (m1, m2, la, lal, titulo, unit) => {
       const s1 = m1.slice(0, upto), s2 = m2.slice(0, upto);
       return `<div class="fz-card"><div class="fz-card-title">${titulo}</div>
-        <div class="fz-legend"><span><i style="background:#3498db"></i>Motor 1</span><span><i style="background:#e74c3c"></i>Motor 2</span></div>
+        <div class="fz-legend"><span><i style="background:#3498db"></i>Eixo 1</span><span><i style="background:#e74c3c"></i>Eixo 2</span></div>
         <div class="fz-chart">${multiLine(s1, s2, la, lal, unit)}</div></div>`;
     };
     p.innerHTML = chart(DS.m1v, DS.m2v, TH.velA, TH.velAl, 'Velocidade (mm/s)', 'mm/s')
