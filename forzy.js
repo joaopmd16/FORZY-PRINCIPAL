@@ -102,7 +102,7 @@
       const tx=S('text',{x:padL-8,y:yy+4,'text-anchor':'end',class:'fz-axis-label'}); tx.textContent=(+v.toFixed(v<10?2:0)); svg.appendChild(tx);
     }
     // labels X (até ~6)
-    const nx=Math.min(6,n); const xfn=opt.xLabel||(i=>i);
+    const nx=Math.min(opt.xTicks||6,n); const xfn=opt.xLabel||(i=>i);
     for(let k=0;k<nx;k++){ const i=Math.round(k*(n-1)/(nx-1||1)); const tx=S('text',{x:xi(i),y:H-8,'text-anchor':'middle',class:'fz-axis-label'}); tx.textContent=xfn(i); svg.appendChild(tx); }
     // limiares
     (opt.thresholds||[]).forEach(t=>{ const yy=y(clamp(t.y,ymin,ymax)); svg.appendChild(S('line',{x1:padL,x2:W-padR,y1:yy,y2:yy,class:'fz-thr',stroke:t.color})); });
@@ -224,6 +224,221 @@
   }
 
   /* ===================================================================
+     MODAL DE EIXO — clique no card do motor abre histórico + export +
+     chat com IA. O chat usa a MESMA conversa (por "origem") que o
+     Assistente IA usa pros alertas automáticos — nunca duplica sessão.
+     =================================================================== */
+  const escHtml = s => (s==null?'':String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+  // chave estável da fonte atual — espelha exatamente o que topbar.js usa pros alertas
+  function origemFonte(){
+    if(state.fonte==='esp32') return 'esp32';
+    if(state.fonte==='ativo') return state.ativoCod ? ('ativo:'+state.ativoCod) : null;
+    if(state.fonte==='forzy') return 'dataset-forzy';
+    if(state.fonte==='sim') return 'simulado';
+    if(state.fonte==='cloud') return 'forzy-cloud';
+    return null;
+  }
+  // eixo único (ESP32/Ativo) cai na MESMA conversa do alerta automático daquela fonte;
+  // fontes com 2 eixos (Dataset/Simulado/Cloud) ganham uma conversa por eixo.
+  function origemEixo(prefix){
+    const base = origemFonte();
+    if(!base) return null;
+    if(state.fonte==='esp32' || state.fonte==='ativo') return base;
+    return base + ':' + prefix;
+  }
+
+  // modal aberto no momento — usado por atualizarModalEixo() pra manter os dados ao vivo
+  let modalEixo = null;   // { prefix, nome, origem, ultimoHist }
+
+  const CHIPS_EIXO = [
+    'Esse nível de vibração é normal?',
+    'Qual a causa provável?',
+    'Preciso parar a máquina?',
+  ];
+
+  function abrirModalEixo(prefix, nome, r, iso, getWin, xlab){
+    const origem = origemEixo(prefix);
+    const nomeSafe = escHtml(nome).replace(/<[^>]+>/g,'');
+
+    document.getElementById('fzEixoModal')?.remove();
+    const overlay = el('div','fz-modal-overlay'); overlay.id='fzEixoModal';
+    overlay.innerHTML = `
+      <div class="fz-modal">
+        <div class="fz-modal-header">
+          <div class="fz-modal-head-left">
+            <div>
+              <div class="fz-modal-eyebrow">Detalhe do Eixo · <span id="fzEixoFonte"></span></div>
+              <div class="fz-modal-title">${nomeSafe} <span class="fz-modal-status" id="fzEixoStatus"></span></div>
+            </div>
+          </div>
+          <div class="fz-modal-head-right">
+            <span class="fz-modal-live"><i></i>ao vivo</span>
+            <button class="fz-modal-close" id="fzEixoClose" title="Fechar">✕</button>
+          </div>
+        </div>
+        <div class="fz-modal-body">
+          <div class="fz-modal-health">
+            <span class="lbl">Health Score</span>
+            <div class="track"><div class="fill" id="fzEixoHealthFill"></div></div>
+            <span class="pct" id="fzEixoHealthPct"></span>
+          </div>
+          <div class="fz-modal-kpis" id="fzEixoKpis"></div>
+          <div class="fz-modal-sec-head">
+            <span>Histórico recente</span>
+            <button class="fz-btn ghost" id="fzEixoExport">↓ Exportar CSV</button>
+          </div>
+          <div class="fz-modal-chart-row" id="fzEixoCharts"></div>
+
+          <div class="fz-modal-chat">
+            <div class="fz-modal-chat-head">
+              <div class="fz-modal-chat-id">
+                <div class="fz-modal-chat-avatar"><i data-lucide="bot"></i></div>
+                <div>
+                  <div class="fz-modal-chat-name">Assistente IA</div>
+                  <div class="fz-modal-chat-scope">Analisando ${nomeSafe}</div>
+                </div>
+              </div>
+              ${origem ? '<button class="fz-modal-chat-full" id="fzEixoChatFull">Conversa completa →</button>' : ''}
+            </div>
+            <div class="fz-modal-chat-msgs" id="fzEixoChatMsgs"></div>
+            ${origem
+              ? `<div class="fz-modal-chat-chips" id="fzEixoChips">
+                   ${CHIPS_EIXO.map(c=>`<button class="fz-modal-chip">${escHtml(c)}</button>`).join('')}
+                 </div>
+                 <div class="fz-modal-chat-input-row">
+                   <input type="text" id="fzEixoChatInput" placeholder="Pergunte sobre ${nomeSafe}…" autocomplete="off">
+                   <button id="fzEixoChatSend" title="Enviar">
+                     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                   </button>
+                 </div>`
+              : `<div class="fz-modal-chat-empty">Selecione um ativo cadastrado pra poder conversar sobre ele.</div>`}
+          </div>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    if(window.lucide) lucide.createIcons();
+
+    modalEixo = { prefix, nome, origem, hist:null };
+    atualizarModalEixo(r, iso, getWin, xlab);
+
+    // desinscrever é atribuído mais abaixo; fechar() só roda em interação do usuário
+    const fechar = () => { desinscrever?.(); overlay.remove(); modalEixo = null; };
+    overlay.querySelector('#fzEixoClose').addEventListener('click', fechar);
+    overlay.addEventListener('click', e => { if(e.target===overlay) fechar(); });
+    document.addEventListener('keydown', function escKey(e){ if(e.key==='Escape'){ fechar(); document.removeEventListener('keydown', escKey); } });
+
+    overlay.querySelector('#fzEixoExport').addEventListener('click', () => {
+      const h = modalEixo?.hist; if(!h) return;
+      let csv='indice;tempo;vel_mm_s;acel_g;temp_c\n';
+      for(let i=0;i<h.vel.length;i++) csv+=`${i};${h.xlab(i)};${h.vel[i]??''};${h.acel[i]??''};${h.temp[i]??''}\n`;
+      const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
+      const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`${nome.replace(/\s+/g,'_')}.csv`; a.click(); URL.revokeObjectURL(a.href);
+    });
+
+    // alerta que atingiu os DOIS eixos vai pra conversa da fonte (não a do eixo);
+    // guardamos aqui pra espelhar no chat do card enquanto o modal está aberto.
+    let alertasEspelhados = [];
+
+    function redesenharChat(pensando){
+      const host = overlay.querySelector('#fzEixoChatMsgs'); if(!host) return;
+      const s = window.FZChatScreen?.getSessao?.(origem);
+      const bolha = b => `<div class="fz-modal-chat-msg fz-modal-chat-${b.role}">${b.html}</div>`;
+      const proprias = (s && s.bubbles.length) ? s.bubbles.slice(-6) : [];
+      let html = '';
+      if(!proprias.length && !alertasEspelhados.length){
+        html = '<div class="fz-modal-chat-empty">Pergunte algo sobre este eixo — a IA usa as leituras e os dados de placa.</div>';
+      } else {
+        html = proprias.map(bolha).join('') + alertasEspelhados.map(bolha).join('');
+      }
+      if(pensando) html += '<div class="fz-modal-chat-msg fz-modal-chat-ai"><span class="fz-chat-thinking"><span></span><span></span><span></span></span></div>';
+      host.innerHTML = html;
+      host.scrollTop = host.scrollHeight;
+    }
+    redesenharChat();
+
+    // alerta disparado enquanto o card está aberto aparece no chat dele na hora
+    const desinscrever = window.FZChatScreen?.onAlerta?.((orig, sessao) => {
+      if(!document.getElementById('fzEixoModal')) return;
+      if(orig === origem){ redesenharChat(); return; }        // já é a conversa deste eixo
+      if(orig && orig === origemFonte()){                      // alerta combinado da fonte
+        alertasEspelhados = sessao.bubbles.slice(-2);
+        redesenharChat();
+      }
+    });
+
+    const input = overlay.querySelector('#fzEixoChatInput');
+    if(input){
+      async function enviarPergunta(texto){
+        const q = (texto || input.value).trim(); if(!q) return;
+        input.value=''; input.disabled=true;
+        overlay.querySelector('#fzEixoChips')?.classList.add('oculto');
+        redesenharChat(true);
+        try { await window.FZChatScreen?.perguntar?.(origem, nome, q); }
+        finally { input.disabled=false; redesenharChat(); input.focus(); }
+      }
+      overlay.querySelector('#fzEixoChatSend').addEventListener('click', ()=>enviarPergunta());
+      input.addEventListener('keydown', e => { if(e.key==='Enter'){ e.preventDefault(); enviarPergunta(); } });
+      overlay.querySelector('#fzEixoChips')?.addEventListener('click', e => {
+        const chip = e.target.closest('.fz-modal-chip');
+        if(chip) enviarPergunta(chip.textContent);
+      });
+    }
+    const fullBtn = overlay.querySelector('#fzEixoChatFull');
+    if(fullBtn) fullBtn.addEventListener('click', () => {
+      fechar();
+      window.FZChatScreen?.abrirConversa?.(origem, nome);
+      if(typeof window.showScreen==='function') window.showScreen('assistente');
+    });
+  }
+
+  // mantém KPIs/health/gráficos do modal em sincronia com o dashboard (chamado a cada tick).
+  // NÃO toca no chat nem no input — senão apagaria o que o usuário está digitando.
+  function atualizarModalEixo(r, iso, getWin, xlab){
+    if(!modalEixo) return;
+    const overlay = document.getElementById('fzEixoModal');
+    if(!overlay){ modalEixo=null; return; }
+    const { prefix } = modalEixo;
+    const vel=r[prefix+'_vel'], acel=r[prefix+'_acel'], temp=r[prefix+'_temp'];
+    if(vel!==vel) return;   // NaN — eixo não existe nesta fonte
+
+    const histVel=getWin(prefix+'_vel'), histAcel=getWin(prefix+'_acel'), histTemp=getWin(prefix+'_temp');
+    modalEixo.hist = { vel:histVel, acel:histAcel, temp:histTemp, xlab };
+
+    const fv=flag(vel,iso.alerta,iso.alarme), fa=flag(acel,ACEL_A,ACEL_AL), ft=flag(temp,TEMP_A,TEMP_AL);
+    const h=health(vel,acel,temp,iso.alarme), hcol = h>=70?C.ok : h>=40?C.warn : C.bad;
+
+    const fonteLbl = state.fonte==='esp32'?'ESP32 ao vivo' : state.fonte==='ativo'?('Ativo '+(state.ativoCod||'')) : state.fonte==='cloud'?'Forzy Cloud' : state.fonte==='sim'?'Simulado':'Dataset Forzy';
+    overlay.querySelector('#fzEixoFonte').textContent = fonteLbl;
+
+    const st = overlay.querySelector('#fzEixoStatus');
+    st.textContent = FLAG_LBL[fv];
+    st.style.cssText = `background:${FLAG_COL[fv]}22;color:${FLAG_COL[fv]};border:1px solid ${FLAG_COL[fv]}`;
+
+    overlay.querySelector('#fzEixoHealthFill').style.cssText = `width:${h}%;background:${hcol}`;
+    const pct = overlay.querySelector('#fzEixoHealthPct');
+    pct.textContent = h+'/100'; pct.style.color = hcol;
+
+    overlay.querySelector('#fzEixoKpis').innerHTML =
+      [['Velocidade RMS', fmt(vel,3), 'mm/s', fv],
+       ['Aceleração',     fmt(acel,3),'g',    fa],
+       ['Temperatura',    fmt(temp,1),'°C',   ft]]
+      .map(([lbl,v,u,f])=>`<div class="fz-kpi"><div class="k-lbl">${lbl}</div><div class="k-val">${v} <small>${u}</small></div><span class="k-tag" style="background:${FLAG_COL[f]}22;color:${FLAG_COL[f]}">${FLAG_LBL[f]}</span></div>`).join('');
+
+    const chartsHost = overlay.querySelector('#fzEixoCharts');
+    chartsHost.innerHTML='';
+    [['Velocidade RMS','mm/s',histVel,C.m1,3,[{y:iso.alerta,color:C.warn},{y:iso.alarme,color:C.bad}]],
+     ['Aceleração','g',histAcel,'#9b59b6',3,[{y:ACEL_AL,color:C.bad}]],
+     ['Temperatura','°C',histTemp,'#e67e22',1,[{y:TEMP_AL,color:C.bad}]]
+    ].forEach(([title,unit,data,color,dec,thr])=>{
+      const box=el('div'); box.innerHTML=`<div class="fz-section-label">${title} (${unit})</div>`;
+      const ch=el('div'); box.appendChild(ch); chartsHost.appendChild(box);
+      lineChart(ch,{ n:data.length, height:140, padL:42, xTicks:3, unit:' '+unit, dec, xLabel:xlab,
+        series:[{name:title,color,data}], thresholds:thr });
+    });
+  }
+
+  /* ===================================================================
      ESTADO GLOBAL DO DASHBOARD
      =================================================================== */
   const state = {
@@ -318,6 +533,9 @@
     const nWin = win.length;
     const xlab = isObj ? (i=>tx[i]||'') : (k=>tlabel(win[k]));
 
+    // modal de eixo aberto acompanha o mesmo tick do dashboard
+    atualizarModalEixo(r, iso, getWin, xlab);
+
     const prog = isObj ? 100 : Math.round(state.fidx/(F.meta.n-1)*100);
     const tsLabel = isEsp32 ? (window.FZIoT&&window.FZIoT.isConnected()?'ESP32 ao vivo':'ESP32 desconectado')
       : isAtivo ? (objWin.length?('leituras: '+objWin.length):'sem dados do ESP')
@@ -337,15 +555,23 @@
       <div class="fz-progress"><span>${isEsp32?'ESP32 ao vivo':isAtivo?('Ativo '+(state.ativoCod||'')):isCloud?'Forzy Cloud (S1/S2)':state.fonte==='sim'?'Simulado':'Dataset'} ${isObj?'':'frame '+(state.fidx+1)+'/'+F.meta.n}</span><div class="track"><div class="fill" style="width:${prog}%"></div></div><span>${tsLabel}</span></div>`;
     p.appendChild(head);
 
-    // cards motores
+    // cards motores — clicáveis: abrem o modal de histórico + export + chat da IA
     if(isEsp32 || isAtivo){
       const label = isEsp32 ? ('ESP32 ao vivo' + (window.FZIoT&&window.FZIoT.isConnected()?' · <span style="color:var(--fz-ok)">⬤ ONLINE</span>':' · <span style="color:var(--fz-bad)">⬤ OFF</span>')) : ('Sensor do Ativo · '+(state.ativoCod||''));
-      const row=el('div'); row.appendChild(motorCard(label, r, iso, 'm1')); p.appendChild(row);
+      // nome limpo p/ o modal (o label do card carrega o badge ONLINE/OFF junto)
+      const nomeModal = isEsp32 ? 'ESP32 ao vivo' : ('Ativo '+(state.ativoCod||''));
+      const card1=motorCard(label, r, iso, 'm1'); card1.classList.add('fz-card-clicavel');
+      card1.addEventListener('click', ()=>abrirModalEixo('m1', nomeModal, r, iso, getWin, xlab));
+      const row=el('div'); row.appendChild(card1); p.appendChild(row);
       const note=el('div','fz-card-sub'); note.style.margin='8px 2px 0';
       note.textContent='ESP32 = 1 sensor (mapeado como Eixo 1). Espectral, Operacional e Baseline ML continuam usando o Dataset Forzy.';
       p.appendChild(note);
     } else {
-      const row=el('div','fz-row2'); row.appendChild(motorCard('Eixo 1', r, iso, 'm1')); row.appendChild(motorCard('Eixo 2', r, iso, 'm2')); p.appendChild(row);
+      const card1=motorCard('Eixo 1', r, iso, 'm1'); card1.classList.add('fz-card-clicavel');
+      card1.addEventListener('click', ()=>abrirModalEixo('m1', 'Eixo 1', r, iso, getWin, xlab));
+      const card2=motorCard('Eixo 2', r, iso, 'm2'); card2.classList.add('fz-card-clicavel');
+      card2.addEventListener('click', ()=>abrirModalEixo('m2', 'Eixo 2', r, iso, getWin, xlab));
+      const row=el('div','fz-row2'); row.appendChild(card1); row.appendChild(card2); p.appendChild(row);
     }
 
     // histórico recente
@@ -908,4 +1134,12 @@
   }
 
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init); else init();
+
+  // Expõe a leitura atual do Dashboard pro sininho (topbar.js) conseguir monitorar
+  // as fontes que ele não cobre sozinho (Dataset Forzy, Simulado, Forzy Cloud).
+  // 'ativo' e 'esp32' o sininho já cobre por conta própria via FZStore/FZIoT.
+  window.FZDashboard = {
+    getCurrentReading: () => curReading(),
+    getFonte: () => state.fonte,
+  };
 })();

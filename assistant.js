@@ -505,7 +505,7 @@ Por favor, analise esse desvio operacional seguindo a norma ISO 10816 e ISA-18.2
 3. **Ação corretiva recomendada**`;
 
     const dedicada = telaDedicada();
-    if (dedicada) { dedicada.enviarAlerta(msg); return; }
+    if (dedicada) { dedicada.enviarAlerta(msg, `${flag === 2 ? 'Alarme' : 'Alerta'} ESP32 — Vibração ${vel.toFixed(2)} mm/s`, 'esp32'); return; }
 
     // abre o painel e envia automaticamente
     if (!aberto) abrirPanel();
@@ -537,12 +537,18 @@ Por favor, analise esse desvio operacional seguindo a norma ISO 10816 e ISA-18.2
   // reseta quando volta ao normal
   function resetarAlertaIoT() { _ultimoAlertaFlag = -1; }
 
-  // cooldown de notificações do sininho (evita spam se vários alarmes chegarem juntos)
-  let _cooldownNotif = false;
-  async function alertarNotificacao({ prioridade, titulo, msg, nivel, valor, unidade }) {
-    if (_cooldownNotif) return;
-    _cooldownNotif = true;
-    setTimeout(() => { _cooldownNotif = false; }, 30000); // cooldown 30s
+  // cooldown de notificações do sininho — por origem (não mais global), pra um alerta
+  // de uma fonte não bloquear os das outras. P1 Crítico NUNCA é bloqueado pelo cooldown:
+  // um alarme crítico sempre tem que chegar na IA, mesmo que um P2 tenha acabado de disparar.
+  const _cooldownPorOrigem = new Map(); // origem → timestamp em que libera de novo
+  async function alertarNotificacao({ prioridade, titulo, msg, nivel, valor, unidade, origem }) {
+    const critico = /P1/.test(prioridade);
+    const chaveCooldown = origem || 'geral';
+    if (!critico) {
+      const liberaEm = _cooldownPorOrigem.get(chaveCooldown) || 0;
+      if (Date.now() < liberaEm) return;
+    }
+    _cooldownPorOrigem.set(chaveCooldown, Date.now() + 30000); // cooldown 30s
 
     const emoji = nivel === 'bad' ? '🔴' : '🟡';
     const valorFmt = valor != null ? `**${Number(valor).toFixed(unidade === '°C' ? 1 : 2)} ${unidade}**` : '';
@@ -557,7 +563,7 @@ Seguindo as normas ISO 10816 e ISA-18.2, responda com:
 3. **Ação corretiva recomendada** (imediata e preventiva)`;
 
     const dedicada = telaDedicada();
-    if (dedicada) { dedicada.enviarAlerta(msgIA); return; }
+    if (dedicada) { dedicada.enviarAlerta(msgIA, `${titulo} — ${msg}`, origem); return; }
 
     if (!aberto) abrirPanel();
     await new Promise(r => setTimeout(r, 400));

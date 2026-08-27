@@ -202,30 +202,57 @@
   }
 
   /* =================  OCR PLACA  ================= */
+
+  // O que sugerir quando a IA não consegue ler o campo — mostrado no placeholder
+  // do input e na lista de pendências, em vez de deixar o campo mudo ou (pior)
+  // jogar dado solto num campo que não é dele.
+  const SUGESTAO_CAMPO = {
+    tag:          { el: 'nTag',  rot: 'TAG',              dica: 'código do equipamento — ex: MTR-001' },
+    descricao:    { el: 'nDesc', rot: 'Descrição',        dica: 'ex: Motor de Indução Trifásico' },
+    fabricante:   { el: 'nFab',  rot: 'Fabricante',       dica: 'ex: WEG, Siemens, ABB' },
+    potencia_kw:  { el: 'nKw',   rot: 'Potência (kW)',    dica: 'se a placa só tem HP, multiplique por 0,746' },
+    tensao_v:     { el: 'nV',    rot: 'Tensão (V)',       dica: 'ex: 220 / 380 / 440' },
+    corrente_nom: { el: 'nA',    rot: 'Corrente (A)',     dica: 'corrente nominal de placa' },
+    ip_rating:    { el: 'nIp',   rot: 'IP Rating',        dica: 'ex: IP55' },
+  };
+
   async function lerPlacaComIA(base64, mime) {
     const key = window.FORZY_OPENAI_KEY;
     if (!key) return { dados: null, erro: 'Chave de API não configurada em config.js' };
-    const prompt = `Você é um sistema de extração de dados de placas de motores elétricos industriais.
-Analise a imagem desta placa e extraia os dados técnicos no formato JSON abaixo.
-Retorne APENAS o JSON, sem texto adicional, sem markdown.
 
+    const prompt = `Você extrai dados de PLACAS DE IDENTIFICAÇÃO (nameplates) de MOTORES ELÉTRICOS INDUSTRIAIS.
+
+REGRAS OBRIGATÓRIAS — siga à risca:
+1. Só preencha um campo se o valor estiver LITERALMENTE IMPRESSO na placa E pertencer àquele campo.
+2. NUNCA invente, estime, converta de memória ou deduza um valor que não está escrito.
+3. NUNCA mova um dado para um campo que não é dele. Se um dado da placa não couber em
+   nenhum campo, ele vai em "observacoes" — e só se for tecnicamente relevante ao motor.
+4. Campo não impresso, ilegível ou duvidoso = null. É correto e esperado retornar vários null.
+5. Se a imagem NÃO for a placa de um motor elétrico industrial (ex: placa de veículo,
+   equipamento não-elétrico, foto qualquer), retorne "eh_placa_motor": false, descreva o
+   que você viu em "tipo_detectado", e deixe TODOS os demais campos null.
+
+Responda SOMENTE com um objeto json neste formato:
 {
-  "tag": "código ou TAG do motor (ex: MTR-001, BBA-001)",
-  "fabricante": "fabricante (ex: WEG, Siemens, ABB)",
-  "descricao": "tipo de motor (ex: Motor de Indução Trifásico)",
-  "potencia_kw": número_em_kW,
-  "tensao_v": número_tensao_nominal_em_volts,
-  "corrente_nom": número_corrente_nominal_em_amperes,
-  "rpm": número_rpm,
-  "ip_rating": "grau de proteção (ex: IP55)",
-  "frequencia_hz": número,
-  "ligacao": "tipo de ligação (ex: Delta/Estrela, Y/D)",
-  "fator_potencia": número,
-  "classe_isolamento": "letra (ex: F, B, H)",
-  "observacoes": "outros dados relevantes da placa"
+  "eh_placa_motor": true ou false,
+  "tipo_detectado": "o que a imagem realmente é, quando não for placa de motor (senão null)",
+  "tag": "código de instalação/patrimônio impresso (padrão tipo MTR-001, BBA-002). NÃO é o fabricante, NÃO é o modelo, NÃO é o número de série. Se não houver um código assim, null",
+  "fabricante": "fabricante impresso, ou null",
+  "descricao": "tipo do motor impresso (ex: Motor de Indução Trifásico), ou null",
+  "potencia_kw": número em kW ou null,
+  "tensao_v": número em volts ou null,
+  "corrente_nom": número em ampères ou null,
+  "rpm": número ou null,
+  "ip_rating": "ex: IP55, ou null",
+  "frequencia_hz": número ou null,
+  "ligacao": "ex: Y/D, ou null",
+  "fator_potencia": número ou null,
+  "classe_isolamento": "letra (F, B, H), ou null",
+  "observacoes": "outros dados TÉCNICOS DO MOTOR presentes na placa, ou null",
+  "confianca": "alta" | "media" | "baixa"
 }
 
-Se algum campo não estiver visível na placa, use null.`;
+Não inclua o campo de localização/endereço: essa informação nunca vem da placa.`;
 
     try {
       const res = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -235,9 +262,11 @@ Se algum campo não estiver visível na placa, use null.`;
           model: 'gpt-4o-mini',
           messages: [{ role: 'user', content: [
             { type: 'text', text: prompt },
-            { type: 'image_url', image_url: { url: `data:${mime};base64,${base64}` } }
+            { type: 'image_url', image_url: { url: `data:${mime};base64,${base64}`, detail: 'high' } }
           ]}],
-          max_tokens: 512, temperature: 0.1,
+          max_tokens: 700,
+          temperature: 0,
+          response_format: { type: 'json_object' },   // garante JSON válido, sem regex frágil
         }),
       });
       const data = await res.json();
@@ -246,9 +275,14 @@ Se algum campo não estiver visível na placa, use null.`;
         return { dados: null, erro: msg };
       }
       const text = data.choices?.[0]?.message?.content || '';
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) return { dados: null, erro: 'IA não retornou JSON válido. Tente outra imagem.' };
-      return { dados: JSON.parse(jsonMatch[0]), erro: null };
+      let dados;
+      try { dados = JSON.parse(text); }
+      catch (_) {
+        const m = text.match(/\{[\s\S]*\}/);
+        if (!m) return { dados: null, erro: 'IA não retornou JSON válido. Tente outra imagem.' };
+        try { dados = JSON.parse(m[0]); } catch (_) { return { dados: null, erro: 'IA não retornou JSON válido. Tente outra imagem.' }; }
+      }
+      return { dados, erro: null };
     } catch (e) { return { dados: null, erro: e.message || 'Erro de rede' }; }
   }
 
@@ -288,20 +322,45 @@ Se algum campo não estiver visível na placa, use null.`;
         }
         const dados = resultado.dados;
 
-        // preenche os campos
-        if (dados.tag)          { el('nTag').value = dados.tag; el('nCod').value = dados.tag; }
-        if (dados.fabricante)   el('nFab').value = dados.fabricante;
-        if (dados.descricao)    el('nDesc').value = dados.descricao;
-        if (dados.potencia_kw != null) el('nKw').value = dados.potencia_kw;
-        if (dados.tensao_v != null)    el('nV').value = dados.tensao_v;
-        if (dados.corrente_nom != null) el('nA').value = dados.corrente_nom;
-        if (dados.ip_rating) {
-          const ipSel = el('nIp');
-          const opt = [...ipSel.options].find(o => o.value === dados.ip_rating);
-          if (opt) ipSel.value = dados.ip_rating;
+        // A imagem não é placa de motor → não preenche NADA (era o caso que jogava
+        // dado aleatório nos campos), só avisa o que foi detectado.
+        if (dados.eh_placa_motor === false) {
+          status.innerHTML = `<span style="color:var(--fz-bad)">⚠ Isto não parece a placa de um motor elétrico.</span>`
+            + (dados.tipo_detectado ? `<br><small style="color:var(--text-2)">Detectado: ${esc(dados.tipo_detectado)}</small>` : '')
+            + `<br><small style="color:var(--text-2)">Nenhum campo foi preenchido. Envie a foto da placa do motor ou preencha manualmente.</small>`;
+          return;
         }
 
-        // monta linha de observações
+        // Trava: a IA às vezes repete o fabricante/descrição no TAG. TAG é código de
+        // instalação (MTR-001) e vira o Código do ativo — se não parecer um, descarta.
+        if (dados.tag) {
+          const t = String(dados.tag).trim();
+          const igualOutroCampo = [dados.fabricante, dados.descricao]
+            .some(v => v && String(v).trim().toLowerCase() === t.toLowerCase());
+          if (igualOutroCampo || !/\d/.test(t)) dados.tag = null;
+        }
+
+        // preenche SÓ o que veio lido; nada de dado solto em campo que não é dele
+        const lidos = [], faltando = [];
+        const setSe = (chave, valor, aplicar) => {
+          if (valor != null && valor !== '') { aplicar(valor); lidos.push(chave); }
+          else if (SUGESTAO_CAMPO[chave]) faltando.push(chave);
+        };
+
+        setSe('tag',          dados.tag,          v => { el('nTag').value = v; el('nCod').value = v; });
+        setSe('descricao',    dados.descricao,    v => el('nDesc').value = v);
+        setSe('fabricante',   dados.fabricante,   v => el('nFab').value = v);
+        setSe('potencia_kw',  dados.potencia_kw,  v => el('nKw').value = v);
+        setSe('tensao_v',     dados.tensao_v,     v => el('nV').value = v);
+        setSe('corrente_nom', dados.corrente_nom, v => el('nA').value = v);
+        setSe('ip_rating',    dados.ip_rating,    v => {
+          const ipSel = el('nIp');
+          const opt = [...ipSel.options].find(o => o.value === v);
+          if (opt) ipSel.value = v;
+        });
+
+        // dados técnicos extras vão para OBSERVAÇÕES — nunca para Localização,
+        // que é informação de planta e não existe na placa.
         const extras = [];
         if (dados.rpm)               extras.push(`${dados.rpm} RPM`);
         if (dados.frequencia_hz)     extras.push(`${dados.frequencia_hz} Hz`);
@@ -309,20 +368,31 @@ Se algum campo não estiver visível na placa, use null.`;
         if (dados.fator_potencia)    extras.push(`FP: ${dados.fator_potencia}`);
         if (dados.classe_isolamento) extras.push(`Classe ${dados.classe_isolamento}`);
         if (dados.observacoes)       extras.push(dados.observacoes);
-        if (extras.length) el('nLoc').value = extras.join(' · ');
+        const obsEl = el('nObs');
+        if (extras.length && obsEl) obsEl.value = extras.join(' · ');
 
-        status.innerHTML = `<span style="color:var(--fz-ok)">✓ Dados extraídos com sucesso! Revise e ajuste antes de cadastrar.</span>`;
+        // campos que a IA não conseguiu ler ganham uma sugestão visível no próprio input
+        faltando.forEach(k => {
+          const cfg = SUGESTAO_CAMPO[k];
+          const campo = el(cfg.el);
+          if (campo && campo.tagName === 'INPUT') {
+            campo.placeholder = cfg.dica;
+            campo.classList.add('fz-input-sugerido');
+          }
+        });
 
-        // resume JSON para debug
-        const resumo = [
-          dados.fabricante && `Fabricante: ${dados.fabricante}`,
-          dados.potencia_kw != null && `${dados.potencia_kw} kW`,
-          dados.tensao_v != null && `${dados.tensao_v} V`,
-          dados.corrente_nom != null && `${dados.corrente_nom} A`,
-          dados.rpm && `${dados.rpm} RPM`,
-          dados.ip_rating && dados.ip_rating,
-        ].filter(Boolean).join(' · ');
-        if (resumo) status.innerHTML += `<br><small style="color:var(--text-2)">${resumo}</small>`;
+        const conf = dados.confianca || 'media';
+        const corConf = conf === 'alta' ? 'var(--fz-ok)' : conf === 'baixa' ? 'var(--fz-bad)' : 'var(--fz-warn)';
+        let html = `<span style="color:var(--fz-ok)">✓ ${lidos.length} campo(s) lido(s) da placa.</span>`
+          + ` <small style="color:${corConf}">confiança ${esc(conf)}</small>`
+          + `<br><small style="color:var(--text-2)">Revise antes de cadastrar — a IA pode errar leitura de placa.</small>`;
+
+        if (faltando.length) {
+          html += `<div class="fz-ocr-pendencias"><b>Não identificado na placa (${faltando.length}) — preencha manualmente:</b><ul>`
+            + faltando.map(k => `<li><b>${esc(SUGESTAO_CAMPO[k].rot)}</b> — ${esc(SUGESTAO_CAMPO[k].dica)}</li>`).join('')
+            + `</ul></div>`;
+        }
+        status.innerHTML = html;
       };
       reader.readAsDataURL(file);
     });
@@ -403,6 +473,7 @@ Se algum campo não estiver visível na placa, use null.`;
         <div class="fld"><label>Corrente Nominal (A)</label><input class="fz-input" id="nA" type="number" step="1" value="0"></div>
         <div class="fld col2"><label>Localização</label><input class="fz-input" id="nLoc" placeholder="Bloco 1 — Sala de Máquinas"></div>
         <div class="fld"><label>Data de Instalação</label><input class="fz-input" id="nData" type="date"></div>
+        <div class="fld col2"><label>Observações Técnicas</label><input class="fz-input" id="nObs" placeholder="RPM, frequência, ligação, classe de isolamento…"></div>
       </div>
       <details class="fz-details"><summary>Coordenadas GPS (opcional)</summary>
         <div class="fz-form" style="margin-top:10px">
@@ -451,6 +522,7 @@ Se algum campo não estiver visível na placa, use null.`;
         potencia_kw: +el('nKw').value, tensao_v: +el('nV').value, corrente_nom: +el('nA').value,
         latitude: +el('nLat').value, longitude: +el('nLon').value,
         localizacao_descricao: el('nLoc').value.trim(), data_install: el('nData').value || null,
+        observacoes: el('nObs')?.value.trim() || '',
       });
       if (!ok) return renderNovo(feedback(`Código "${codigo}" já existe.`, false));
       state.selDash = codigo;
@@ -488,6 +560,7 @@ Se algum campo não estiver visível na placa, use null.`;
         <div class="fld"><label>Tensão (V)</label><input class="fz-input" id="eV" type="number" step="10" value="${a.tensao_v ?? 0}"></div>
         <div class="fld"><label>Corrente Nom (A)</label><input class="fz-input" id="eA" type="number" step="1" value="${a.corrente_nom ?? 0}"></div>
         <div class="fld col2"><label>Localização</label><input class="fz-input" id="eLoc" value="${esc(a.localizacao_descricao)}"></div>
+        <div class="fld col2"><label>Observações Técnicas</label><input class="fz-input" id="eObs" value="${esc(a.observacoes || '')}" placeholder="RPM, frequência, ligação, classe de isolamento…"></div>
       </div>
       <details class="fz-details"><summary>Coordenadas GPS</summary>
         <div class="fz-form" style="margin-top:10px">
@@ -516,6 +589,7 @@ Se algum campo não estiver visível na placa, use null.`;
         potencia_kw: +el('eKw').value, tensao_v: +el('eV').value, corrente_nom: +el('eA').value,
         latitude: +el('eLat').value, longitude: +el('eLon').value,
         localizacao_descricao: el('eLoc').value.trim(),
+        observacoes: el('eObs')?.value.trim() || '',
       });
       renderEditar(feedback(`Ativo ${state.selEditar} atualizado.`));
     });
