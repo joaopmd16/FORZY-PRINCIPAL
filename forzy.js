@@ -778,10 +778,32 @@
      =================================================================== */
   const hist = { variavel:'vel', speed:150, frame:0, playing:false, timer:null, motores:{m1:true,m2:true} };
   const HVAR={ vel:{u:'mm/s',la:1.8,lal:4.5,lbl:'Velocidade',dec:3}, acel:{u:'g',la:0.25,lal:0.45,lbl:'Aceleração',dec:3}, temp:{u:'°C',la:35,lal:42,lbl:'Temperatura',dec:1} };
-  let _histData=null;
-  function loadHist(){ if(_histData) return _histData; const idx=idxLinspace(F.meta.n,200); _histData={idx}; ['m1','m2'].forEach(p=>{ ['vel','acel','temp'].forEach(k=>{ _histData[p+'_'+k]=idx.map(i=>F[p][k][i]); }); }); return _histData; }
+  let _histData=null, _histFonte=null;
+  // O Histórico segue a fonte selecionada: no Forzy Cloud reproduz as coletas do
+  // daily_bridge.py; nas demais, o dataset estático. Cache invalidado ao trocar de fonte.
+  function loadHist(){
+    if(_histData && _histFonte===state.fonte) return _histData;
+    _histFonte = state.fonte;
+    hist.frame = 0;   // fontes têm tamanhos diferentes — recomeça o player ao trocar
+    if(state.fonte==='cloud'){
+      const rows = cloudWindow();
+      _histData = { idx: rows.map((_,i)=>i), xlabel: i => rows[i] ? new Date(rows[i].ts).toLocaleString('pt-BR',{hour12:false}) : '' };
+      ['m1','m2'].forEach(pp=>{ ['vel','acel','temp'].forEach(k=>{ _histData[pp+'_'+k]=rows.map(o=>o[pp+'_'+k]||0); }); });
+      return _histData;
+    }
+    const idx=idxLinspace(F.meta.n,200);
+    _histData={ idx, xlabel: i => tlabel(idx[i]) };
+    ['m1','m2'].forEach(pp=>{ ['vel','acel','temp'].forEach(k=>{ _histData[pp+'_'+k]=idx.map(i=>F[pp][k][i]); }); });
+    return _histData;
+  }
   function renderHist(){
     const p=document.getElementById('fzPanel-hist'); const d=loadHist(); const N=d.idx.length; const cfg=HVAR[hist.variavel];
+    if(!N){
+      p.innerHTML=`<div class="fz-card"><div class="fz-card-title">Histórico — Forzy Cloud</div>
+        <div class="fz-card-sub">Nenhuma coleta registrada ainda. O <code>daily_bridge.py</code> grava em
+        <code>dados/forzy_cloud_log.csv</code> de hora em hora — o histórico aparece aqui a partir da 1ª leitura.</div></div>`;
+      return;
+    }
     if(hist.frame<1) hist.frame=1; if(hist.frame>N) hist.frame=N;
     p.innerHTML='';
     const ctl=el('div','fz-card');
@@ -795,7 +817,7 @@
       <div class="fz-controls" style="margin-top:10px">
         <button class="fz-btn" data-act="play">${hist.playing?'⏸ Pause':'▶ Play'}</button>
         <button class="fz-btn ghost" data-act="reset">⏮ Reset</button>
-        <div class="fz-field" style="flex:1;min-width:200px"><span>T: ${tlabel(d.idx[hist.frame-1])} — frame ${hist.frame}/${N}</span><input class="fz-range" type="range" min="1" max="${N}" value="${hist.frame}" data-act="scrub" style="width:100%"></div>
+        <div class="fz-field" style="flex:1;min-width:200px"><span>T: ${d.xlabel(hist.frame-1)} — frame ${hist.frame}/${N}</span><input class="fz-range" type="range" min="1" max="${N}" value="${hist.frame}" data-act="scrub" style="width:100%"></div>
       </div>`;
     p.appendChild(ctl);
 
@@ -805,7 +827,7 @@
     if(hist.motores.m2) ser.push({name:'Eixo 2',color:C.m2,data:d['m2_'+hist.variavel].slice(0,sl)});
     let ymax=0; ['m1','m2'].forEach(pp=>d[pp+'_'+hist.variavel].forEach(v=>{if(v>ymax)ymax=v;})); ymax*=1.15;
     const markers=ser.map(s=>({data:s.data,color: s.data[sl-1]>=cfg.lal?C.bad:(s.data[sl-1]>=cfg.la?C.warn:C.ok), idx:[sl-1]}));
-    lineChart(ch,{n:sl,height:420,yMax:ymax,unit:' '+cfg.u,dec:cfg.dec,xLabel:i=>tlabel(d.idx[i]),series:ser,
+    lineChart(ch,{n:sl,height:420,yMax:ymax,unit:' '+cfg.u,dec:cfg.dec,xLabel:i=>d.xlabel(i),series:ser,
       bands:[{y0:0,y1:cfg.la,color:'rgba(46,204,113,.07)'},{y0:cfg.la,y1:cfg.lal,color:'rgba(243,156,18,.07)'},{y0:cfg.lal,y1:ymax,color:'rgba(231,76,60,.07)'}],
       thresholds:[{y:cfg.la,color:C.warn},{y:cfg.lal,color:C.bad}], markers });
 
