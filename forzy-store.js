@@ -132,7 +132,8 @@
     return a ? areaJoin(clone(a)) : null;
   }
   const CAMPOS = ['tag', 'area_id', 'descricao', 'fabricante', 'potencia_kw', 'tensao_v',
-    'corrente_nom', 'ip_rating', 'status', 'latitude', 'longitude', 'localizacao_descricao', 'data_install'];
+    'corrente_nom', 'ip_rating', 'status', 'latitude', 'longitude', 'localizacao_descricao', 'data_install',
+    'observacoes'];
   function criarAtivoIndustrial(dados) {
     if (!dados.codigo || db.ativos_industrial.some(a => a.codigo === dados.codigo)) return false;
     const novo = { id: nextId('ativos'), codigo: dados.codigo, status: dados.status || 'ativo', criado_em: nowISO() };

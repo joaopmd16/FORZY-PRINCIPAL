@@ -41,7 +41,11 @@
     navItems.forEach(b =>
       b.classList.toggle('active', b.dataset.screen === key));
     window.scrollTo({ top: 0 });
-    if (key === 'assistente') window.FZChatScreen?.init();
+    if (key === 'assistente') {
+      window.FZChatScreen?.init();
+      window.FZChatScreen?.ajustarAltura();
+      document.getElementById('navAssistenteDot')?.classList.remove('show');
+    }
   }
   window.showScreen = showScreen;   // expõe globalmente para topbar.js e assistant.js
 

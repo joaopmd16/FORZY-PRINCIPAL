@@ -133,26 +133,51 @@
     if (logAlarmes.length > 200) logAlarmes.pop();
   }
 
-  function processarLimite(chave, ativo, variavel, valor, limite) {
+  // atualiza o estado de histerese; devolve true só no instante em que ACABA de cruzar
+  // pra cima (edge de ativação) — usado pra decidir se dispara notificação agora.
+  function cruzouAgora(chave, ativo, variavel, valor, limite) {
     const estado = estadoAlarme.get(chave) || { ativo: false };
-
     if (!estado.ativo) {
       // ISA-18.2: dispara alarme somente quando cruza threshold para CIMA
       if (valor >= limite.threshold) {
         estadoAlarme.set(chave, { ativo: true });
         registrarLogEvento(limite.prioridade, ativo, variavel, valor, limite.unidade, 'ATIVADO');
-        adicionarAlerta(limite.prioridade, limite.titulo, `${ativo}: ${limite.variavel === 'vel' ? 'Vibração' : 'Temperatura'} ${valor.toFixed(limite.variavel === 'vel' ? 2 : 1)} ${limite.unidade}`, limite.nivel, valor, limite.unidade);
+        return true;
       }
     } else {
       // ISA-18.2: limpa somente quando cai abaixo do deadband (90% do threshold)
       if (valor < limite.deadband) {
         estadoAlarme.set(chave, { ativo: false });
         registrarLogEvento(limite.prioridade, ativo, variavel, valor, limite.unidade, 'NORMALIZADO');
-        // remove alerta correspondente da lista ativa
         const idx = alertas.findIndex(a => a.chave === chave);
         if (idx !== -1) { alertas.splice(idx, 1); renderSininho(); }
       }
     }
+    return false;
+  }
+
+  function processarLimite(chave, ativo, variavel, valor, limite, origem) {
+    if (cruzouAgora(chave, ativo, variavel, valor, limite)) {
+      adicionarAlerta(limite.prioridade, limite.titulo, `${ativo}: ${variavel === 'vel' ? 'Vibração' : 'Temperatura'} ${valor.toFixed(variavel === 'vel' ? 2 : 1)} ${limite.unidade}`, limite.nivel, valor, limite.unidade, origem);
+    }
+  }
+
+  // variante pra fontes com múltiplos eixos do MESMO equipamento (Dataset Forzy/Simulado/
+  // Forzy Cloud) — se mais de um eixo cruzar o limite junto, manda um único alerta
+  // combinado em vez de um por eixo.
+  function processarLimiteMultiEixo(rotulo, origem, eixos, campo, limite, sufixo) {
+    const cruzaram = [];
+    eixos.forEach(e => {
+      const chave = `${e.pfx}_${campo}_${sufixo}`;
+      if (cruzouAgora(chave, `${rotulo} · ${e.nome}`, campo, e.valor, limite)) cruzaram.push(e);
+    });
+    if (!cruzaram.length) return;
+    const partes = cruzaram.map(e => `${e.nome}: ${campo === 'vel' ? 'Vibração' : 'Temperatura'} ${e.valor.toFixed(campo === 'vel' ? 2 : 1)} ${limite.unidade}`).join(' · ');
+    // Um eixo só → vai direto pra conversa daquele eixo (a mesma que o modal do card
+    // mostra). Os dois juntos → um único alerta na conversa da fonte, que o modal
+    // aberto espelha via FZChatScreen.onAlerta.
+    const destino = cruzaram.length === 1 ? `${origem}:${cruzaram[0].id}` : origem;
+    adicionarAlerta(limite.prioridade, limite.titulo, `${rotulo} — ${partes}`, limite.nivel, cruzaram[0].valor, limite.unidade, destino);
   }
 
   function checarAlertas() {
@@ -162,10 +187,10 @@
         const last = window.FZIoT.getLast();
         if (last) {
           // P1 Crítico tem precedência: verificar P1 antes de P2 para a mesma variável
-          processarLimite('esp32_vel_p1',  'ESP32', 'vel',  last.vel  || 0, LIMITES_ISA[0]);
-          processarLimite('esp32_vel_p2',  'ESP32', 'vel',  last.vel  || 0, LIMITES_ISA[1]);
-          processarLimite('esp32_temp_p1', 'ESP32', 'temp', last.temp || 0, LIMITES_ISA[2]);
-          processarLimite('esp32_temp_p2', 'ESP32', 'temp', last.temp || 0, LIMITES_ISA[3]);
+          processarLimite('esp32_vel_p1',  'ESP32', 'vel',  last.vel  || 0, LIMITES_ISA[0], 'esp32');
+          processarLimite('esp32_vel_p2',  'ESP32', 'vel',  last.vel  || 0, LIMITES_ISA[1], 'esp32');
+          processarLimite('esp32_temp_p1', 'ESP32', 'temp', last.temp || 0, LIMITES_ISA[2], 'esp32');
+          processarLimite('esp32_temp_p2', 'ESP32', 'temp', last.temp || 0, LIMITES_ISA[3], 'esp32');
         }
       }
 
@@ -177,16 +202,43 @@
           if (!leituras.length) return;
           const l = leituras[0];
           const vel = l.vel_rms || 0;
-          processarLimite(`${a.codigo}_vel_p1`,  a.codigo, 'vel', vel, LIMITES_ISA[0]);
-          processarLimite(`${a.codigo}_vel_p2`,  a.codigo, 'vel', vel, LIMITES_ISA[1]);
+          const origem = 'ativo:' + a.codigo;
+          processarLimite(`${a.codigo}_vel_p1`,  a.codigo, 'vel', vel, LIMITES_ISA[0], origem);
+          processarLimite(`${a.codigo}_vel_p2`,  a.codigo, 'vel', vel, LIMITES_ISA[1], origem);
         });
+      }
+
+      // Dashboard (Monitoramento) — cobre as fontes que os blocos acima não veem
+      // (Dataset Forzy / Simulado / Forzy Cloud). 'ativo' e 'esp32' já estão cobertos
+      // acima via FZStore/FZIoT, então ficam de fora aqui pra não duplicar o alerta.
+      // Motor 1 e Motor 2 são os 2 eixos do MESMO equipamento — se cruzarem juntos,
+      // processarLimiteMultiEixo manda um único alerta combinado.
+      if (window.FZDashboard) {
+        const fonte = window.FZDashboard.getFonte();
+        if (fonte !== 'ativo' && fonte !== 'esp32') {
+          const r = window.FZDashboard.getCurrentReading();
+          const rotulo = fonte === 'forzy' ? 'Dataset Forzy' : fonte === 'sim' ? 'Simulado' : fonte === 'cloud' ? 'Forzy Cloud' : 'Dashboard';
+          const origem = fonte === 'forzy' ? 'dataset-forzy' : fonte === 'sim' ? 'simulado' : fonte === 'cloud' ? 'forzy-cloud' : 'dashboard';
+          if (r) {
+            const eixos = [];
+            if (r.m1_vel === r.m1_vel) eixos.push({ nome: 'Eixo 1', id: 'm1', pfx: 'dash_m1', vel: r.m1_vel || 0, temp: r.m1_temp || 0 });
+            if (r.m2_vel === r.m2_vel) eixos.push({ nome: 'Eixo 2', id: 'm2', pfx: 'dash_m2', vel: r.m2_vel || 0, temp: r.m2_temp || 0 });
+            if (eixos.length) {
+              // P1 antes de P2 pra mesma variável (precedência)
+              processarLimiteMultiEixo(rotulo, origem, eixos.map(e => ({ ...e, valor: e.vel  })), 'vel',  LIMITES_ISA[0], 'p1');
+              processarLimiteMultiEixo(rotulo, origem, eixos.map(e => ({ ...e, valor: e.vel  })), 'vel',  LIMITES_ISA[1], 'p2');
+              processarLimiteMultiEixo(rotulo, origem, eixos.map(e => ({ ...e, valor: e.temp })), 'temp', LIMITES_ISA[2], 'p1');
+              processarLimiteMultiEixo(rotulo, origem, eixos.map(e => ({ ...e, valor: e.temp })), 'temp', LIMITES_ISA[3], 'p2');
+            }
+          }
+        }
       }
     } catch(_) {}
   }
 
   let _topbarInicializado = false; // flag pra não disparar IA na 1ª checagem (baseline)
 
-  function adicionarAlerta(prioridade, titulo, msg, nivel, valor, unidade) {
+  function adicionarAlerta(prioridade, titulo, msg, nivel, valor, unidade, origem) {
     // chave baseada em msg para deduplicação estável
     const chave = prioridade + '|' + msg;
     if (alertas.some(a => a.chave === chave)) return;
@@ -198,7 +250,7 @@
 
     // só dispara IA após a 1ª checagem (evita falso positivo no carregamento da página)
     if (_topbarInicializado && window.FZAssistant && typeof window.FZAssistant.alertarNotificacao === 'function') {
-      window.FZAssistant.alertarNotificacao({ prioridade, titulo, msg, nivel, valor, unidade });
+      window.FZAssistant.alertarNotificacao({ prioridade, titulo, msg, nivel, valor, unidade, origem });
     }
   }
 
