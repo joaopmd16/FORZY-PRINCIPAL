@@ -80,6 +80,23 @@
       return { v1: F.m1.vel[i], t1: F.m1.temp[i], v2: F.m2.vel[i], t2: F.m2.temp[i],
                win1: window120(F.m1.vel, i), win2: window120(F.m2.vel, i) };
     }
+    // ESP32 ao vivo — 1 sensor só, mapeado no Eixo 1 (Eixo 2 fica sem leitura)
+    if (state.fonte === 'esp32') {
+      const h = (window.FZIoT && window.FZIoT.getHist()) || [];
+      const last = h.length ? h[h.length - 1] : null;
+      return { v1: last ? last.vel : 0, t1: last ? last.temp : 0, v2: NaN, t2: NaN,
+               win1: h.slice(-120).map(r => r.vel), win2: [] };
+    }
+    // Forzy Cloud — S1 no Eixo 1, S2 no Eixo 2 (coletas do daily_bridge.py)
+    if (state.fonte === 'cloud') {
+      const s1 = (window.FZCloud && window.FZCloud.getRows('s1')) || [];
+      const s2 = (window.FZCloud && window.FZCloud.getRows('s2')) || [];
+      const l1 = s1.length ? s1[s1.length - 1] : null;
+      const l2 = s2.length ? s2[s2.length - 1] : null;
+      return { v1: l1 ? l1.velocidade : 0, t1: l1 ? l1.temperatura : 0,
+               v2: l2 ? l2.velocidade : 0, t2: l2 ? l2.temperatura : 0,
+               win1: s1.slice(-120).map(r => r.velocidade), win2: s2.slice(-120).map(r => r.velocidade) };
+    }
     const mult = SIM[simModo] || 1;
     const v1 = Math.max(0, gauss(0.8 * mult, 0.18 * mult)), t1 = gauss(31, 1.5);
     const v2 = Math.max(0, gauss(0.9 * mult, 0.2 * mult)), t2 = gauss(32, 1.6);
@@ -90,6 +107,9 @@
   function window120(arr, i) { const a = Math.max(0, i - 120); return arr.slice(a, i + 1); }
 
   /* ----------  controles  ---------- */
+  const esp32Online = () => !!(window.FZIoT && window.FZIoT.isConnected());
+  const cloudCarregado = () => !!(window.FZCloud && window.FZCloud.isLoaded());
+
   function renderControls() {
     const c = el('inicioControls');
     if (!c) return;
@@ -98,6 +118,10 @@
         <div class="fz-seg" data-act="fonte">
           <button class="${state.fonte === 'forzy' ? 'active' : ''}" data-v="forzy">Dataset Forzy</button>
           <button class="${state.fonte === 'sim' ? 'active' : ''}" data-v="sim">Simulado</button>
+          <button class="${state.fonte === 'esp32' ? 'active' : ''}" data-v="esp32"
+            style="${esp32Online() ? 'color:var(--fz-ok)' : 'opacity:.55'}">⬤ ESP32</button>
+          <button class="${state.fonte === 'cloud' ? 'active' : ''}" data-v="cloud"
+            style="${cloudCarregado() ? 'color:var(--fz-ok)' : 'opacity:.55'}">⬤ Forzy Cloud</button>
         </div>
       </div>
       <div class="fz-field"><span>Auto-refresh</span>
@@ -159,6 +183,14 @@
         const pct = (state.idx / Math.max(N - 1, 1) * 100);
         prog.querySelector('.fill').style.width = pct.toFixed(1) + '%';
         prog.querySelector('.p-lbl').textContent = `Dataset Forzy · frame ${state.idx + 1}/${N} · ${timeLabel(state.idx)}`;
+      } else if (state.fonte === 'esp32' || state.fonte === 'cloud') {
+        prog.hidden = false;
+        prog.querySelector('.fill').style.width = '100%';
+        prog.querySelector('.p-lbl').textContent = state.fonte === 'esp32'
+          ? (esp32Online() ? 'ESP32 · ao vivo' : 'ESP32 · desconectado')
+          : (cloudCarregado()
+              ? `Forzy Cloud · ${(window.FZCloud.getRows('s1') || []).length} coleta(s)`
+              : 'Forzy Cloud · aguardando 1ª coleta do daily_bridge.py');
       } else { prog.hidden = true; }
     }
 
@@ -182,6 +214,15 @@
     const assets = el('inicioAssets');
     if (assets) {
       const motor = (nome, vel, temp, f, win) => {
+        // sem leitura (ex: ESP32 tem 1 sensor só) — não pode exibir NORMAL verde,
+        // que daria a entender que o eixo está sendo monitorado e está OK
+        if (vel == null || vel !== vel) {
+          return `<div class="fz-asset">
+            <div class="a-name">${nome}</div>
+            <div class="a-status" style="color:var(--text-3)">SEM LEITURA</div>
+            <div class="a-read" style="color:var(--text-3)">Esta fonte não fornece dados deste eixo.</div>
+          </div>`;
+        }
         const sp = sparkPath(win, VEL_ALM);
         const cls = ['fz-asset-ok', 'fz-asset-warn', 'fz-asset-bad'][f];
         const thresh = (sp.threshY != null && sp.threshY >= 0 && sp.threshY <= 48)
