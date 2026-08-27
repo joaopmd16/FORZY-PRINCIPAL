@@ -25,6 +25,7 @@
     dashboard: document.getElementById('screen-dashboard'),
     scada: document.getElementById('screen-scada'),
     iot: document.getElementById('screen-iot'),
+    copiloto: document.getElementById('screen-copiloto'),
     assistente: document.getElementById('screen-assistente'),
   };
   const navItems = document.querySelectorAll('.nav-item[data-screen]');
@@ -41,6 +42,7 @@
     navItems.forEach(b =>
       b.classList.toggle('active', b.dataset.screen === key));
     window.scrollTo({ top: 0 });
+    if (key === 'copiloto') window.FZCopiloto?.init();
     if (key === 'assistente') {
       window.FZChatScreen?.init();
       window.FZChatScreen?.ajustarAltura();

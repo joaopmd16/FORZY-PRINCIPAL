@@ -18,6 +18,7 @@
     pipeline:   'Sensores &amp; Automação › Pipeline',
     iot:        'Sensores &amp; Automação › IoT ao Vivo',
     scada:      'SCADA',
+    copiloto:   'Copiloto de Manutenção',
     assistente: 'Assistente IA',
   };
   const ROTULOS_ABA = { esp: 'Espectral', oper: 'Operacional', hist: 'Histórico', ml: 'Baseline ML' };
