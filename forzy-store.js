@@ -33,9 +33,10 @@
   function nowISO() { return new Date().toISOString(); }
   function nextId(t) { db.seq[t] = (db.seq[t] || 0) + 1; return db.seq[t]; }
 
-  /* ----------  seed (Dataset Forzy: 2 motores reais)  ----------
-     Os 2 motores do Dataset Forzy aparecem como ativos (Navegação, Cadastro,
-     Pipeline) e são totalmente editáveis. Marcados com origem:'forzy' para que
+  /* ----------  seed (Dataset Forzy: 1 motor · 2 eixos)  ----------
+     O motor do Dataset Forzy é monitorado em 2 eixos (Eixo 1 / Eixo 2), cada um
+     exposto como ativo (Navegação, Cadastro, Pipeline) e totalmente editável.
+     Marcados com origem:'forzy' para que
      o IoT/ESP NUNCA grave dados novos por cima deles (só leitura do histórico).
      O usuário cria seus próprios ativos (ex.: sensor ESP32) à parte. */
   function seed(d) {
@@ -58,7 +59,7 @@
     for (const at of ativos) d.ativos_industrial.push({ id: ++d.seq.ativos, criado_em: nowISO(), ...at });
 
     d.log_execucoes.push({ id: ++d.seq.logs, automacao: 'Carga Dataset Forzy', status: 'sucesso',
-      registros_proc: ativos.length, registros_erro: 0, detalhes: '2 motores do Dataset Forzy registrados', iniciado_em: nowISO() });
+      registros_proc: ativos.length, registros_erro: 0, detalhes: '1 motor do Dataset Forzy (2 eixos) registrado', iniciado_em: nowISO() });
     return d;
   }
 

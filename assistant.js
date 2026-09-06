@@ -213,7 +213,11 @@ Use SEMPRE esse contexto. Se o usuário perguntar "onde estou?" ou "o que é iss
     historico.push({ role: 'user', content: userContent });
 
     // gpt-4o-mini é multimodal — mesmo modelo atende texto e imagem
-    const msgs = [{ role: 'system', content: SYSTEM }, ...historico];
+    const ehOperador = !!(window.FZPerfil && window.FZPerfil.isOperador && window.FZPerfil.isOperador());
+    const sys = ehOperador
+      ? SYSTEM + `\n\n## Modo OPERADOR (chão de fábrica)\nResponda em no máximo 2 frases curtas. Veredito direto, linguagem simples, sem normas nem jargão (nada de ISO, ISA, Z-score). Diga o que fazer agora.`
+      : SYSTEM;
+    const msgs = [{ role: 'system', content: sys }, ...historico];
 
     const res = await fetch(OPENAI_URL, {
       method: 'POST',

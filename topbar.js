@@ -131,6 +131,7 @@
       prioridade, ativo, variavel, valor, unidade, status
     });
     if (logAlarmes.length > 200) logAlarmes.pop();
+    notificarAlertas();
   }
 
   // atualiza o estado de histerese; devolve true só no instante em que ACABA de cruzar
@@ -151,6 +152,9 @@
         registrarLogEvento(limite.prioridade, ativo, variavel, valor, limite.unidade, 'NORMALIZADO');
         const idx = alertas.findIndex(a => a.chave === chave);
         if (idx !== -1) { alertas.splice(idx, 1); renderSininho(); }
+        // tira a faixa amarela (P2) da tela ao normalizar. O modal vermelho (P1)
+        // continua até o operador Reconhecer — de propósito (ISA-18.2).
+        if (window.FZAlertaCritico) window.FZAlertaCritico.limpar();
       }
     }
     return false;
@@ -158,7 +162,7 @@
 
   function processarLimite(chave, ativo, variavel, valor, limite, origem) {
     if (cruzouAgora(chave, ativo, variavel, valor, limite)) {
-      adicionarAlerta(limite.prioridade, limite.titulo, `${ativo}: ${variavel === 'vel' ? 'Vibração' : 'Temperatura'} ${valor.toFixed(variavel === 'vel' ? 2 : 1)} ${limite.unidade}`, limite.nivel, valor, limite.unidade, origem);
+      adicionarAlerta(limite.prioridade, limite.titulo, `${ativo}: ${variavel === 'vel' ? 'Vibração' : 'Temperatura'} ${valor.toFixed(variavel === 'vel' ? 2 : 1)} ${limite.unidade}`, limite.nivel, valor, limite.unidade, origem, null, variavel);
     }
   }
 
@@ -177,7 +181,8 @@
     // mostra). Os dois juntos → um único alerta na conversa da fonte, que o modal
     // aberto espelha via FZChatScreen.onAlerta.
     const destino = cruzaram.length === 1 ? `${origem}:${cruzaram[0].id}` : origem;
-    adicionarAlerta(limite.prioridade, limite.titulo, `${rotulo} — ${partes}`, limite.nivel, cruzaram[0].valor, limite.unidade, destino);
+    const eixoAlvo = cruzaram.length === 1 ? cruzaram[0].id : null;
+    adicionarAlerta(limite.prioridade, limite.titulo, `${rotulo} — ${partes}`, limite.nivel, cruzaram[0].valor, limite.unidade, destino, eixoAlvo, campo);
   }
 
   function checarAlertas() {
@@ -238,19 +243,29 @@
 
   let _topbarInicializado = false; // flag pra não disparar IA na 1ª checagem (baseline)
 
-  function adicionarAlerta(prioridade, titulo, msg, nivel, valor, unidade, origem) {
+  function adicionarAlerta(prioridade, titulo, msg, nivel, valor, unidade, origem, eixo, variavel) {
     // chave baseada em msg para deduplicação estável
     const chave = prioridade + '|' + msg;
     if (alertas.some(a => a.chave === chave)) return;
 
     const hora = new Date().toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' });
-    alertas.unshift({ prioridade, titulo, msg, nivel, hora, chave, valor, unidade });
+    // origem/eixo/variavel viajam junto: são o que permite o rail de alertas fazer
+    // deep-link pra Vista 3D, Assistente e OS sem recalcular nada.
+    alertas.unshift({ prioridade, titulo, msg, nivel, hora, chave, valor, unidade,
+                      origem, eixo, variavel, ts: new Date().toISOString() });
     if (alertas.length > 20) alertas.pop();
     renderSininho();
 
     // só dispara IA após a 1ª checagem (evita falso positivo no carregamento da página)
     if (_topbarInicializado && window.FZAssistant && typeof window.FZAssistant.alertarNotificacao === 'function') {
       window.FZAssistant.alertarNotificacao({ prioridade, titulo, msg, nivel, valor, unidade, origem });
+    }
+
+    // Alerta "na cara": P1 → modal persistente que exige Reconhecer; P2 → faixa no topo
+    if (_topbarInicializado && window.FZAlertaCritico) {
+      const payload = { prioridade, titulo, msg, nivel, valor, unidade, origem, eixo, variavel };
+      if (String(prioridade).indexOf('P1') === 0) window.FZAlertaCritico.disparar(payload);
+      else                                        window.FZAlertaCritico.faixa(payload);
     }
   }
 
@@ -303,7 +318,26 @@
     panel.querySelector('#tbp-export-csv')?.addEventListener('click', e => {
       e.stopPropagation(); exportarLogCSV();
     });
+    notificarAlertas();
   }
+
+  /* ---- API pública dos alertas (consumida pelo rail lateral) ---- */
+  const _obsAlertas = [];
+  function notificarAlertas() {
+    _obsAlertas.forEach(fn => { try { fn(alertas, logAlarmes); } catch (_) {} });
+  }
+  window.FZAlertas = {
+    ativos:    () => alertas.slice(),
+    historico: () => logAlarmes.slice(),
+    onChange(fn) { if (typeof fn === 'function') { _obsAlertas.push(fn); fn(alertas, logAlarmes); } },
+    reconhecer(chave) {
+      const i = alertas.findIndex(a => a.chave === chave);
+      if (i !== -1) { alertas.splice(i, 1); renderSininho(); }
+      if (window.FZAlertaCritico) window.FZAlertaCritico.limpar(chave);
+    },
+    limparTodos() { alertas.length = 0; renderSininho(); if (window.FZAlertaCritico) window.FZAlertaCritico.limpar(); },
+    exportarCSV: exportarLogCSV,
+  };
 
   function iniciarSininho() {
     const bell = document.getElementById('topbar-bell');
@@ -341,15 +375,36 @@
     const info = document.getElementById('topbar-user-info');
     if (!btn || !menu) return;
 
+    const perfilBtn = document.getElementById('topbar-perfil-toggle');
+
+    function perfilAtual() { return (window.FZPerfil && window.FZPerfil.get()) || 'admin'; }
+    function atualizarPerfilBtn() {
+      if (!perfilBtn) return;
+      const p = perfilAtual();
+      perfilBtn.innerHTML = 'Visão: <b>' + (p === 'operador' ? 'Operador' : 'Analista') + '</b>';
+    }
+
     function atualizarInfo() {
       try {
         const user = JSON.parse(localStorage.getItem('fz-user') || '{}');
-        if (info) info.innerHTML = user.email
+        const p = perfilAtual();
+        const perfilLbl = `<div style="font-size:10px;color:var(--teal,#8aa9c9);text-transform:uppercase;letter-spacing:.5px;margin-top:2px">Visão ${p === 'operador' ? 'Operador' : 'Analista'}</div>`;
+        if (info) info.innerHTML = (user.email
           ? `<div style="font-weight:600;font-size:13px;color:#fff">${user.nome || 'Usuário'}</div>
              <div style="font-size:11px;color:rgba(255,255,255,.45)">${user.email}</div>`
-          : `<div style="font-size:12px;color:rgba(255,255,255,.4)">Não autenticado</div>`;
+          : `<div style="font-size:12px;color:rgba(255,255,255,.4)">Não autenticado</div>`) + perfilLbl;
       } catch(_) {}
+      atualizarPerfilBtn();
     }
+
+    if (perfilBtn) {
+      perfilBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        if (window.FZPerfil) window.FZPerfil.toggle();
+        atualizarInfo();
+      });
+    }
+    document.addEventListener('fz-perfil-change', atualizarInfo);
 
     btn.addEventListener('click', e => {
       e.stopPropagation();

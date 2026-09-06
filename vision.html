@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Vision — Marketing Dashboard</title>
-<link rel="stylesheet" href="styles.css?v=24">
+<link rel="stylesheet" href="styles.css?v=26">
 <style>
 /* v2 — Início simplificado: some com a barra de KPIs técnicos e os
    cards de Sensor/Dataset, deixando só o status dos motores em destaque. */
@@ -39,14 +39,11 @@
       <button class="nav-item" data-screen="cadastro">
         <i data-lucide="clipboard-list"></i><span class="lbl">Ativos</span>
       </button>
-      <button class="nav-item" data-screen="iot">
+      <button class="nav-item" data-screen="iot" data-perfil="admin">
         <i data-lucide="cpu"></i><span class="lbl">Sensores &amp; Automação</span>
       </button>
-      <button class="nav-item" data-screen="copiloto">
-        <i data-lucide="clipboard-check"></i><span class="lbl">Copiloto de Manutenção</span>
-      </button>
       <button class="nav-item" data-screen="assistente">
-        <i data-lucide="bot"></i><span class="lbl">Assistente IA</span><span class="fz-nav-dot" id="navAssistenteDot"></span>
+        <i data-lucide="bot"></i><span class="lbl">Assistente + Manutenção</span><span class="fz-nav-dot" id="navAssistenteDot"></span>
       </button>
     </nav>
 
@@ -75,12 +72,22 @@
         <span id="topbar-bell-dot" style="display:none"></span>
         <div id="topbar-bell-panel"></div>
       </div>
+      <button class="pill-card fz-visao" id="fzVisaoToggle" type="button" role="switch" aria-checked="true"
+              title="Alterna entre a visão do Operador (simples e direta) e a do Analista (completa)">
+        <span class="fz-visao-col">
+          <span class="fz-visao-lbl">Visão</span>
+          <span class="fz-visao-txt">Analista</span>
+        </span>
+        <span class="fz-visao-track"><span class="fz-visao-knob"></span></span>
+      </button>
       <div style="position:relative">
         <button class="avatar-card" id="topbar-account" title="Conta">
           <i data-lucide="user"></i>
         </button>
         <div id="topbar-account-menu" style="display:none">
           <div id="topbar-user-info"></div>
+          <hr style="border-color:rgba(255,255,255,.08);margin:6px 0">
+          <button id="topbar-perfil-toggle" title="Alterna entre a visão do operador e a do admin">Modo: <b>Admin</b></button>
           <hr style="border-color:rgba(255,255,255,.08);margin:6px 0">
           <button id="topbar-edit-profile">Editar perfil</button>
           <button id="topbar-signout">Sair</button>
@@ -105,7 +112,7 @@
         <div class="fz-tabs" id="fzTabs">
           <button class="fz-tab active" data-tab="mon">Monitoramento</button>
           <button class="fz-tab" data-tab="hist">Histórico</button>
-          <button class="fz-tab" data-tab="ml">Baseline ML</button>
+          <button class="fz-tab" data-tab="ml" data-perfil="admin">Baseline ML</button>
         </div>
 
         <div class="fz-panel active" data-panel="mon"  id="fzPanel-mon"></div>
@@ -340,25 +347,35 @@
         <details class="fz-details" id="iotHelp"></details>
       </div>
     </section>
-    <!-- ===================  COPILOTO DE MANUTENÇÃO  =================== -->
-    <section class="screen" id="screen-copiloto">
+    <!-- ===================  ASSISTENTE + MANUTENÇÃO  =================== -->
+    <section class="screen" id="screen-assistente">
       <div class="fz-dash">
-        <div class="page-head">
-          <div>
-            <div class="fz-eyebrow">Forzy · Manutenção Preditiva</div>
-            <h1 class="page-title">Copiloto de Manutenção</h1>
-            <div class="fz-hero-sub">Diagnóstico automático do modo de falha + Ordem de Serviço gerada</div>
-          </div>
+        <div class="fz-tabs" id="fzAssistTabs">
+          <button class="fz-tab active" data-atab="conversa">Conversa</button>
+          <button class="fz-tab" data-atab="os">Diagnóstico &amp; OS</button>
         </div>
-        <div id="copilotoRoot"></div>
+        <div class="fz-panel active" data-apanel="conversa" id="fzAssistPanel-conversa">
+          <div id="fz-chat-screen"></div>
+        </div>
+        <div class="fz-panel" data-apanel="os" id="fzAssistPanel-os">
+          <div class="page-head">
+            <div>
+              <div class="fz-eyebrow">Forzy · Manutenção Preditiva</div>
+              <h1 class="page-title">Diagnóstico &amp; Ordem de Serviço</h1>
+              <div class="fz-hero-sub">Diagnóstico automático do modo de falha + Ordem de Serviço gerada</div>
+            </div>
+          </div>
+          <div id="copilotoRoot"></div>
+        </div>
       </div>
     </section>
-
-    <!-- ===================  ASSISTENTE IA  =================== -->
-    <section class="screen" id="screen-assistente">
-      <div id="fz-chat-screen"></div>
-    </section>
   </main>
+
+  <!-- ----------  RAIL DE ALERTAS (coluna direita)  ---------- -->
+  <aside class="fz-alert-rail" id="fzAlertRail" aria-label="Log de alertas">
+    <button class="fz-rail-toggle" id="fzRailToggle" type="button" title="Recolher painel de alertas">›</button>
+    <div class="fz-rail-body" id="fzAlertRailBody"></div>
+  </aside>
 </div>
 
 <!-- ===================  LOGIN  =================== -->
@@ -415,19 +432,22 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script src="data/forzy-data.js"></script>
-<script src="forzy-store.js?v=3"></script>
-<script src="forzy.js?v=11"></script>
+<script src="forzy-store.js?v=4"></script>
+<script src="forzy.js?v=12"></script>
 <script src="inicio.js?v=5"></script>
 <script src="cadastro.js?v=9"></script>
 <script src="gestao.js?v=6"></script>
-<script src="scada.js"></script>
+<script src="scada.js?v=1"></script>
 <script src="iot.js?v=5"></script>
-<script src="topbar.js?v=6"></script>
-<script src="app.js?v=5"></script>
-<script src="nav-v2.js?v=2"></script>
+<script src="perfil.js?v=3"></script>
+<script src="topbar.js?v=9"></script>
+<script src="app.js?v=6"></script>
+<script src="nav-v2.js?v=3"></script>
 <script src="config.js"></script>
-<script src="assistant.js?v=9"></script>
-<script src="assistente-screen.js?v=10"></script>
-<script src="copiloto.js?v=1"></script>
+<script src="assistant.js?v=10"></script>
+<script src="assistente-screen.js?v=11"></script>
+<script src="alerta-critico.js?v=1"></script>
+<script src="alert-rail.js?v=2"></script>
+<script src="copiloto.js?v=3"></script>
 </body>
 </html>

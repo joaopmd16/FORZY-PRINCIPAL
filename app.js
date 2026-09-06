@@ -25,16 +25,38 @@
     dashboard: document.getElementById('screen-dashboard'),
     scada: document.getElementById('screen-scada'),
     iot: document.getElementById('screen-iot'),
-    copiloto: document.getElementById('screen-copiloto'),
     assistente: document.getElementById('screen-assistente'),
   };
   const navItems = document.querySelectorAll('.nav-item[data-screen]');
+
+  /* ----------  PERFIL (operador × admin)  ---------- */
+  // telas/itens marcados data-perfil="admin" somem no modo operador.
+  const ADMIN_ONLY = new Set();
+  document.querySelectorAll('.nav-item[data-perfil="admin"]').forEach(b => ADMIN_ONLY.add(b.dataset.screen));
+
+  function ehOperador() { return !!(window.FZPerfil && window.FZPerfil.isOperador()); }
+
+  function aplicarPerfilNav() {
+    const op = ehOperador();
+    document.querySelectorAll('[data-perfil="admin"]').forEach(elm => {
+      elm.hidden = op;
+      elm.style.display = op ? 'none' : '';
+    });
+    // se o operador está numa tela restrita, joga pro Início
+    if (op) {
+      const atual = document.querySelector('.nav-item.active');
+      if (atual && ADMIN_ONLY.has(atual.dataset.screen)) showScreen('inicio');
+    }
+  }
+  document.addEventListener('fz-perfil-change', aplicarPerfilNav);
 
   function showScreen(name) {
     // aceita tanto 'inicio' quanto 'screen-inicio'
     const key = name.replace('screen-', '');
     if (key === 'login') { showLogin(); return; }
     if (!sections[key]) return;
+    // operador não acessa telas só-admin
+    if (ehOperador() && ADMIN_ONLY.has(key)) return;
     appShell.style.display = 'grid';
     loginScreen.classList.remove('active');
     Object.entries(sections).forEach(([k, el]) =>
@@ -42,10 +64,10 @@
     navItems.forEach(b =>
       b.classList.toggle('active', b.dataset.screen === key));
     window.scrollTo({ top: 0 });
-    if (key === 'copiloto') window.FZCopiloto?.init();
     if (key === 'assistente') {
       window.FZChatScreen?.init();
       window.FZChatScreen?.ajustarAltura();
+      window.FZCopiloto?.init();
       document.getElementById('navAssistenteDot')?.classList.remove('show');
     }
   }
@@ -81,9 +103,21 @@
 
   window.showLogin = showLogin;
 
+  /* Assistente + Manutenção — abas internas (Conversa / Diagnóstico & OS) */
+  const assistTabs = document.querySelectorAll('#fzAssistTabs .fz-tab[data-atab]');
+  assistTabs.forEach(b => b.addEventListener('click', () => {
+    const alvo = b.dataset.atab;
+    assistTabs.forEach(x => x.classList.toggle('active', x === b));
+    document.querySelectorAll('#screen-assistente .fz-panel[data-apanel]').forEach(p =>
+      p.classList.toggle('active', p.dataset.apanel === alvo));
+    if (alvo === 'os') window.FZCopiloto?.init();
+    if (alvo === 'conversa') window.FZChatScreen?.ajustarAltura();
+  }));
+
   /* ----------  ESTADO INICIAL  ---------- */
   appShell.style.display = 'grid';
   localStorage.setItem('fz-logged', '1');
+  aplicarPerfilNav();
 
   /* ----------  ICONS  ---------- */
   if (window.lucide) lucide.createIcons();

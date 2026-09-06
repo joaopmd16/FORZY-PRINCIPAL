@@ -22,35 +22,75 @@
       m2v: pick(F.m2.vel), m2a: pick(F.m2.acel), m2t: pick(F.m2.temp) };
   })();
 
-  const st = { fidx: 0, playing: false, speed: 200, timer: null, yaw1: 0.6, pitch1: -0.5, yaw2: 0.6, pitch2: -0.5, drag: null, drawReq: false };
+  const st = { fidx: 0, playing: false, speed: 200, timer: null, yaw1: 0.6, pitch1: -0.5, yaw2: 0.6, pitch2: -0.5, drag: null, drawReq: false, live: false, liveTimer: null };
   function tlabel(i) { return new Date(T0 + DS.t[i] * 1000).toLocaleTimeString('pt-BR', { hour12: false }); }
   function rowAt(i) { return { v1: DS.m1v[i], a1: DS.m1a[i], t1: DS.m1t[i], v2: DS.m2v[i], a2: DS.m2a[i], t2: DS.m2t[i] }; }
+
+  // Fonte da 2D/3D/alertas: no modo "Ao vivo" segue a leitura atual do Monitoramento
+  // (ESP32 / Ativo / Simulado / Forzy Cloud); senão usa o frame do dataset (playback).
+  const num = (v, d) => (v == null || isNaN(v)) ? (d || 0) : +v;
+  function liveRow() {
+    const d = window.FZDashboard;
+    if (!st.live || !d || typeof d.getCurrentReading !== 'function') return rowAt(st.fidx);
+    const r = d.getCurrentReading() || {};
+    // Eixo 2 pode vir NaN (ex.: ESP32 = 1 sensor) → cai pro Eixo 1
+    return {
+      v1: num(r.m1_vel), a1: num(r.m1_acel), t1: num(r.m1_temp, 25),
+      v2: num(r.m2_vel, num(r.m1_vel)), a2: num(r.m2_acel, num(r.m1_acel)), t2: num(r.m2_temp, num(r.m1_temp, 25)),
+    };
+  }
+  const liveFonteLbl = () => {
+    const f = window.FZDashboard && window.FZDashboard.getFonte && window.FZDashboard.getFonte();
+    return ({ esp32: 'ESP32 ao vivo', ativo: 'Ativo cadastrado', sim: 'Simulado', cloud: 'Forzy Cloud', forzy: 'Dataset Forzy' })[f] || '—';
+  };
+  const fonteAoVivoOk = () => {
+    const f = window.FZDashboard && window.FZDashboard.getFonte && window.FZDashboard.getFonte();
+    return f === 'esp32' || f === 'ativo' || f === 'sim' || f === 'cloud';
+  };
 
   /* ----------  player bar  ---------- */
   function renderPlayer() {
     const p = el('scadaPlayer'); if (!p) return;
-    p.innerHTML = `<div class="scada-player">
-      <button class="fz-btn ghost sp-btn" data-act="reset" title="Reiniciar">⏮</button>
-      <button class="fz-btn sp-btn" data-act="play" title="Play">▶</button>
-      <button class="fz-btn ghost sp-btn" data-act="pause" title="Pause">⏸</button>
-      <select class="fz-select" data-act="speed">
-        ${[50, 100, 200, 300, 500].map(s => `<option value="${s}" ${s === st.speed ? 'selected' : ''}>${s} ms</option>`).join('')}
-      </select>
-      <input class="fz-range" type="range" min="0" max="${DS.n - 1}" value="${st.fidx}" data-act="scrub" style="flex:1">
-      <span class="sp-time" id="spTime">${tlabel(st.fidx)}</span>
-    </div>`;
-    p.querySelector('[data-act="reset"]').addEventListener('click', () => { st.fidx = 0; st.playing = false; sync(); render(); });
-    p.querySelector('[data-act="play"]').addEventListener('click', () => { if (st.fidx >= DS.n - 1) st.fidx = 0; st.playing = true; startTimer(); });
-    p.querySelector('[data-act="pause"]').addEventListener('click', () => { st.playing = false; });
-    p.querySelector('[data-act="speed"]').addEventListener('change', e => { st.speed = +e.target.value; startTimer(); });
-    p.querySelector('[data-act="scrub"]').addEventListener('input', e => { st.fidx = +e.target.value; st.playing = false; render(); });
+    const liveCtrls = `
+      <button class="fz-btn ${st.live ? '' : 'ghost'} sp-btn" data-act="live" title="Seguir a fonte ao vivo do Monitoramento" style="${st.live ? 'background:var(--fz-ok);color:#0b1f14' : ''}">${st.live ? '● AO VIVO' : 'Ao vivo'}</button>`;
+    if (st.live) {
+      const ok = fonteAoVivoOk();
+      p.innerHTML = `<div class="scada-player">
+        ${liveCtrls}
+        <span class="sp-time" style="flex:1;${ok ? '' : 'color:var(--fz-warn)'}">
+          ${ok ? 'Fonte: ' + liveFonteLbl() : 'Selecione uma fonte ao vivo no Monitoramento (ESP32 / Ativo / Simulado / Cloud)'}
+        </span>
+        <span class="sp-time" id="spTime">${new Date().toLocaleTimeString('pt-BR', { hour12: false })}</span>
+      </div>`;
+    } else {
+      p.innerHTML = `<div class="scada-player">
+        ${liveCtrls}
+        <button class="fz-btn ghost sp-btn" data-act="reset" title="Reiniciar">⏮</button>
+        <button class="fz-btn sp-btn" data-act="play" title="Play">▶</button>
+        <button class="fz-btn ghost sp-btn" data-act="pause" title="Pause">⏸</button>
+        <select class="fz-select" data-act="speed">
+          ${[50, 100, 200, 300, 500].map(s => `<option value="${s}" ${s === st.speed ? 'selected' : ''}>${s} ms</option>`).join('')}
+        </select>
+        <input class="fz-range" type="range" min="0" max="${DS.n - 1}" value="${st.fidx}" data-act="scrub" style="flex:1">
+        <span class="sp-time" id="spTime">${tlabel(st.fidx)}</span>
+      </div>`;
+      p.querySelector('[data-act="reset"]').addEventListener('click', () => { st.fidx = 0; st.playing = false; sync(); render(); });
+      p.querySelector('[data-act="play"]').addEventListener('click', () => { if (st.fidx >= DS.n - 1) st.fidx = 0; st.playing = true; startTimer(); });
+      p.querySelector('[data-act="pause"]').addEventListener('click', () => { st.playing = false; });
+      p.querySelector('[data-act="speed"]').addEventListener('change', e => { st.speed = +e.target.value; startTimer(); });
+      p.querySelector('[data-act="scrub"]').addEventListener('input', e => { st.fidx = +e.target.value; st.playing = false; render(); });
+    }
+    p.querySelector('[data-act="live"]').addEventListener('click', () => {
+      st.live = !st.live; st.playing = false;
+      renderPlayer(); startTimer(); render();
+    });
   }
   function sync() { const s = el('scadaPlayer'); if (!s) return; const r = s.querySelector('[data-act="scrub"]'); if (r) r.value = st.fidx; const t = el('spTime'); if (t) t.textContent = tlabel(st.fidx); }
 
   /* ----------  alertas  ---------- */
   function renderAlerts() {
     const box = el('scadaAlerts'); if (!box) return;
-    const r = rowAt(st.fidx);
+    const r = liveRow();
     const [cOk, cW, cB] = COR();
     const banner = (nome, temp, vel, acel) => {
       const ft = flag(temp, TH.tempA, TH.tempAl), fv = flag(vel, TH.velA, TH.velAl);
@@ -64,7 +104,7 @@
   /* ----------  Planta 2D (SVG)  ---------- */
   function render2D() {
     const p = el('scada2d'); if (!p) return;
-    const r = rowAt(st.fidx);
+    const r = liveRow();
     const [cOk, cW, cB] = COR();
     const cols = [cOk, cW, cB];
     const f1 = Math.max(flag(r.t1, TH.tempA, TH.tempAl), flag(r.v1, TH.velA, TH.velAl));
@@ -232,7 +272,7 @@
   }
 
   function showMotorInfo(motorIdx) {
-    const r = rowAt(st.fidx);
+    const r = liveRow();
     const [cOk, cW, cB] = COR();
     const SLABEL = ['Normal', 'Alerta', 'Alarme'];
     const SCOL = [cOk, cW, cB];
@@ -295,7 +335,7 @@
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const W = cssW, H = cssH;
     ctx.clearRect(0, 0, W, H);
-    const r = rowAt(st.fidx);
+    const r = liveRow();
     const [cOk, cW, cB] = COR();
     const status1 = Math.max(flag(r.t1, TH.tempA, TH.tempAl), flag(r.v1, TH.velA, TH.velAl));
     const status2 = Math.max(flag(r.t2, TH.tempA, TH.tempAl), flag(r.v2, TH.velA, TH.velAl));
@@ -400,6 +440,17 @@
   }
   function startTimer() {
     if (st.timer) clearInterval(st.timer);
+    if (st.liveTimer) { clearInterval(st.liveTimer); st.liveTimer = null; }
+    if (st.live) {
+      // modo ao vivo: só refaz render seguindo a fonte do Monitoramento
+      st.liveTimer = setInterval(() => {
+        if (!scadaOn() || !st.live) return;
+        const t = el('spTime');
+        if (t) t.textContent = new Date().toLocaleTimeString('pt-BR', { hour12: false });
+        render();
+      }, 1000);
+      return;
+    }
     st.timer = setInterval(() => {
       if (!st.playing || !scadaOn()) return;
       st.fidx = Math.min(st.fidx + 1, DS.n - 1);
@@ -421,4 +472,16 @@
     renderPlayer(); render(); startTimer(); loadRealMesh();
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+
+  // API pública — usada pelo modal de alerta crítico ("Ver na Vista 3D")
+  window.FZScada = {
+    show3D(eixoIdx) {
+      if (typeof window.showScreen === 'function') window.showScreen('scada');
+      switchTab('p3d');
+      // showMotorInfo é 1-based (Eixo 1 / Eixo 2); aceita 2, '2' ou 'm2'
+      const s = String(eixoIdx).toLowerCase();
+      const motor = (s === '2' || s === 'm2') ? 2 : 1;
+      try { showMotorInfo(motor); } catch (_) {}
+    }
+  };
 })();

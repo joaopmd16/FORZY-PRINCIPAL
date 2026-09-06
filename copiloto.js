@@ -255,6 +255,54 @@
 
     const trendTxt = _diag.tendencia > 0.15 ? '↑ piorando' : _diag.tendencia < -0.15 ? '↓ melhorando' : '→ estável';
 
+    const ehOperador = !!(window.FZPerfil && window.FZPerfil.isOperador && window.FZPerfil.isOperador());
+    if (ehOperador) {
+      const pior = _diag.evidencias.reduce((m, e) => (e.v >= e.lim.al ? 3 : e.v >= e.lim.a ? 2 : 1) > m.n
+        ? { n: (e.v >= e.lim.al ? 3 : e.v >= e.lim.a ? 2 : 1), e } : m, { n: 0, e: null });
+      const veredito = _diag.key === 'normal'
+        ? 'Motor OK. Nada a fazer agora.'
+        : `Motor com problema: ${esc(_diag.modo.toLowerCase())}.`;
+      const acao = _diag.acoes[0] ? esc(_diag.acoes[0]) : 'Chamar a manutenção.';
+      _root.innerHTML = `
+        <div class="fz-cop-controls fz-card">
+          <label>Eixo
+            <select id="copEixo">
+              <option value="m1" ${_eixo === 'm1' ? 'selected' : ''}>Eixo 1</option>
+              <option value="m2" ${_eixo === 'm2' ? 'selected' : ''}>Eixo 2</option>
+            </select>
+          </label>
+          <label>Ativo
+            <select id="copAtivo">
+              ${ativos.length
+                ? ativos.map(a => `<option value="${esc(a.codigo)}" ${a.codigo === _ativo ? 'selected' : ''}>${esc(a.codigo)} — ${esc(a.descricao || '')}</option>`).join('')
+                : '<option value="">(nenhum ativo cadastrado)</option>'}
+            </select>
+          </label>
+          <button class="fz-btn" id="copRefresh">Recalcular</button>
+        </div>
+        <div class="fz-card fz-cop-diag">
+          <div class="fz-cop-modo" style="color:${corPrio}">${veredito}</div>
+          ${pior.e ? `<p class="fz-cop-causa">${esc(pior.e.k)}: <b>${fmt(pior.e.v)} ${esc(pior.e.unit)}</b> — ${pior.n === 3 ? 'muito alto' : pior.n === 2 ? 'acima do normal' : 'normal'}.</p>` : ''}
+          <p class="fz-cop-causa"><b>O que fazer:</b> ${acao}</p>
+        </div>
+        <div class="fz-cop-cta">
+          <button class="fz-btn fz-btn-primary" id="copGerar">Gerar Ordem de Serviço</button>
+        </div>
+        <div id="copOSHost"></div>
+        <div class="fz-card fz-cop-hist">
+          <div class="fz-card-title">Histórico de OS (${lerLog().length})</div>
+          <div id="copHistBody"></div>
+        </div>
+      `;
+      _root.querySelector('#copEixo').addEventListener('change', e => { _eixo = e.target.value; render(); });
+      _root.querySelector('#copAtivo').addEventListener('change', e => { _ativo = e.target.value; });
+      _root.querySelector('#copRefresh').addEventListener('click', render);
+      _root.querySelector('#copGerar').addEventListener('click', gerarOS);
+      renderHist();
+      if (_os) renderOS();
+      return;
+    }
+
     _root.innerHTML = `
       <div class="fz-cop-controls fz-card">
         <label>Eixo
@@ -476,10 +524,14 @@
     if (!key) { toast('Configure config.js'); return; }
     btn.disabled = true; btn.textContent = 'Consultando IA…';
     try {
-      const prompt = `Você é um engenheiro de manutenção preditiva de bombas centrífugas. ` +
-        `A partir da Ordem de Serviço abaixo, gere um complemento técnico curto (máx. 180 palavras) em português: ` +
-        `confirme ou ajuste o modo de falha, cite 2-3 verificações adicionais objetivas e o risco de não agir. ` +
-        `Não repita o texto da OS.\n\n${osTexto()}`;
+      const ehOperador = !!(window.FZPerfil && window.FZPerfil.isOperador && window.FZPerfil.isOperador());
+      const prompt = ehOperador
+        ? `Você fala com um operador de chão de fábrica. A partir da Ordem de Serviço abaixo, responda em no máximo 3 frases curtas, ` +
+          `sem jargão: o que fazer primeiro, o que checar e o risco de não agir. Não repita o texto da OS.\n\n${osTexto()}`
+        : `Você é um engenheiro de manutenção preditiva de bombas centrífugas. ` +
+          `A partir da Ordem de Serviço abaixo, gere um complemento técnico curto (máx. 180 palavras) em português: ` +
+          `confirme ou ajuste o modo de falha, cite 2-3 verificações adicionais objetivas e o risco de não agir. ` +
+          `Não repita o texto da OS.\n\n${osTexto()}`;
       const res = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
@@ -529,5 +581,18 @@
     if (window.lucide) lucide.createIcons();
   }
 
-  window.FZCopiloto = { init, render };
+  // deep-link do rail de alertas: abre a tela unificada na aba "Diagnóstico & OS"
+  // já com o eixo/ativo do alarme selecionado e o diagnóstico recalculado.
+  function abrirPara(eixo, ativoCod) {
+    if (eixo === 'm1' || eixo === 'm2') _eixo = eixo;
+    if (ativoCod) _ativo = ativoCod;
+    _os = null;
+    if (typeof window.showScreen === 'function') window.showScreen('assistente');
+    const aba = document.querySelector('#fzAssistTabs .fz-tab[data-atab="os"]');
+    if (aba) aba.click();
+    init();
+    render();
+  }
+
+  window.FZCopiloto = { init, render, abrirPara };
 })();

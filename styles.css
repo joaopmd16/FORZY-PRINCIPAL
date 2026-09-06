@@ -1921,3 +1921,275 @@ html[data-theme='dark'] .panel {
   border-radius:10px; padding:11px 18px; font-size:13px; font-weight:600; opacity:0; pointer-events:none;
   transition:opacity .2s, transform .2s; z-index:9999; }
 .fz-cop-toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+
+/* ===================================================================
+   PRIORIDADE ALTA — alerta "na cara", faixa P2, chavinha de perfil
+   (perfil.js · alerta-critico.js · topbar.js)
+   =================================================================== */
+
+/* ---- Modal crítico P1 (persistente, exige Reconhecer) ---- */
+#fz-alerta-critico{ position:fixed; inset:0; z-index:100000; display:flex;
+  align-items:center; justify-content:center; background:rgba(0,0,0,.62);
+  backdrop-filter:blur(2px); padding:24px; }
+.fz-ac-box{ width:min(560px,100%); background:var(--card); border:1px solid var(--fz-bad);
+  border-radius:14px; box-shadow:0 24px 60px rgba(0,0,0,.5); overflow:hidden;
+  animation:fzAcIn .18s ease-out; }
+@keyframes fzAcIn{ from{ opacity:0; transform:translateY(12px) scale(.98); } to{ opacity:1; transform:none; } }
+.fz-ac-head{ background:var(--fz-bad); color:#fff; padding:14px 18px; display:flex;
+  align-items:center; gap:12px; flex-wrap:wrap; }
+.fz-ac-head strong{ font-size:15px; font-weight:800; }
+.fz-ac-badge{ background:rgba(0,0,0,.22); color:#fff; font-size:11px; font-weight:800;
+  letter-spacing:.04em; padding:3px 9px; border-radius:999px; }
+.fz-ac-body{ padding:18px; color:var(--text); font-size:13.5px; line-height:1.6; }
+.fz-ac-verdito{ font-size:16px; font-weight:700; margin:0 0 8px; color:var(--text); }
+.fz-ac-sub{ margin:0; color:var(--text-2); font-size:12.5px; }
+.fz-ac-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:10px 18px; margin-bottom:12px; }
+.fz-ac-grid > div{ display:flex; flex-direction:column; }
+.fz-ac-grid span{ font-size:10.5px; font-weight:700; text-transform:uppercase;
+  letter-spacing:.04em; color:var(--text-2); }
+.fz-ac-grid b{ font-size:13.5px; color:var(--text); }
+.fz-ac-linha{ margin:8px 0 0; font-size:12.5px; line-height:1.6; color:var(--text); }
+.fz-ac-nav{ padding:0 18px 6px; font-size:12px; color:var(--text-2); display:flex; align-items:center; gap:8px; }
+.fz-ac-nav button{ background:var(--field); color:var(--text); border:1px solid var(--hairline);
+  border-radius:7px; width:26px; height:26px; cursor:pointer; }
+.fz-ac-nav button:disabled{ opacity:.4; cursor:default; }
+.fz-ac-actions{ display:flex; flex-wrap:wrap; gap:10px; padding:14px 18px 18px;
+  border-top:1px solid var(--hairline); }
+.fz-ac-btn{ flex:1; min-width:130px; padding:10px 14px; border-radius:9px; font-size:13px;
+  font-weight:700; cursor:pointer; border:1px solid var(--hairline); background:var(--field); color:var(--text); }
+.fz-ac-btn.ghost:hover{ border-color:var(--teal); }
+.fz-ac-btn.primary{ background:var(--fz-bad); color:#fff; border-color:var(--fz-bad); }
+
+/* ---- Faixa P2 (amarela, não bloqueante, topo) ---- */
+#fz-alerta-faixa{ position:fixed; top:0; left:0; right:0; z-index:99998;
+  background:var(--fz-warn); color:#1a1200; display:flex; align-items:center; gap:10px;
+  padding:9px 16px; font-size:13px; font-weight:600; box-shadow:0 4px 14px rgba(0,0,0,.28);
+  animation:fzAfIn .18s ease-out; }
+@keyframes fzAfIn{ from{ transform:translateY(-100%); opacity:0; } to{ transform:none; opacity:1; } }
+.fz-af-dot{ width:9px; height:9px; border-radius:50%; background:#1a1200; flex-shrink:0;
+  animation:iotPulse 1.2s infinite; }
+.fz-af-txt{ flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.fz-af-mais{ background:rgba(0,0,0,.18); border-radius:999px; padding:2px 8px; font-size:11px; font-weight:800; }
+.fz-af-x{ background:transparent; border:0; color:#1a1200; font-size:15px; cursor:pointer; padding:2px 6px; }
+
+/* ---- Chavinha de perfil no menu da conta ---- */
+#topbar-perfil-toggle{ display:flex; align-items:center; justify-content:space-between; gap:10px; width:100%; }
+#topbar-perfil-toggle b{ color:var(--teal); }
+
+/* ---- Gating operador × admin ----
+   :not(.fz-visao) protege a própria chavinha: sem isso o botão de voltar
+   pra visão Analista some no modo Operador e o usuário fica preso. */
+body.perfil-operador [data-perfil="admin"]:not(.fz-visao){ display:none !important; }
+
+/* ---- Chavinha Operador ⇄ Analista (topbar, ao lado do avatar) ---- */
+.fz-visao{
+  display:flex; align-items:center; gap:12px;
+  padding:0 16px; border:0; cursor:pointer; text-align:left;
+  font-family:inherit; color:var(--text);
+  transition:box-shadow .18s ease, transform .18s ease;
+}
+.fz-visao:hover{ transform:translateY(-1px); box-shadow:0 6px 18px rgba(0,0,0,.28); }
+.fz-visao:focus-visible{ outline:2px solid var(--teal); outline-offset:2px; }
+.fz-visao-col{ display:flex; flex-direction:column; line-height:1.15; }
+.fz-visao-lbl{ font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--text-2); }
+.fz-visao-txt{ font-size:13px; font-weight:800; color:var(--teal); white-space:nowrap; }
+.fz-visao-track{
+  width:44px; height:24px; border-radius:999px; background:var(--teal);
+  position:relative; flex:none; transition:background .2s ease;
+}
+/* Analista = chave "ligada": knob à direita. É o default do elemento —
+   nada de :not(), senão empata em especificidade com a regra do operador. */
+.fz-visao-knob{
+  position:absolute; top:3px; left:3px; width:18px; height:18px; border-radius:50%;
+  background:#0f1013; transform:translateX(20px); transition:transform .2s ease;
+}
+/* Operador = chave "desligada": knob à esquerda, trilho neutro */
+.fz-visao.is-operador .fz-visao-track{ background:var(--pill-track, #4a4a52); }
+.fz-visao.is-operador .fz-visao-knob{ transform:translateX(0); background:var(--text-2); }
+.fz-visao.is-operador .fz-visao-txt{ color:var(--text); }
+
+/* ===================================================================
+   VISÃO OPERADOR — layout mais simples e direto (menos analítico)
+   Só regras CSS: escondem blocos densos e ampliam o essencial.
+   =================================================================== */
+body.perfil-operador .fz-eyebrow,
+body.perfil-operador #screen-inicio .fz-row3,          /* "Módulos do Sistema" */
+body.perfil-operador #screen-inicio .fz-h + .fz-row3,
+body.perfil-operador #screen-inicio .fz-iso,           /* tabela de referência ISO */
+body.perfil-operador #screen-inicio #inicioExport,
+body.perfil-operador #screen-inicio #inicioSettingsBtn,
+body.perfil-operador #fzToolbar,
+body.perfil-operador #fzSourceBar,
+body.perfil-operador #inicioControlsDrop,
+body.perfil-operador .fz-cop-sub,
+body.perfil-operador .fz-chat-footnote{ display:none !important; }
+
+/* esconde o título "Módulos do Sistema" (h3 sem classe própria) no operador */
+body.perfil-operador #screen-inicio h3.fz-h:last-of-type{ display:none !important; }
+
+/* status maior e mais legível */
+body.perfil-operador #inicioStatus,
+body.perfil-operador .fz-badge{ font-size:14px; padding:6px 14px; }
+body.perfil-operador .fz-h{ font-size:17px; }
+body.perfil-operador #inicioKpis .kpi-val,
+body.perfil-operador #inicioKpis .fz-kpi-val{ font-size:26px; }
+
+/* cards de eixo com borda de status mais grossa (leitura rápida) */
+body.perfil-operador .fz-asset-ok,
+body.perfil-operador .fz-asset-warn,
+body.perfil-operador .fz-asset-bad{ border-width:2px; }
+
+/* ===================================================================
+   RAIL DE ALERTAS — coluna direita
+   Log vivo dos alarmes ISA-18.2. Cada item abre as ações que levam
+   direto pra tela que resolve (3D · Monitoramento · IA · OS).
+   =================================================================== */
+
+/* --- grade de 3 colunas (a 3ª é o rail) --- */
+.app{ grid-template-columns: var(--sidebar-w) minmax(0, 1fr) 320px; }
+.app.rail-collapsed{ grid-template-columns: var(--sidebar-w) minmax(0, 1fr) 34px; }
+.app{ max-width: 1780px; }
+
+.fz-alert-rail{
+  position:sticky; top:28px; align-self:start;
+  display:flex; gap:8px; align-items:flex-start;
+  max-height:calc(100vh - 56px);
+}
+.fz-rail-toggle{
+  flex:none; width:22px; height:44px; margin-top:12px;
+  border:0; border-radius:8px; cursor:pointer;
+  background:var(--card); color:var(--text-2);
+  font-size:15px; line-height:1; box-shadow:var(--shadow);
+  transition:color .15s ease, background .15s ease;
+}
+.fz-rail-toggle:hover{ color:var(--text); }
+.fz-rail-body{
+  flex:1 1 auto; min-width:0;
+  background:var(--card); border-radius:24px; padding:18px 16px;
+  box-shadow:var(--shadow);
+  max-height:calc(100vh - 56px); overflow-y:auto;
+}
+.app.rail-collapsed .fz-rail-body{ display:none; }
+
+/* --- cabeçalho --- */
+.fz-rail-head{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.fz-rail-tit{ display:flex; align-items:center; gap:8px; font-size:14px; }
+.fz-rail-ic{ width:9px; height:9px; border-radius:50%; flex:none; background:var(--fz-ok); }
+.fz-rail-ic.warn{ background:var(--fz-warn); }
+.fz-rail-ic.crit{ background:var(--fz-bad); animation:fzRailPulse 1.4s ease-in-out infinite; }
+@keyframes fzRailPulse{ 0%,100%{ opacity:1 } 50%{ opacity:.25 } }
+.fz-rail-count{
+  font-size:11px; font-weight:800; border-radius:999px; padding:1px 8px;
+  background:var(--fz-warn); color:#1a1200;
+}
+.fz-rail-count.crit{ background:var(--fz-bad); color:#fff; }
+.fz-rail-limpar{
+  border:0; background:transparent; color:var(--text-2);
+  font-size:11px; font-weight:700; cursor:pointer; padding:4px 6px; border-radius:6px;
+  transition:color .15s ease;
+}
+.fz-rail-limpar:hover{ color:var(--text); }
+.fz-rail-sub-head{ font-size:11px; color:var(--text-2); margin:6px 0 12px; }
+.fz-rail-sub{ font-size:11px; color:var(--text-2); }
+
+/* --- estado vazio --- */
+.fz-rail-vazio{
+  display:flex; flex-direction:column; align-items:center; gap:4px;
+  padding:26px 10px; text-align:center; color:var(--text-2); font-size:11px;
+}
+.fz-rail-vazio b{ color:var(--text); font-size:13px; }
+.fz-rail-vazio-ic{
+  width:34px; height:34px; border-radius:50%; margin-bottom:4px;
+  display:flex; align-items:center; justify-content:center;
+  background:rgba(46,190,120,.14); color:var(--fz-ok); font-size:16px;
+}
+
+/* --- item de alerta --- */
+.fz-rail-list{ display:flex; flex-direction:column; gap:8px; }
+.fz-rail-item{
+  border-radius:14px; overflow:hidden;
+  background:var(--field); border-left:3px solid var(--fz-warn);
+  transition:border-color .15s ease;
+}
+.fz-rail-item.crit{ border-left-color:var(--fz-bad); }
+.fz-rail-item.aberto{ background:var(--bg); }
+.fz-rail-item-h{
+  display:grid; grid-template-columns:auto 1fr; gap:4px 8px;
+  width:100%; border:0; background:transparent; cursor:pointer;
+  padding:10px 12px; text-align:left; font-family:inherit; color:var(--text);
+}
+.fz-rail-item-h:hover{ background:rgba(255,255,255,.03); }
+.fz-rail-pri{
+  font-size:9px; font-weight:900; letter-spacing:.06em;
+  border-radius:5px; padding:2px 6px; align-self:start;
+  background:var(--fz-warn); color:#1a1200;
+}
+.fz-rail-item.crit .fz-rail-pri{ background:var(--fz-bad); color:#fff; }
+.fz-rail-hora{ font-size:10px; color:var(--text-2); text-align:right; align-self:center; }
+.fz-rail-tit-2{ grid-column:1 / -1; font-size:12.5px; font-weight:700; line-height:1.3; }
+.fz-rail-msg{ grid-column:1 / -1; font-size:11px; color:var(--text-2); line-height:1.35; }
+
+/* --- painel de ações (abre embaixo do alerta) --- */
+.fz-rail-acoes{
+  display:flex; flex-direction:column; gap:5px;
+  padding:4px 10px 10px;
+  border-top:1px solid rgba(255,255,255,.06);
+}
+.fz-rail-acoes-lbl{
+  font-size:9px; font-weight:800; letter-spacing:.09em; text-transform:uppercase;
+  color:var(--text-2); margin:8px 2px 3px;
+}
+.fz-rail-acao{
+  display:flex; flex-direction:column; gap:2px; width:100%;
+  border:0; border-radius:10px; padding:8px 10px; cursor:pointer;
+  background:var(--card); color:var(--text); text-align:left; font-family:inherit;
+  transition:background .15s ease, transform .12s ease;
+}
+.fz-rail-acao:hover{ background:var(--teal); color:#0f1013; transform:translateX(2px); }
+.fz-rail-acao b{ font-size:11.5px; font-weight:700; }
+.fz-rail-acao span{ font-size:10px; color:var(--text-2); }
+.fz-rail-acao:hover span{ color:rgba(15,16,19,.7); }
+.fz-rail-acao.ok{ margin-top:4px; background:transparent; border:1px solid rgba(255,255,255,.12); }
+.fz-rail-acao.ok:hover{ background:var(--fz-ok); color:#0b1f14; border-color:transparent; }
+
+/* --- histórico de eventos (só analista) --- */
+.fz-rail-hist{ margin-top:14px; border-top:1px solid rgba(255,255,255,.06); padding-top:10px; }
+.fz-rail-hist-h{
+  display:flex; align-items:center; justify-content:space-between; width:100%;
+  border:0; background:transparent; cursor:pointer; padding:4px 2px;
+  color:var(--text-2); font-family:inherit; font-size:11px; font-weight:700;
+  transition:color .15s ease;
+}
+.fz-rail-hist-h:hover{ color:var(--text); }
+.fz-rail-chev{ display:inline-block; transition:transform .18s ease; }
+.fz-rail-chev.open{ transform:rotate(180deg); }
+.fz-rail-hist-body{ display:flex; flex-direction:column; gap:3px; margin-top:6px; }
+.fz-rail-hev{
+  display:grid; grid-template-columns:auto 1fr auto; gap:6px; align-items:baseline;
+  font-size:10px; color:var(--text-2); padding:3px 4px; border-radius:6px;
+}
+.fz-rail-hev-t{ font-variant-numeric:tabular-nums; }
+.fz-rail-hev-m{ color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.fz-rail-hev-s{ font-weight:700; }
+.fz-rail-hev.on  .fz-rail-hev-s{ color:var(--fz-bad); }
+.fz-rail-hev.off .fz-rail-hev-s{ color:var(--fz-ok); }
+.fz-rail-csv{
+  margin-top:8px; width:100%; border:1px solid rgba(255,255,255,.12); border-radius:9px;
+  background:transparent; color:var(--text-2); font-family:inherit; font-size:10.5px;
+  font-weight:700; padding:6px; cursor:pointer; transition:color .15s ease, border-color .15s ease;
+}
+.fz-rail-csv:hover{ color:var(--text); border-color:var(--teal); }
+
+/* --- visão operador: rail maior e sem ruído --- */
+body.perfil-operador .fz-rail-tit-2{ font-size:14px; }
+body.perfil-operador .fz-rail-acao b{ font-size:13px; }
+body.perfil-operador .fz-rail-item{ border-left-width:4px; }
+
+/* --- telas estreitas: o rail volta pro fluxo, abaixo do conteúdo --- */
+@media (max-width:1360px){
+  .app, .app.rail-collapsed{ grid-template-columns: var(--sidebar-w) minmax(0, 1fr); }
+  .fz-alert-rail{ grid-column:1 / -1; position:static; max-height:none; }
+  .fz-rail-body{ max-height:420px; }
+  .fz-rail-toggle{ display:none; }
+  .app.rail-collapsed .fz-rail-body{ display:block; }
+}

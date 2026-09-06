@@ -374,7 +374,12 @@
       return;
     }
 
-    const sysMsg = `Você é o Assistente IA da plataforma IMS Forzy, especializado em manutenção preditiva de bombas centrífugas industriais.
+    const ehOperador = !!(window.FZPerfil && window.FZPerfil.isOperador && window.FZPerfil.isOperador());
+    const sysMsg = ehOperador
+      ? `Você é o Assistente IA da plataforma IMS Forzy, falando com um OPERADOR de chão de fábrica.
+Responda em no máximo 2 frases curtas. Veredito direto, linguagem simples, sem normas nem jargão técnico (nada de ISO, ISA, Z-score).
+Diga o que está acontecendo e o que fazer agora.`
+      : `Você é o Assistente IA da plataforma IMS Forzy, especializado em manutenção preditiva de bombas centrífugas industriais.
 Responda de forma técnica, clara e objetiva. Use normas ISO 10816 e ISA-18.2 quando relevante.
 Quando o assunto for um alerta ou falha, baseie o diagnóstico nos dados de placa (fabricante, potência, modelo) do ativo envolvido.
 Seja direto: máximo 3-4 parágrafos por resposta. Use **negrito** para destacar termos técnicos importantes.`;
@@ -475,4 +480,33 @@ Seja direto: máximo 3-4 parágrafos por resposta. Use **negrito** para destacar
   }
 
   window.FZChatScreen = { init, enviarAlerta, ajustarAltura, getSessao, perguntar, abrirConversa, onAlerta };
+
+  // ---- deep-link do modal de alerta crítico (alerta-critico.js) ----
+  // Abre a tela unificada na aba "Conversa" já com o contexto do alerta carregado.
+  function abrirComContexto(payload) {
+    payload = payload || {};
+    init();
+    if (typeof window.showScreen === 'function') window.showScreen('assistente');
+    // garante a aba "Conversa" ativa
+    const abaConversa = document.querySelector('#fzAssistTabs .fz-tab[data-atab="conversa"]');
+    if (abaConversa && !abaConversa.classList.contains('active')) abaConversa.click();
+
+    const eixoNome = payload.eixo === 'm2' ? 'Eixo 2' : payload.eixo === 'm1' ? 'Eixo 1' : null;
+    const origem = payload.origem || (eixoNome ? 'alerta:' + eixoNome : 'alerta:geral');
+    const titulo = payload.titulo || (eixoNome ? eixoNome + ' — alerta' : 'Alerta');
+
+    abrirConversa(origem, titulo);
+    ajustarAltura();
+
+    const partes = [
+      payload.titulo || 'Alerta de manutenção',
+      eixoNome ? `Eixo: ${eixoNome}` : '',
+      payload.variavel ? `Variável: ${payload.variavel}` : '',
+      (payload.valor != null) ? `Valor: ${payload.valor}${payload.unidade || ''}` : '',
+      payload.msg || '',
+    ].filter(Boolean).join(' · ');
+    enviar(`${partes}\n\nO que devo fazer?`, { isAlerta: true });
+  }
+
+  window.FZAssistente = Object.assign(window.FZAssistente || {}, { abrirComContexto });
 })();

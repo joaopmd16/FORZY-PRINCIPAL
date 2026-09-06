@@ -18,10 +18,10 @@
     pipeline:   'Sensores &amp; Automação › Pipeline',
     iot:        'Sensores &amp; Automação › IoT ao Vivo',
     scada:      'SCADA',
-    copiloto:   'Copiloto de Manutenção',
-    assistente: 'Assistente IA',
+    assistente: 'Assistente + Manutenção',
   };
-  const ROTULOS_ABA = { esp: 'Espectral', oper: 'Operacional', hist: 'Histórico', ml: 'Baseline ML' };
+  const ROTULOS_ABA = { esp: 'Espectral', oper: 'Operacional', hist: 'Histórico', ml: 'Baseline ML',
+    conversa: 'Conversa', os: 'Diagnóstico &amp; OS' };
 
   function atualizarBreadcrumb(key, aba) {
     const bc = document.getElementById('breadcrumb');
@@ -52,6 +52,11 @@
   // barra fz-tabs com o botão certo marcado .active no HTML estático
   document.querySelectorAll('#fzTabs .fz-tab[data-tab]').forEach(b => {
     b.addEventListener('click', () => atualizarBreadcrumb('dashboard', b.dataset.tab));
+  });
+
+  // abas internas do Assistente + Manutenção (Conversa / Diagnóstico & OS)
+  document.querySelectorAll('#fzAssistTabs .fz-tab[data-atab]').forEach(b => {
+    b.addEventListener('click', () => atualizarBreadcrumb('assistente', b.dataset.atab));
   });
 
   // barras de aba dos grupos mesclados (Ativos · Sensores & Automação)
