@@ -1,6 +1,6 @@
 /* ===================================================================
    FORZY · Navegação — sidebar enxuta (6 itens), grupos com aba
-   interna (Ativos, Sensores & Automação) e breadcrumb.
+   interna (Ativos, Sensores & Automação).
    Usado por vision.html. Roda ao lado do app.js (roteamento base),
    sem alterá-lo — apenas registra listeners paralelos.
    =================================================================== */
@@ -9,26 +9,12 @@
   // → data-screen da tela órfã : data-screen do nav-item que deve acender
   const NAV_DO_GRUPO = { navegacao: 'cadastro', rpa: 'iot', pipeline: 'iot' };
 
-  const ROTULOS = {
-    inicio:     'Início',
-    dashboard:  'Monitoramento',
-    navegacao:  'Ativos › Plantas &amp; Áreas',
-    cadastro:   'Ativos › Lista de Ativos',
-    rpa:        'Sensores &amp; Automação › RPA',
-    pipeline:   'Sensores &amp; Automação › Pipeline',
-    iot:        'Sensores &amp; Automação › IoT ao Vivo',
-    scada:      'SCADA',
-    assistente: 'Assistente + Manutenção',
-  };
-  const ROTULOS_ABA = { esp: 'Espectral', oper: 'Operacional', hist: 'Histórico', ml: 'Baseline ML',
-    conversa: 'Conversa', os: 'Diagnóstico &amp; OS' };
-
-  function atualizarBreadcrumb(key, aba) {
-    const bc = document.getElementById('breadcrumb');
-    if (!bc) return;
-    const base = ROTULOS[key] || key;
-    bc.innerHTML = aba && ROTULOS_ABA[aba] ? `${base} › <b>${ROTULOS_ABA[aba]}</b>` : `<b>${base}</b>`;
-  }
+  /*
+   * Não existe breadcrumb. A sidebar já acende o item da tela e cada tela tem a
+   * própria barra de abas — uma faixa em cima repetindo isso era só ruído
+   * ocupando altura útil. O que sobra aqui é o realce da sidebar para as telas
+   * "órfãs", que não têm item próprio e vivem dentro de um grupo.
+   */
 
   // acende na sidebar o nav-item "dono" de uma tela órfã (Plantas&Áreas, RPA, Pipeline)
   function sincronizarNavItem(key) {
@@ -43,33 +29,26 @@
   // (não via window.showScreen), então em vez de empacotar a função global,
   // registramos listeners paralelos nos mesmos elementos.
 
-  // nav-item de topo: app.js já cuida do realce (toggle nativo); só falta o breadcrumb
-  document.querySelectorAll('.nav-item[data-screen]').forEach(b => {
-    b.addEventListener('click', () => atualizarBreadcrumb(b.dataset.screen));
-  });
-
-  // sub-abas do Dashboard (Espectral/Operacional/...) — cada tela já tem sua própria
-  // barra fz-tabs com o botão certo marcado .active no HTML estático
-  document.querySelectorAll('#fzTabs .fz-tab[data-tab]').forEach(b => {
-    b.addEventListener('click', () => atualizarBreadcrumb('dashboard', b.dataset.tab));
-  });
-
-  // abas internas do Assistente + Manutenção (Conversa / Diagnóstico & OS)
-  document.querySelectorAll('#fzAssistTabs .fz-tab[data-atab]').forEach(b => {
-    b.addEventListener('click', () => atualizarBreadcrumb('assistente', b.dataset.atab));
-  });
-
   // barras de aba dos grupos mesclados (Ativos · Sensores & Automação)
   document.querySelectorAll('.fz-group-tabs .fz-tab[data-screen]').forEach(b => {
     b.addEventListener('click', () => {
       const key = b.dataset.screen;
       if (typeof window.showScreen === 'function') window.showScreen(key);
       sincronizarNavItem(key);
-      atualizarBreadcrumb(key);
     });
   });
 
-  atualizarBreadcrumb('inicio');
+  // troca de tela por código (deep-link do rail de alertas, do modal P1…) não passa
+  // pelos listeners de clique acima — sem isto a sidebar não acenderia o grupo certo
+  // ao cair numa tela órfã vinda de um alerta.
+  if (typeof window.showScreen === 'function') {
+    const _show = window.showScreen;
+    window.showScreen = function (name) {
+      const r = _show.apply(this, arguments);
+      try { sincronizarNavItem(name); } catch (e) { /* noop */ }
+      return r;
+    };
+  }
 
   // Início v2 — engrenagem abre/fecha o painel de Fonte/Auto-refresh
   const gear = document.getElementById('inicioSettingsBtn');

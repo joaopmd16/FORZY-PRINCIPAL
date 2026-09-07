@@ -101,16 +101,23 @@
       <div class="fz-card"><div class="i-lbl">Hardware Requerido</div>
         <div style="font-size:13px;color:var(--text-2);line-height:2;margin-top:6px">Sensor VIM32PL-E1AC8<br>ESP32 Dev Module<br>Cabo USB-Serial (CP210x)<br>Driver CP210x / CH340</div>
         <div style="margin-top:12px;border-top:1px solid var(--border,#333);padding-top:10px">
-          <div class="i-lbl" style="margin-bottom:6px">Teste de Push IA</div>
+          <div class="i-lbl" style="margin-bottom:6px">Simular alarme (modal · sininho · rail)</div>
           <button id="iot-test-p2" style="font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid var(--fz-warn);color:var(--fz-warn);background:transparent;cursor:pointer;margin-right:6px">⚠ Simular Alerta P2</button>
           <button id="iot-test-p1" style="font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid var(--fz-bad);color:var(--fz-bad);background:transparent;cursor:pointer">🔴 Simular Alarme P1</button>
         </div></div>`;
-    document.getElementById('iot-test-p2')?.addEventListener('click', () => {
-      if (window.FZAssistant) window.FZAssistant.alertarIoT({ vel: 2.3, temp: 37, flag: 1, arms: 0.018 });
+    // Passa pelo MESMO caminho de um alarme real (topbar.js): log, sininho, rail e
+    // alerta "na cara". A IA só entra se o operador pedir no modal ou no rail.
+    // A hora no texto deixa cada clique único — dá pra repetir a demo sem recarregar.
+    const simular = (p1, vel, temp, arms) => window.FZAlertas?.simular?.({
+      prioridade: p1 ? 'P1 - Crítico' : 'P2 - Alto',
+      titulo: p1 ? 'Vibração Crítica' : 'Vibração Alta',
+      msg: `ESP32 · teste ${new Date().toLocaleTimeString('pt-BR')}: Vibração ${vel.toFixed(2)} mm/s`,
+      nivel: p1 ? 'bad' : 'warn', valor: vel, unidade: 'mm/s',
+      origem: 'esp32', eixo: 'm1', variavel: 'vel', ativo: 'ESP32',
+      leitura: { m1_vel: vel, m1_acel: arms, m1_temp: temp },
     });
-    document.getElementById('iot-test-p1')?.addEventListener('click', () => {
-      if (window.FZAssistant) window.FZAssistant.alertarIoT({ vel: 6.8, temp: 44, flag: 2, arms: 0.052 });
-    });
+    document.getElementById('iot-test-p2')?.addEventListener('click', () => simular(false, 2.3, 37, 0.018));
+    document.getElementById('iot-test-p1')?.addEventListener('click', () => simular(true, 6.8, 44, 0.052));
   }
 
   /* ----------  Forzy Cloud (S1/S2 via daily_bridge.py)  ---------- */

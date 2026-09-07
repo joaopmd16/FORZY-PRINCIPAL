@@ -14,6 +14,8 @@
     { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   const perfilOperador = () => !!(window.FZPerfil && window.FZPerfil.isOperador());
+  // sem sessão o alarme fica na fila e só aparece depois do login (fz-auth-change)
+  const loginAtivo = () => { const l = document.getElementById('screen-login'); return !!(l && l.classList.contains('active')); };
 
   // eixo 'm1'/'m2' (ou texto) → índice 1/2 e código do ativo do seed
   function eixoInfo(eixo) {
@@ -41,6 +43,31 @@
     const v = String(variavel || '').toLowerCase();
     if (v.includes('temp')) return 'temp';
     return 'vel';
+  }
+
+  // Régua de severidade: onde o valor medido cai na faixa da norma. Faz o número
+  // "falar" pra quem não decora limite — vale pros dois perfis. Alarme da rede
+  // neural (unidade 'índice') não entra: a escala é outra.
+  const ESCALA = {
+    vel:  { min: 0,  max: 6,  a: 1.8, al: 4.5, un: 'mm/s', dec: 2, ref: 'ISO 10816' },
+    temp: { min: 20, max: 50, a: 35,  al: 42,  un: '°C',   dec: 1, ref: 'ISA-18.2' },
+  };
+  function escalaHtml(vv, valor, unidade) {
+    if (unidade === 'índice' || valor == null || isNaN(valor)) return '';
+    const e = ESCALA[vv] || ESCALA.vel;
+    const pct = x => Math.max(0, Math.min(100, (x - e.min) / (e.max - e.min) * 100));
+    const pos = pct(Number(valor));
+    const borda = pos > 84 ? ' edge-r' : pos < 16 ? ' edge-l' : '';
+    return `
+      <div class="fz-ac-escala" title="Faixas ${e.ref}">
+        <div class="fz-ac-escala-bar">
+          <span class="ok"   style="width:${pct(e.a)}%"></span>
+          <span class="warn" style="width:${pct(e.al) - pct(e.a)}%"></span>
+          <span class="bad"  style="width:${100 - pct(e.al)}%"></span>
+          <i class="fz-ac-escala-mark${borda}" style="left:${pos}%"><b>${Number(valor).toFixed(e.dec).replace('.', ',')} ${esc(e.un)}</b></i>
+        </div>
+        <div class="fz-ac-escala-lbl"><span>normal</span><span>alerta ≥ ${String(e.a).replace('.', ',')}</span><span>alarme ≥ ${String(e.al).replace('.', ',')}</span></div>
+      </div>`;
   }
 
   // frase curta pro operador
@@ -80,6 +107,9 @@
     render();
   }
 
+  // As duas saídas fecham o modal (Reconhecer implícito) e levam pra tela que resolve.
+  // "Analisar com IA" é o ÚNICO ponto em que um alarme P1 vira pergunta pra IA — o
+  // payload leva a leitura do momento do alarme (topbar.js) pra rede avaliar ela.
   function irPara(scada) {
     const p = pendentes[idxAtual];
     fecharAtual();
@@ -102,7 +132,7 @@
 
   function render() {
     let host = document.getElementById('fz-alerta-critico');
-    if (!pendentes.length) { if (host) host.remove(); return; }
+    if (!pendentes.length || loginAtivo()) { if (host) host.remove(); return; }
     const p = pendentes[idxAtual] || pendentes[0];
     const e = eixoInfo(p.eixo);
     const vv = verVar(p.variavel);
@@ -111,15 +141,19 @@
     const val = (p.valor != null && !isNaN(p.valor))
       ? `${Number(p.valor).toFixed(vv === 'temp' ? 1 : 2)} ${esc(p.unidade || '')}`.trim() : '—';
 
+    const ehRede = p.unidade === 'índice';
+    const escala = escalaHtml(vv, p.valor, p.unidade);
     const corpo = perfilOperador()
       ? `<p class="fz-ac-verdito">${esc(veredito(p))}</p>
-         <p class="fz-ac-sub">Detectado às ${esc(hora)}.</p>`
+         <p class="fz-ac-sub">Detectado às ${esc(hora)}.</p>
+         ${escala}`
       : `<div class="fz-ac-grid">
            <div><span>Equipamento</span><b>${esc(e.nome)}${p.origem ? ' · ' + esc(String(p.origem)) : ''}</b></div>
-           <div><span>Variável</span><b>${vv === 'temp' ? 'Temperatura' : 'Vibração (vel. RMS)'}</b></div>
-           <div><span>Valor medido</span><b>${val}</b></div>
+           <div><span>Variável</span><b>${ehRede ? 'Rede neural (índice de anomalia)' : vv === 'temp' ? 'Temperatura' : 'Vibração (vel. RMS)'}</b></div>
+           <div><span>${ehRede ? 'Índice' : 'Valor medido'}</span><b>${val}</b></div>
            <div><span>Momento</span><b>${esc(hora)}</b></div>
          </div>
+         ${escala}
          <p class="fz-ac-linha"><b>Norma:</b> ${esc(conh.norma)}</p>
          <p class="fz-ac-linha"><b>${esc(conh.manual.split(':')[0])}:</b> ${esc(conh.manual.split(':').slice(1).join(':').trim())}</p>
          <p class="fz-ac-linha"><b>${esc(conh.datasheet.split(':')[0])}:</b> ${esc(conh.datasheet.split(':').slice(1).join(':').trim())}</p>`;
@@ -140,7 +174,7 @@
         ${nav}
         <div class="fz-ac-actions">
           <button class="fz-ac-btn ghost" data-act="scada">Ver na Vista 3D</button>
-          <button class="fz-ac-btn ghost" data-act="assistente">Abrir Assistente</button>
+          <button class="fz-ac-btn ghost" data-act="assistente" title="Manda este alarme pra IA analisar — só acontece se você clicar">Analisar com IA</button>
           <button class="fz-ac-btn primary" data-act="ok">Reconhecer</button>
         </div>
       </div>`;
@@ -181,7 +215,7 @@
 
   function renderFaixa() {
     let host = document.getElementById('fz-alerta-faixa');
-    if (!faixas.length) { if (host) host.remove(); return; }
+    if (!faixas.length || loginAtivo()) { if (host) host.remove(); return; }
     if (!host) {
       host = document.createElement('div');
       host.id = 'fz-alerta-faixa';
@@ -195,6 +229,8 @@
       <button class="fz-af-x" title="Dispensar">✕</button>`;
     host.querySelector('.fz-af-x').onclick = () => limpar(f.chave);
   }
+
+  document.addEventListener('fz-auth-change', () => { render(); renderFaixa(); });
 
   window.FZAlertaCritico = { disparar, faixa, limpar };
 })();

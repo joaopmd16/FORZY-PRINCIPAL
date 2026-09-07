@@ -26,6 +26,8 @@
     scada: document.getElementById('screen-scada'),
     iot: document.getElementById('screen-iot'),
     assistente: document.getElementById('screen-assistente'),
+    diagnostico: document.getElementById('screen-diagnostico'),
+    governanca: document.getElementById('screen-governanca'),
   };
   const navItems = document.querySelectorAll('.nav-item[data-screen]');
 
@@ -66,10 +68,13 @@
     window.scrollTo({ top: 0 });
     if (key === 'assistente') {
       window.FZChatScreen?.init();
-      window.FZChatScreen?.ajustarAltura();
-      window.FZCopiloto?.init();
       document.getElementById('navAssistenteDot')?.classList.remove('show');
     }
+    if (key === 'diagnostico') {
+      const atual = document.querySelector('#fzDiagTabs .fz-tab.active');
+      ativarAbaDiag(atual ? atual.dataset.dtab : 'investigacao');
+    }
+    if (key === 'governanca') window.FZGovernanca?.init();
   }
   window.showScreen = showScreen;   // expõe globalmente para topbar.js e assistant.js
 
@@ -103,20 +108,42 @@
 
   window.showLogin = showLogin;
 
-  /* Assistente + Manutenção — abas internas (Conversa / Diagnóstico & OS) */
-  const assistTabs = document.querySelectorAll('#fzAssistTabs .fz-tab[data-atab]');
-  assistTabs.forEach(b => b.addEventListener('click', () => {
-    const alvo = b.dataset.atab;
-    assistTabs.forEach(x => x.classList.toggle('active', x === b));
-    document.querySelectorAll('#screen-assistente .fz-panel[data-apanel]').forEach(p =>
-      p.classList.toggle('active', p.dataset.apanel === alvo));
-    if (alvo === 'os') window.FZCopiloto?.init();
-    if (alvo === 'conversa') window.FZChatScreen?.ajustarAltura();
-  }));
+  /* Diagnóstico — sub-abas internas (Investigação / Causa Raiz / Projeção / OS) */
+  // consulta o DOM a cada chamada em vez de fechar sobre um NodeList: showScreen()
+  // usa esta funcao e pode rodar antes desta linha ser executada.
+  function ativarAbaDiag(alvo) {
+    const abas = document.querySelectorAll('#fzDiagTabs .fz-tab[data-dtab]');
+    if (!abas.length) return;
+    if (!alvo || ![...abas].some(x => x.dataset.dtab === alvo)) alvo = 'investigacao';
+    abas.forEach(x => x.classList.toggle('active', x.dataset.dtab === alvo));
+    document.querySelectorAll('#screen-diagnostico .fz-panel[data-dpanel]').forEach(p =>
+      p.classList.toggle('active', p.dataset.dpanel === alvo));
+    if (alvo === 'investigacao') window.FZInvestigacao?.init();
+    else if (alvo === 'rca') window.FZRCA?.init();
+    else if (alvo === 'preditivo') window.FZPreditivo?.init();
+    else if (alvo === 'os') window.FZCopiloto?.init();
+  }
+  document.querySelectorAll('#fzDiagTabs .fz-tab[data-dtab]').forEach(b =>
+    b.addEventListener('click', () => ativarAbaDiag(b.dataset.dtab)));
+
+  /* coligação entre as áreas: mudança de alarme ou de perfil re-renderiza a
+     sub-aba de Diagnóstico aberta, para ela refletir o estado atual do sistema */
+  function reagirDiag() {
+    const tela = document.getElementById('screen-diagnostico');
+    if (!tela || !tela.classList.contains('active')) return;
+    const atual = document.querySelector('#fzDiagTabs .fz-tab.active');
+    ativarAbaDiag(atual ? atual.dataset.dtab : 'investigacao');
+  }
+  if (window.FZAlertas && typeof window.FZAlertas.onChange === 'function') {
+    let _1a = true;
+    window.FZAlertas.onChange(() => { if (_1a) { _1a = false; return; } reagirDiag(); });
+  }
+  document.addEventListener('fz-perfil-change', reagirDiag);
 
   /* ----------  ESTADO INICIAL  ---------- */
-  appShell.style.display = 'grid';
-  localStorage.setItem('fz-logged', '1');
+  // sessão válida (auth.js) → entra direto; sem sessão → tela de login
+  if (window.FZAuth && !window.FZAuth.logado()) showLogin();
+  else appShell.style.display = 'grid';
   aplicarPerfilNav();
 
   /* ----------  ICONS  ---------- */

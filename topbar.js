@@ -185,12 +185,67 @@
     adicionarAlerta(limite.prioridade, limite.titulo, `${rotulo} — ${partes}`, limite.nivel, cruzaram[0].valor, limite.unidade, destino, eixoAlvo, campo);
   }
 
+  /*
+   * Alarme vindo da REDE NEURAL (modelo.js). É um caminho separado dos limites
+   * acima de propósito: os limites olham cada variável isolada, a rede olha a
+   * COMBINAÇÃO das seis. Ela pega o que nenhum limite pega — por exemplo o eixo 1
+   * a 7 mm/s com o eixo 2 parado, onde cada valor sozinho passa em qualquer regra.
+   *
+   * Só entra em fontes com os dois eixos (Dataset Forzy / Simulado / Forzy Cloud).
+   * ESP32 e ativo cadastrado mandam um eixo só, com NaN no outro — nesse caso
+   * FZModelo.avaliar() devolve ok:false e nada dispara, que é o correto: a rede
+   * foi treinada no conjunto de dois eixos e não tem como julgar meia leitura.
+   *
+   * Limiar: usa nivelAlarmeRede (p99,9 e máximo do histórico), não o limiar de
+   * análise da aba ML. Assim o replay do dataset não vira uma metralhadora de alarmes.
+   */
+  const LIMITE_REDE = {
+    2: { threshold: 1, deadband: 0.9, prioridade: 'P1 - Crítico', nivel: 'bad',  titulo: 'Anomalia Crítica (rede neural)' },
+    1: { threshold: 1, deadband: 0.9, prioridade: 'P2 - Alto',    nivel: 'warn', titulo: 'Anomalia Detectada (rede neural)' },
+  };
+
+  function processarRede(rotulo, origem, leitura) {
+    const M = window.FZModelo;
+    if (!M || !M.pronto() || !leitura) return;
+
+    const r = M.avaliar(leitura);
+    // ok:false = leitura incompleta (fonte de um eixo só). Não alarma nem normaliza.
+    if (!r || !r.ok) return;
+
+    const n = r.nivelAlarmeRede;
+    const f = r.fora[0];
+    // eixos que sempre andaram juntos e divergiram: é a história que o operador entende
+    // na hora — vale mais que "aceleração 0,4 g, a rede esperava 0,1"
+    const as = r.assimetria;
+    const eixo = as ? as.eixoMaior : (f ? f.eixo : null);
+
+    // Uma chave por prioridade, pra P1 e P2 terem histerese independente — mesmo
+    // padrão dos limites ISA. O "valor" que entra na histerese é o próprio índice.
+    [2, 1].forEach(prio => {
+      const lim = LIMITE_REDE[prio];
+      const chave = 'rede_' + origem + '_p' + (prio === 2 ? '1' : '2');
+      const valor = n >= prio ? 1 : 0;   // 1 = acima do limiar daquela prioridade
+      if (cruzouAgora(chave, `${rotulo} · rede neural`, 'anomalia',
+                      valor, { ...lim, unidade: 'índice' })) {
+        const detalhe = as
+          ? `Eixo ${as.eixoMaior === 'm1' ? 1 : 2} a ${as.maior.toFixed(2)} mm/s com Eixo ${as.eixoMenor === 'm1' ? 1 : 2} a ${as.menor.toFixed(2)} mm/s — no histórico os dois eixos sempre vibraram juntos`
+          : f
+            ? `${f.rotulo}: ${f.medido.toFixed(f.dec)} ${f.unidade} (a rede esperava ${f.esperado.toFixed(f.dec)} ${f.unidade})`
+            : 'combinação de leituras fora do padrão aprendido';
+        adicionarAlerta(lim.prioridade, lim.titulo,
+          `${rotulo} — índice de anomalia ${r.indice.toFixed(2)}. ${detalhe}`,
+          lim.nivel, r.indice, 'índice', origem, eixo, as ? 'vel' : (f ? f.variavel : null));
+      }
+    });
+  }
+
   function checarAlertas() {
     try {
       // ESP32 ao vivo
       if (window.FZIoT && window.FZIoT.isConnected()) {
         const last = window.FZIoT.getLast();
         if (last) {
+          _leituraEmCheque = { m1_vel: last.vel, m1_acel: last.arms, m1_temp: last.temp };
           // P1 Crítico tem precedência: verificar P1 antes de P2 para a mesma variável
           processarLimite('esp32_vel_p1',  'ESP32', 'vel',  last.vel  || 0, LIMITES_ISA[0], 'esp32');
           processarLimite('esp32_vel_p2',  'ESP32', 'vel',  last.vel  || 0, LIMITES_ISA[1], 'esp32');
@@ -208,6 +263,7 @@
           const l = leituras[0];
           const vel = l.vel_rms || 0;
           const origem = 'ativo:' + a.codigo;
+          _leituraEmCheque = { m1_vel: vel, m1_temp: l.temp_c };
           processarLimite(`${a.codigo}_vel_p1`,  a.codigo, 'vel', vel, LIMITES_ISA[0], origem);
           processarLimite(`${a.codigo}_vel_p2`,  a.codigo, 'vel', vel, LIMITES_ISA[1], origem);
         });
@@ -225,6 +281,7 @@
           const rotulo = fonte === 'forzy' ? 'Dataset Forzy' : fonte === 'sim' ? 'Simulado' : fonte === 'cloud' ? 'Forzy Cloud' : 'Dashboard';
           const origem = fonte === 'forzy' ? 'dataset-forzy' : fonte === 'sim' ? 'simulado' : fonte === 'cloud' ? 'forzy-cloud' : 'dashboard';
           if (r) {
+            _leituraEmCheque = r;
             const eixos = [];
             if (r.m1_vel === r.m1_vel) eixos.push({ nome: 'Eixo 1', id: 'm1', pfx: 'dash_m1', vel: r.m1_vel || 0, temp: r.m1_temp || 0 });
             if (r.m2_vel === r.m2_vel) eixos.push({ nome: 'Eixo 2', id: 'm2', pfx: 'dash_m2', vel: r.m2_vel || 0, temp: r.m2_temp || 0 });
@@ -235,6 +292,8 @@
               processarLimiteMultiEixo(rotulo, origem, eixos.map(e => ({ ...e, valor: e.temp })), 'temp', LIMITES_ISA[2], 'p1');
               processarLimiteMultiEixo(rotulo, origem, eixos.map(e => ({ ...e, valor: e.temp })), 'temp', LIMITES_ISA[3], 'p2');
             }
+            // depois dos limites: a rede neural, que olha as 6 variáveis juntas
+            processarRede(rotulo, origem, r);
           }
         }
       }
@@ -242,6 +301,11 @@
   }
 
   let _topbarInicializado = false; // flag pra não disparar IA na 1ª checagem (baseline)
+
+  // Leitura completa da fonte que está sendo checada neste instante. Vai grudada no
+  // alerta (campo `leitura`) pra IA analisar os valores DO MOMENTO DO ALARME quando o
+  // operador pedir — e não o frame que estiver na tela quando ele clicar.
+  let _leituraEmCheque = null;
 
   function adicionarAlerta(prioridade, titulo, msg, nivel, valor, unidade, origem, eixo, variavel) {
     // chave baseada em msg para deduplicação estável
@@ -251,21 +315,21 @@
     const hora = new Date().toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' });
     // origem/eixo/variavel viajam junto: são o que permite o rail de alertas fazer
     // deep-link pra Vista 3D, Assistente e OS sem recalcular nada.
-    alertas.unshift({ prioridade, titulo, msg, nivel, hora, chave, valor, unidade,
-                      origem, eixo, variavel, ts: new Date().toISOString() });
+    const alerta = { prioridade, titulo, msg, nivel, hora, chave, valor, unidade,
+                     origem, eixo, variavel, ts: new Date().toISOString(),
+                     leitura: _leituraEmCheque ? { ..._leituraEmCheque } : null };
+    alertas.unshift(alerta);
     if (alertas.length > 20) alertas.pop();
     renderSininho();
 
-    // só dispara IA após a 1ª checagem (evita falso positivo no carregamento da página)
-    if (_topbarInicializado && window.FZAssistant && typeof window.FZAssistant.alertarNotificacao === 'function') {
-      window.FZAssistant.alertarNotificacao({ prioridade, titulo, msg, nivel, valor, unidade, origem });
-    }
-
-    // Alerta "na cara": P1 → modal persistente que exige Reconhecer; P2 → faixa no topo
+    // A IA NÃO é acionada aqui. O alarme chega ao operador "na cara" (modal P1 / faixa
+    // P2), no sininho e no rail; a análise da IA só acontece quando ELE pede — botão
+    // "Analisar com IA" do modal ou "Perguntar ao Assistente" do rail
+    // (FZAssistente.abrirComContexto). Antes cada alarme virava uma pergunta automática
+    // e o replay do dataset enchia o chat sem ninguém ter perguntado nada.
     if (_topbarInicializado && window.FZAlertaCritico) {
-      const payload = { prioridade, titulo, msg, nivel, valor, unidade, origem, eixo, variavel };
-      if (String(prioridade).indexOf('P1') === 0) window.FZAlertaCritico.disparar(payload);
-      else                                        window.FZAlertaCritico.faixa(payload);
+      if (String(prioridade).indexOf('P1') === 0) window.FZAlertaCritico.disparar(alerta);
+      else                                        window.FZAlertaCritico.faixa(alerta);
     }
   }
 
@@ -328,6 +392,15 @@
   }
   window.FZAlertas = {
     ativos:    () => alertas.slice(),
+    // botão de teste da tela IoT: injeta um alarme pelo MESMO caminho de um real — log,
+    // sininho, rail e alerta "na cara". Não passa pela histerese: só sai ao Reconhecer.
+    simular(p) {
+      if (!p) return;
+      _leituraEmCheque = p.leitura || null;
+      registrarLogEvento(p.prioridade, p.ativo || 'Teste', p.variavel || 'vel', p.valor, p.unidade, 'ATIVADO');
+      adicionarAlerta(p.prioridade, p.titulo, p.msg, p.nivel, p.valor, p.unidade, p.origem, p.eixo, p.variavel);
+      _leituraEmCheque = null;
+    },
     historico: () => logAlarmes.slice(),
     onChange(fn) { if (typeof fn === 'function') { _obsAlertas.push(fn); fn(alertas, logAlarmes); } },
     reconhecer(chave) {
@@ -386,12 +459,14 @@
 
     function atualizarInfo() {
       try {
-        const user = JSON.parse(localStorage.getItem('fz-user') || '{}');
+        const auth = window.FZAuth;
+        const user = auth ? auth.usuarioAtual() : null;
+        const e = auth ? auth.esc : (x => String(x == null ? '' : x));
         const p = perfilAtual();
         const perfilLbl = `<div style="font-size:10px;color:var(--teal,#8aa9c9);text-transform:uppercase;letter-spacing:.5px;margin-top:2px">Visão ${p === 'operador' ? 'Operador' : 'Analista'}</div>`;
-        if (info) info.innerHTML = (user.email
-          ? `<div style="font-weight:600;font-size:13px;color:#fff">${user.nome || 'Usuário'}</div>
-             <div style="font-size:11px;color:rgba(255,255,255,.45)">${user.email}</div>`
+        if (info) info.innerHTML = (user
+          ? `<div style="font-weight:600;font-size:13px;color:#fff">${e(user.nome || user.usuario)}</div>
+             <div style="font-size:11px;color:rgba(255,255,255,.45)">@${e(user.usuario)} · ${user.perfil === 'operador' ? 'Operador' : 'Analista'}</div>`
           : `<div style="font-size:12px;color:rgba(255,255,255,.4)">Não autenticado</div>`) + perfilLbl;
       } catch(_) {}
       atualizarPerfilBtn();
@@ -405,6 +480,7 @@
       });
     }
     document.addEventListener('fz-perfil-change', atualizarInfo);
+    document.addEventListener('fz-auth-change', atualizarInfo);
 
     btn.addEventListener('click', e => {
       e.stopPropagation();
@@ -421,96 +497,26 @@
     });
 
     document.getElementById('topbar-signout')?.addEventListener('click', () => {
-      localStorage.removeItem('fz-logged');
       menu.classList.remove('visible');
-      if (window.showLogin) window.showLogin();
+      if (window.FZAuth) window.FZAuth.sair();
+      else if (window.showLogin) window.showLogin();
     });
 
     document.getElementById('topbar-edit-profile')?.addEventListener('click', () => {
       menu.classList.remove('visible');
-      abrirEditarPerfil();
+      window.FZAuth?.abrirEditarPerfil();
     });
-  }
 
-  function abrirEditarPerfil() {
-    const user = JSON.parse(localStorage.getItem('fz-user') || '{}');
-    const modal = document.createElement('div');
-    modal.id = 'fz-profile-modal';
-    modal.innerHTML = `
-      <div id="fz-profile-box">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-          <strong style="font-size:15px">Editar Perfil</strong>
-          <button id="fz-profile-close" style="background:none;border:none;color:#aaa;font-size:18px;cursor:pointer">✕</button>
-        </div>
-        <label style="font-size:12px;color:#aaa">Nome</label>
-        <input id="fz-pf-nome" value="${user.nome||''}" placeholder="Seu nome">
-        <label style="font-size:12px;color:#aaa;margin-top:10px;display:block">E-mail</label>
-        <input id="fz-pf-email" value="${user.email||''}" placeholder="seu@email.com">
-        <label style="font-size:12px;color:#aaa;margin-top:10px;display:block">Nova senha (opcional)</label>
-        <input id="fz-pf-senha" type="password" placeholder="••••••••">
-        <button id="fz-pf-save" style="margin-top:16px;width:100%;padding:10px;background:var(--teal,#8aa9c9);border:none;border-radius:8px;color:#fff;font-size:14px;cursor:pointer;font-weight:600">Salvar</button>
-      </div>`;
-    document.body.appendChild(modal);
-
-    modal.querySelector('#fz-profile-close').onclick = () => modal.remove();
-    modal.onclick = e => { if (e.target === modal) modal.remove(); };
-    modal.querySelector('#fz-pf-save').onclick = () => {
-      const novo = {
-        nome:  modal.querySelector('#fz-pf-nome').value.trim(),
-        email: modal.querySelector('#fz-pf-email').value.trim(),
-        senha: modal.querySelector('#fz-pf-senha').value || user.senha || ''
-      };
-      localStorage.setItem('fz-user', JSON.stringify(novo));
-      modal.remove();
-    };
+    // só conta Analista (o botão some via body.fz-conta-operador)
+    document.getElementById('topbar-users')?.addEventListener('click', () => {
+      menu.classList.remove('visible');
+      window.FZAuth?.abrirUsuarios();
+    });
   }
 
   /* ------------------------------------------------------------------ */
-  /* 5. LOGIN — email + senha local                                      */
+  /* 5. LOGIN / PERFIL — vivem em auth.js (FZAuth). O topbar só chama.     */
   /* ------------------------------------------------------------------ */
-  function iniciarLogin() {
-    const btn = document.getElementById('doLogin');
-    if (!btn) return;
-
-    // seed padrão se não houver usuário
-    if (!localStorage.getItem('fz-user')) {
-      localStorage.setItem('fz-user', JSON.stringify({ nome: 'Admin', email: 'admin@forzy.com', senha: 'forzy123' }));
-    }
-
-    btn._tbHandled = true;
-    btn.addEventListener('click', fazerLogin);
-    document.getElementById('login-password')?.addEventListener('keydown', e => {
-      if (e.key === 'Enter') fazerLogin();
-    });
-
-    document.getElementById('login-forgot')?.addEventListener('click', e => {
-      e.preventDefault();
-      alert('Entre em contato com o administrador do sistema para redefinir sua senha.');
-    });
-  }
-
-  function fazerLogin() {
-    const email = document.getElementById('login-email')?.value.trim();
-    const senha = document.getElementById('login-password')?.value;
-    const erro  = document.getElementById('login-error');
-
-    try {
-      const user = JSON.parse(localStorage.getItem('fz-user') || '{}');
-      if (email === user.email && senha === user.senha) {
-        localStorage.setItem('fz-logged', '1');
-        if (erro) erro.style.display = 'none';
-        const shell = document.getElementById('app-shell');
-        if (shell) shell.style.display = 'grid';
-        const login = document.getElementById('screen-login');
-        if (login) login.classList.remove('active');
-        if (window.showScreen) window.showScreen('screen-inicio');
-      } else {
-        if (erro) { erro.textContent = 'E-mail ou senha incorretos.'; erro.style.display = 'block'; }
-      }
-    } catch(_) {
-      if (erro) { erro.textContent = 'Erro ao autenticar.'; erro.style.display = 'block'; }
-    }
-  }
 
   /* ------------------------------------------------------------------ */
   /* CSS                                                                 */
@@ -612,13 +618,13 @@
         border-radius:16px; padding:24px; width:320px;
         box-shadow:0 16px 48px rgba(0,0,0,.6);
       }
-      #fz-profile-box input {
+      #fz-profile-box input, #fz-profile-box select {
         display:block; width:100%; box-sizing:border-box;
         background:#1e1e24; border:1px solid rgba(255,255,255,.12);
         border-radius:8px; padding:9px 12px; color:#fff; font-size:13px;
-        margin-top:4px; outline:none;
+        margin-top:4px; outline:none; font-family:inherit;
       }
-      #fz-profile-box input:focus { border-color:rgba(138,169,201,.5); }
+      #fz-profile-box input:focus, #fz-profile-box select:focus { border-color:rgba(138,169,201,.5); }
     `;
     document.head.appendChild(s);
   }
@@ -632,7 +638,6 @@
     iniciarBusca();
     iniciarSininho();
     iniciarConta();
-    iniciarLogin();
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();

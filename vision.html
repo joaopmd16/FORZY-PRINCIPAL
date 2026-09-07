@@ -1,10 +1,12 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="pt-BR" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Vision — Marketing Dashboard</title>
-<link rel="stylesheet" href="styles.css?v=26">
+<title>IMS · Forzy</title>
+<link rel="stylesheet" href="styles.css?v=32">
+<script>/* sem sessão → esconde o app já no primeiro paint (auth.js/app.js decidem o resto) */
+try{if(!localStorage.getItem('fz-sessao')&&!sessionStorage.getItem('fz-sessao'))document.documentElement.classList.add('fz-sem-sessao')}catch(e){}</script>
 <style>
 /* v2 — Início simplificado: some com a barra de KPIs técnicos e os
    cards de Sensor/Dataset, deixando só o status dos motores em destaque. */
@@ -43,7 +45,13 @@
         <i data-lucide="cpu"></i><span class="lbl">Sensores &amp; Automação</span>
       </button>
       <button class="nav-item" data-screen="assistente">
-        <i data-lucide="bot"></i><span class="lbl">Assistente + Manutenção</span><span class="fz-nav-dot" id="navAssistenteDot"></span>
+        <i data-lucide="bot"></i><span class="lbl">Assistente IA</span><span class="fz-nav-dot" id="navAssistenteDot"></span>
+      </button>
+      <button class="nav-item" data-screen="diagnostico" data-perfil="admin">
+        <i data-lucide="stethoscope"></i><span class="lbl">Diagnóstico</span>
+      </button>
+      <button class="nav-item" data-screen="governanca" data-perfil="admin">
+        <i data-lucide="shield-check"></i><span class="lbl">Governança</span>
       </button>
     </nav>
 
@@ -84,17 +92,17 @@
         <button class="avatar-card" id="topbar-account" title="Conta">
           <i data-lucide="user"></i>
         </button>
-        <div id="topbar-account-menu" style="display:none">
+        <div id="topbar-account-menu">
           <div id="topbar-user-info"></div>
           <hr style="border-color:rgba(255,255,255,.08);margin:6px 0">
           <button id="topbar-perfil-toggle" title="Alterna entre a visão do operador e a do admin">Modo: <b>Admin</b></button>
           <hr style="border-color:rgba(255,255,255,.08);margin:6px 0">
-          <button id="topbar-edit-profile">Editar perfil</button>
+          <button id="topbar-users" class="fz-so-admin-conta" title="Criar, remover e redefinir senha de usuários">Usuários</button>
+          <button id="topbar-edit-profile">Meu perfil</button>
           <button id="topbar-signout">Sair</button>
         </div>
       </div>
     </div>
-    <div class="fz-breadcrumb" id="breadcrumb"></div>
 
     <!-- ===================  DASHBOARD (Forzy — motor) =================== -->
     <section class="screen" id="screen-dashboard">
@@ -347,27 +355,42 @@
         <details class="fz-details" id="iotHelp"></details>
       </div>
     </section>
-    <!-- ===================  ASSISTENTE + MANUTENÇÃO  =================== -->
+    <!-- ===================  ASSISTENTE IA  =================== -->
     <section class="screen" id="screen-assistente">
       <div class="fz-dash">
-        <div class="fz-tabs" id="fzAssistTabs">
-          <button class="fz-tab active" data-atab="conversa">Conversa</button>
-          <button class="fz-tab" data-atab="os">Diagnóstico &amp; OS</button>
-        </div>
-        <div class="fz-panel active" data-apanel="conversa" id="fzAssistPanel-conversa">
-          <div id="fz-chat-screen"></div>
-        </div>
-        <div class="fz-panel" data-apanel="os" id="fzAssistPanel-os">
-          <div class="page-head">
-            <div>
-              <div class="fz-eyebrow">Forzy · Manutenção Preditiva</div>
-              <h1 class="page-title">Diagnóstico &amp; Ordem de Serviço</h1>
-              <div class="fz-hero-sub">Diagnóstico automático do modo de falha + Ordem de Serviço gerada</div>
-            </div>
-          </div>
-          <div id="copilotoRoot"></div>
+        <div id="fz-chat-screen"></div>
+      </div>
+    </section>
+    <!-- ===================  DIAGNÓSTICO  =================== -->
+    <section class="screen" id="screen-diagnostico">
+      <div class="page-head">
+        <div>
+          <div class="fz-eyebrow">Forzy · Manutenção Preditiva</div>
+          <h1 class="page-title">Diagnóstico</h1>
+          <div class="fz-hero-sub">Investigação da falha, causa raiz, projeção de degradação e Ordem de Serviço</div>
         </div>
       </div>
+      <div class="fz-tabs" id="fzDiagTabs">
+        <button class="fz-tab active" data-dtab="investigacao">Investigação</button>
+        <button class="fz-tab" data-dtab="rca">Causa Raiz</button>
+        <button class="fz-tab" data-dtab="preditivo">Projeção de Falha</button>
+        <button class="fz-tab" data-dtab="os">Ordem de Serviço</button>
+      </div>
+      <div class="fz-panel active" data-dpanel="investigacao"><div id="investigacaoRoot"></div></div>
+      <div class="fz-panel" data-dpanel="rca"><div id="rcaRoot"></div></div>
+      <div class="fz-panel" data-dpanel="preditivo"><div id="preditivoRoot"></div></div>
+      <div class="fz-panel" data-dpanel="os"><div id="copilotoRoot"></div></div>
+    </section>
+    <!-- ===================  GOVERNANÇA  =================== -->
+    <section class="screen" id="screen-governanca">
+      <div class="page-head">
+        <div>
+          <div class="fz-eyebrow">Forzy · Governança de IA</div>
+          <h1 class="page-title">Governança</h1>
+          <div class="fz-hero-sub">KPIs estratégicos, Metric Contract, Circuit Breaker, trilha de auditoria e fairness</div>
+        </div>
+      </div>
+      <div id="governancaRoot"></div>
     </section>
   </main>
 
@@ -390,10 +413,10 @@
 
       <div id="login-error" style="display:none;background:rgba(231,76,60,.15);border:1px solid rgba(231,76,60,.4);border-radius:8px;padding:8px 12px;font-size:13px;color:#e74c3c;margin-bottom:12px"></div>
 
-      <div class="field-label">E-mail</div>
+      <div class="field-label">Usuário</div>
       <div class="field">
-        <i data-lucide="mail"></i>
-        <input type="email" id="login-email" placeholder="seu@email.com" autocomplete="username">
+        <i data-lucide="user"></i>
+        <input type="text" id="login-user" placeholder="nome.sobrenome" autocomplete="username" autocapitalize="none" spellcheck="false">
       </div>
 
       <div class="field-label">Senha</div>
@@ -404,12 +427,14 @@
 
       <div class="login-meta">
         <label class="remember">
+          <input type="checkbox" id="login-remember" checked>
           <span class="box"><i data-lucide="check"></i></span> Manter conectado
         </label>
         <a class="link" href="#" id="login-forgot">Esqueceu a senha?</a>
       </div>
 
       <button class="btn-login" id="doLogin">Entrar</button>
+      <div class="login-hint" id="login-hint" hidden>Primeiro acesso: <b>joao.franco</b> · senha <b>forzy123</b></div>
 
       <div class="copyright" style="margin-top:24px">
         <i data-lucide="copyright"></i><span>IMS · Forzy — Sistema interno</span>
@@ -423,7 +448,7 @@
         <svg class="logo-mark inv" viewBox="0 0 40 40" aria-hidden="true"><rect class="sq" x="15" y="6" width="21" height="27" rx="9" transform="rotate(11 25.5 19.5)"></rect><rect class="mn" x="4" y="5" width="24" height="30" rx="12"></rect></svg>
         <span class="logo-text">IMS · Forzy</span>
       </div>
-      <h2 class="showcase-h">Powerfull and Easy to use Marketing Dashboard Analytic</h2>
+      <h2 class="showcase-h">Bombas monitoradas, falhas previstas, manutenção na hora certa.</h2>
     </div>
   </div>
 </div>
@@ -432,22 +457,33 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script src="data/forzy-data.js"></script>
+<script src="data/forzy-model.js?v=1"></script>
+<script src="modelo.js?v=2"></script>
 <script src="forzy-store.js?v=4"></script>
-<script src="forzy.js?v=12"></script>
-<script src="inicio.js?v=5"></script>
+<script src="forzy.js?v=15"></script>
+<script src="inicio.js?v=6"></script>
 <script src="cadastro.js?v=9"></script>
 <script src="gestao.js?v=6"></script>
-<script src="scada.js?v=1"></script>
-<script src="iot.js?v=5"></script>
+<script src="scada.js?v=2"></script>
+<script src="iot.js?v=6"></script>
 <script src="perfil.js?v=3"></script>
-<script src="topbar.js?v=9"></script>
-<script src="app.js?v=6"></script>
-<script src="nav-v2.js?v=3"></script>
+<script src="auth.js?v=1"></script>
+<script src="topbar.js?v=12"></script>
+<script src="app.js?v=10"></script>
+<script src="nav-v2.js?v=5"></script>
 <script src="config.js"></script>
-<script src="assistant.js?v=10"></script>
-<script src="assistente-screen.js?v=11"></script>
-<script src="alerta-critico.js?v=1"></script>
+<script src="assistant.js?v=11"></script>
+<script src="assistente-screen.js?v=14"></script>
+<script src="alerta-critico.js?v=3"></script>
 <script src="alert-rail.js?v=2"></script>
-<script src="copiloto.js?v=3"></script>
+<script src="copiloto.js?v=5"></script>
+<script src="forzy-fmea.js?v=1"></script>
+<script src="forzy-bi.js?v=2"></script>
+<script src="forzy-gov.js?v=1"></script>
+<script src="forzy-audit.js?v=1"></script>
+<script src="investigacao.js?v=1"></script>
+<script src="rca.js?v=1"></script>
+<script src="preditivo.js?v=2"></script>
+<script src="governanca.js?v=1"></script>
 </body>
 </html>

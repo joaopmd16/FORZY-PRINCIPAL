@@ -174,8 +174,31 @@
     else if (vel >= LIM.vel.a || temp >= LIM.temp.a || acel >= LIM.acel.al) { prio = 'P2'; prioLbl = 'Alta — verificar / planejar'; }
     else { prio = 'P3'; prioLbl = 'Planejada — rotina'; }
 
+    /*
+     * REDE NEURAL — entra depois das regras, nunca no lugar delas.
+     * As regras acima decidem QUAL é o modo de falha (elas conhecem a física:
+     * aceleração alta com velocidade baixa = rolamento, etc.). A rede não sabe
+     * nomear modo de falha nenhum — ela só sabe dizer o quanto a combinação das
+     * seis variáveis foge do que ela viu no dataset. Então o papel dela aqui é
+     * de ESCALADA: se ela acusa anomalia que os limites fixos não pegaram, a
+     * prioridade sobe um degrau e a confiança aumenta. Ela nunca rebaixa nada.
+     */
+    let rede = null;
+    try {
+      const M = window.FZModelo;
+      if (M && M.pronto()) { const r = M.avaliar(reading); if (r && r.ok) rede = r; }
+    } catch (e) { /* noop */ }
+
+    if (rede && rede.nivelRede >= 1) {
+      if (rede.nivelRede === 2 && prio !== 'P1') { prio = 'P1'; prioLbl = 'Crítica — intervenção imediata'; }
+      else if (prio === 'P3')                    { prio = 'P2'; prioLbl = 'Alta — verificar / planejar'; }
+      // "normal" + rede acusando = as duas leituras se contradizem; a confiança no
+      // laudo cai, é exatamente o caso que o técnico precisa olhar com o olho dele.
+      conf = key === 'normal' ? clamp(conf - 0.25, 0.1, 0.97) : clamp(conf + 0.05, 0, 0.97);
+    }
+
     return { key, ...MODOS[key], confianca: Math.round(conf * 100), prioridade: prio, prioridadeLabel: prioLbl,
-             evidencias: ev, tendencia: trend, eixo: pfx };
+             evidencias: ev, tendencia: trend, eixo: pfx, rede };
   }
 
   /* ===================================================================
@@ -216,6 +239,14 @@
       acoes: diag.acoes.slice(),
       pecas: diag.pecas.slice(),
       norma: 'ISO 10816 (motores < 15 kW) · ISA-18.2:2016 (gestão de alarmes)',
+      // parecer da rede neural — fica gravado na OS pra a auditoria saber que
+      // a prioridade pode ter sido escalada pelo modelo, não só pelos limites
+      rede: diag.rede ? {
+        indice: +fmt(diag.rede.indice, 2),
+        nivel: diag.rede.rotulo,
+        limite_critico: +fmt(diag.rede.limCritico, 2),
+        explicacao: diag.rede.explicacao,
+      } : null,
       responsavel: '',
       prazo: '',
       status: 'Aberta',
@@ -254,6 +285,16 @@
     }).join('');
 
     const trendTxt = _diag.tendencia > 0.15 ? '↑ piorando' : _diag.tendencia < -0.15 ? '↓ melhorando' : '→ estável';
+
+    // parecer da rede neural — só pro analista; o operador vê o veredito curto
+    const _r = _diag.rede;
+    const redeBloco = !_r ? '' : `
+      <div class="fz-cop-rede">
+        <b>Rede neural</b> — índice de anomalia
+        <b style="color:${_r.cor}">${fmt(_r.indice, 2)}</b>
+        (1,00 = atenção · ${fmt(_r.limCritico, 2)} = crítico) → <b style="color:${_r.cor}">${esc(_r.rotulo)}</b>
+        <div>${esc(_r.explicacao)}</div>
+      </div>`;
 
     const ehOperador = !!(window.FZPerfil && window.FZPerfil.isOperador && window.FZPerfil.isOperador());
     if (ehOperador) {
@@ -335,6 +376,7 @@
             <thead><tr><th>Grandeza</th><th>Valor</th><th>Z-score</th><th>Faixa</th></tr></thead>
             <tbody>${evRows}</tbody>
           </table>
+          ${redeBloco}
           <div class="fz-cop-sub">Regras baseadas em ISO 10816 + Z-score sobre o baseline do Dataset Forzy. Sem análise espectral.</div>
         </div>
 
@@ -448,6 +490,10 @@
     L.push(`Causa provável: ${_os.causa_provavel}`);
     L.push('Evidências:');
     _os.evidencias.forEach(e => L.push(`  - ${e.grandeza}: ${e.valor} ${e.unidade} (Z ${e.zscore}, ${e.faixa})`));
+    if (_os.rede) {
+      L.push(`Rede neural: índice ${_os.rede.indice} (crítico a partir de ${_os.rede.limite_critico}) — ${_os.rede.nivel}`);
+      L.push(`  ${_os.rede.explicacao}`);
+    }
     L.push('Ações recomendadas:');
     _os.acoes.forEach((a, i) => L.push(`  ${i + 1}. ${a}`));
     L.push('Peças / insumos: ' + _os.pecas.join(', '));
@@ -499,6 +545,13 @@
         styles: { fontSize: 9 }, headStyles: { fillColor: [40, 40, 46] },
       });
       y = doc.lastAutoTable.finalY + 20;
+    }
+
+    if (_os.rede) {
+      line('Rede neural (autoencoder — dataset Forzy)', 12, 'bold', 18);
+      line(`Índice de anomalia ${_os.rede.indice} (crítico a partir de ${_os.rede.limite_critico}) — ${_os.rede.nivel}`, 10, 'normal', 14);
+      line(_os.rede.explicacao, 10, 'normal', 14);
+      y += 6;
     }
 
     line('Ações recomendadas', 12, 'bold', 18);
@@ -581,18 +634,37 @@
     if (window.lucide) lucide.createIcons();
   }
 
-  // deep-link do rail de alertas: abre a tela unificada na aba "Diagnóstico & OS"
+  // deep-link do rail de alertas: abre a tela Diagnóstico na sub-aba "Ordem de Serviço"
   // já com o eixo/ativo do alarme selecionado e o diagnóstico recalculado.
   function abrirPara(eixo, ativoCod) {
     if (eixo === 'm1' || eixo === 'm2') _eixo = eixo;
     if (ativoCod) _ativo = ativoCod;
     _os = null;
-    if (typeof window.showScreen === 'function') window.showScreen('assistente');
-    const aba = document.querySelector('#fzAssistTabs .fz-tab[data-atab="os"]');
+    if (typeof window.showScreen === 'function') window.showScreen('diagnostico');
+    const aba = document.querySelector('#fzDiagTabs .fz-tab[data-dtab="os"]');
     if (aba) aba.click();
     init();
     render();
   }
 
-  window.FZCopiloto = { init, render, abrirPara };
+  // pior leitura da série para um eixo — o frame que mais estoura os limites
+  // combinados (vel/acel/temp normalizados pelo nível de alarme). Usado pelas
+  // sub-abas Investigação / Causa Raiz / Projeção.
+  function piorLeitura(eixo) {
+    if (!F) return null;
+    const pfx = eixo === 'm2' ? 'm2' : 'm1';
+    const V = F[pfx].vel, A = F[pfx].acel, T = F[pfx].temp;
+    let idx = 0, best = -Infinity;
+    for (let i = 0; i < V.length; i++) {
+      const s = V[i] / LIM.vel.al + A[i] / LIM.acel.al + T[i] / LIM.temp.al;
+      if (s > best) { best = s; idx = i; }
+    }
+    return {
+      idx,
+      m1_vel: F.m1.vel[idx], m1_acel: F.m1.acel[idx], m1_temp: F.m1.temp[idx],
+      m2_vel: F.m2.vel[idx], m2_acel: F.m2.acel[idx], m2_temp: F.m2.temp[idx],
+    };
+  }
+
+  window.FZCopiloto = { init, render, abrirPara, diagnosticar, leituraAtual, zscore, MODOS, LIM, piorLeitura };
 })();

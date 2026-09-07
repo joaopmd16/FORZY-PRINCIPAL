@@ -75,8 +75,8 @@ Use SEMPRE esse contexto. Se o usuário perguntar "onde estou?" ou "o que é iss
   let carregando = false;
 
   // vision.html tem uma tela dedicada de chat (assistente-screen.js) — nesse caso
-  // não criamos a bolinha flutuante duplicada, e os alertas automáticos são
-  // empurrados pra lá em vez do painel flutuante.
+  // não criamos a bolinha flutuante duplicada e NÃO empurramos alarme nenhum pra IA:
+  // a análise é pedida pelo operador (modal/rail → FZAssistente.abrirComContexto).
   function telaDedicada() {
     return document.getElementById('fz-chat-screen') ? window.FZChatScreen : null;
   }
@@ -508,8 +508,9 @@ Por favor, analise esse desvio operacional seguindo a norma ISO 10816 e ISA-18.2
 2. **Risco** se não tratado
 3. **Ação corretiva recomendada**`;
 
-    const dedicada = telaDedicada();
-    if (dedicada) { dedicada.enviarAlerta(msg, `${flag === 2 ? 'Alarme' : 'Alerta'} ESP32 — Vibração ${vel.toFixed(2)} mm/s`, 'esp32'); return; }
+    // Com a tela dedicada o alarme já chega ao operador pelo topbar.js (modal P1 /
+    // faixa P2 / rail) e a IA só é acionada quando ele pede lá. Nada a empurrar aqui.
+    if (telaDedicada()) return;
 
     // abre o painel e envia automaticamente
     if (!aberto) abrirPanel();
@@ -566,8 +567,8 @@ Seguindo as normas ISO 10816 e ISA-18.2, responda com:
 2. **Risco** se não houver intervenção
 3. **Ação corretiva recomendada** (imediata e preventiva)`;
 
-    const dedicada = telaDedicada();
-    if (dedicada) { dedicada.enviarAlerta(msgIA, `${titulo} — ${msg}`, origem); return; }
+    // idem alertarIoT: com a tela dedicada, a IA só analisa sob demanda
+    if (telaDedicada()) return;
 
     if (!aberto) abrirPanel();
     await new Promise(r => setTimeout(r, 400));

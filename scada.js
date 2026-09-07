@@ -41,7 +41,7 @@
   }
   const liveFonteLbl = () => {
     const f = window.FZDashboard && window.FZDashboard.getFonte && window.FZDashboard.getFonte();
-    return ({ esp32: 'ESP32 ao vivo', ativo: 'Ativo cadastrado', sim: 'Simulado', cloud: 'Forzy Cloud', forzy: 'Dataset Forzy' })[f] || '—';
+    return ({ esp32: 'ESP32 ao vivo', ativo: 'Ativo cadastrado', sim: 'Simulado', cloud: 'Forzy Cloud', forzy: 'Dataset Forzy (rede neural)' })[f] || '—';
   };
   const fonteAoVivoOk = () => {
     const f = window.FZDashboard && window.FZDashboard.getFonte && window.FZDashboard.getFonte();

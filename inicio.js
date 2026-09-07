@@ -116,7 +116,7 @@
     c.innerHTML = `
       <div class="fz-field"><span>Fonte</span>
         <div class="fz-seg" data-act="fonte">
-          <button class="${state.fonte === 'forzy' ? 'active' : ''}" data-v="forzy">Dataset Forzy</button>
+          <button class="${state.fonte === 'forzy' ? 'active' : ''}" data-v="forzy">Dataset Forzy (rede neural)</button>
           <button class="${state.fonte === 'sim' ? 'active' : ''}" data-v="sim">Simulado</button>
           <button class="${state.fonte === 'esp32' ? 'active' : ''}" data-v="esp32"
             style="${esp32Online() ? 'color:var(--fz-ok)' : 'opacity:.55'}">⬤ ESP32</button>

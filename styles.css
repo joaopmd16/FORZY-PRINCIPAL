@@ -2193,3 +2193,274 @@ body.perfil-operador .fz-rail-item{ border-left-width:4px; }
   .fz-rail-toggle{ display:none; }
   .app.rail-collapsed .fz-rail-body{ display:block; }
 }
+
+/* ============================================================
+   REDE NEURAL — cards da aba "Baseline ML" (forzy.js renderMl)
+   Card de especificações do modelo, notas de rodapé e o texto
+   de explicação do veredito. Tokens só, nada de cor fixa.
+   ============================================================ */
+.fz-ml-net{ display:flex; flex-direction:column; gap:10px; }
+
+.fz-ml-specs{
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(150px, 1fr));
+  gap:8px;
+}
+.fz-ml-spec{
+  background:var(--field);
+  border:1px solid var(--hairline);
+  border-radius:8px;
+  padding:8px 10px;
+  display:flex; flex-direction:column; gap:2px;
+}
+.fz-ml-spec span{ font-size:11px; color:var(--text-3); text-transform:uppercase; letter-spacing:.4px; }
+.fz-ml-spec b{ font-size:16px; color:var(--text); font-variant-numeric:tabular-nums; }
+.fz-ml-spec i{ font-size:11px; color:var(--text-3); font-style:normal; }
+
+.fz-ml-nota{ font-size:11px; color:var(--text-3); line-height:1.5; }
+.fz-ml-nota code{
+  background:var(--field); border-radius:4px; padding:1px 4px;
+  font-size:10px; color:var(--teal);
+}
+
+/* origem do veredito (rede / norma / ambos), embaixo do gauge */
+.fz-ml-fonte{
+  margin-top:4px; font-size:11px; color:var(--text-3);
+  text-transform:uppercase; letter-spacing:.4px;
+}
+
+/* frase que explica POR QUE a rede julgou assim */
+.fz-ml-explica{
+  margin-top:8px; padding:8px 10px;
+  background:var(--field);
+  border-left:3px solid var(--teal);
+  border-radius:0 6px 6px 0;
+  font-size:12px; line-height:1.55; color:var(--text);
+}
+
+/* parecer da rede neural dentro do laudo do Copiloto (copiloto.js) */
+.fz-cop-rede{
+  margin:10px 0 0; padding:8px 10px;
+  background:var(--field);
+  border-left:3px solid var(--teal);
+  border-radius:0 6px 6px 0;
+  font-size:12px; line-height:1.55; color:var(--text);
+}
+.fz-cop-rede > div{ margin-top:4px; color:var(--text-3); }
+
+/* seg de fonte: com o rótulo do modelo o rótulo ficou mais largo — em tela
+   estreita quebra a linha em vez de estourar a barra. */
+.fz-seg{ flex-wrap:wrap; }
+
+/* ===================================================================
+   ALERTA → IA SOB DEMANDA — card do alarme na conversa, markdown das
+   respostas, régua de severidade no modal P1
+   (assistente-screen.js · alerta-critico.js)
+   =================================================================== */
+.fz-chat-alerta-p1 .fz-chat-bubble-inner{ border-color:var(--fz-bad); border-left-color:var(--fz-bad); }
+.fz-chat-alerta-card{ display:flex; flex-direction:column; gap:10px; }
+.fz-chat-alerta-head{ display:flex; align-items:center; gap:10px; font-size:14px; }
+.fz-chat-alerta-badge{ font-size:10.5px; font-weight:800; letter-spacing:.04em; padding:2px 8px;
+  border-radius:999px; background:var(--fz-warn); color:#1a1200; white-space:nowrap; }
+.fz-chat-alerta-badge.p1{ background:var(--fz-bad); color:#fff; }
+.fz-chat-alerta-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:8px 16px; }
+.fz-chat-alerta-grid > div{ display:flex; flex-direction:column; }
+.fz-chat-alerta-grid span{ font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.04em;
+  color:var(--wstext-3, var(--text-3)); }
+.fz-chat-alerta-grid b{ font-size:13px; color:var(--wstext, var(--text)); }
+.fz-chat-alerta-msg{ font-size:12.5px; color:var(--wstext-2, var(--text-2)); }
+.fz-chat-alerta-pedido{ font-size:12px; color:var(--wstext-3, var(--text-3));
+  border-top:1px solid var(--wsline, var(--hairline)); padding-top:8px; }
+
+/* markdown mínimo das respostas da IA */
+.fz-chat-bubble-inner .fz-md-h{ font-weight:800; margin:6px 0 2px; }
+.fz-chat-bubble-inner ul, .fz-chat-bubble-inner ol{ margin:4px 0 6px; padding-left:20px; }
+.fz-chat-bubble-inner li{ margin:2px 0; }
+.fz-md-code{ background:var(--wsfield, var(--field)); padding:1px 5px; border-radius:4px; font-size:.93em; }
+
+/* régua de severidade do modal P1 */
+.fz-ac-escala{ margin:2px 0 12px; }
+.fz-ac-escala-bar{ position:relative; display:flex; height:10px; border-radius:999px; margin:24px 0 5px; }
+.fz-ac-escala-bar > span{ display:block; height:100%; }
+.fz-ac-escala-bar > span:first-child{ border-radius:999px 0 0 999px; }
+.fz-ac-escala-bar > span:nth-child(3){ border-radius:0 999px 999px 0; }
+.fz-ac-escala-bar .ok{ background:var(--fz-ok); opacity:.55; }
+.fz-ac-escala-bar .warn{ background:var(--fz-warn); opacity:.75; }
+.fz-ac-escala-bar .bad{ background:var(--fz-bad); }
+.fz-ac-escala-mark{ position:absolute; top:-6px; bottom:-6px; width:3px; margin-left:-1.5px;
+  background:var(--text); border-radius:2px; }
+.fz-ac-escala-mark b{ position:absolute; bottom:calc(100% + 4px); left:50%; transform:translateX(-50%);
+  white-space:nowrap; font-size:11.5px; font-weight:800; color:var(--text); }
+.fz-ac-escala-mark.edge-l b{ left:0; transform:none; }
+.fz-ac-escala-mark.edge-r b{ left:auto; right:0; transform:none; }
+.fz-ac-escala-lbl{ display:flex; justify-content:space-between; font-size:10.5px; color:var(--text-2); }
+
+/* =====================================================================
+   LOGIN POR USUÁRIO (auth.js) — nome.sobrenome + senha, sem OAuth
+   ===================================================================== */
+/* sem sessão o app não pisca antes do gate do app.js (inline style dele vence depois) */
+html.fz-sem-sessao #app-shell{ display:none; }
+
+/* "Manter conectado" é um checkbox de verdade — a caixinha reflete o estado */
+.remember{ position:relative; cursor:pointer; user-select:none; }
+.remember input{ position:absolute; opacity:0; width:0; height:0; pointer-events:none; }
+.remember .box svg{ transition:opacity .15s; }
+.remember input:not(:checked) + .box svg{ opacity:0; }
+.remember input:focus-visible + .box{ outline:2px solid var(--teal); outline-offset:2px; }
+
+.login-hint{ margin-top:14px; font-size:13px; color:var(--text-2); }
+.login-hint b{ color:var(--text); font-weight:700; }
+#login-error.is-info{ background:rgba(138,169,201,.12) !important; border-color:rgba(138,169,201,.4) !important; color:var(--teal) !important; }
+
+/* conta Operador não escolhe visão: chavinha, botão do menu e gestão de usuários somem */
+body.fz-conta-operador .fz-visao,
+body.fz-conta-operador #topbar-perfil-toggle,
+body.fz-conta-operador .fz-so-admin-conta{ display:none !important; }
+
+/* modais de conta — reaproveitam #fz-profile-modal / #fz-profile-box (CSS no topbar.js) */
+#fz-profile-box.fz-auth-wide{ width:560px; max-width:calc(100vw - 32px); }
+.fz-auth-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
+.fz-auth-head strong{ font-size:15px; }
+.fz-auth-close{ background:none; border:none; color:#aaa; font-size:18px; cursor:pointer; }
+.fz-auth-lbl{ display:block; font-size:12px; color:#aaa; margin-top:10px; }
+.fz-auth-btn{ margin-top:16px; width:100%; padding:10px; background:var(--teal); border:none; border-radius:8px;
+  color:#fff; font-size:14px; cursor:pointer; font-weight:600; font-family:inherit; }
+.fz-auth-btn:disabled{ opacity:.6; cursor:default; }
+.fz-auth-msg{ min-height:16px; margin-top:10px; font-size:12px; color:#aaa; }
+.fz-auth-msg.is-erro{ color:var(--fz-bad); }
+.fz-auth-msg.is-ok{ color:var(--fz-ok); }
+.fz-auth-quem{ display:flex; align-items:center; gap:10px; margin-bottom:6px; }
+.fz-auth-quem b, .fz-auth-who b{ font-size:13px; color:#fff; }
+.fz-auth-quem small, .fz-auth-who small{ display:block; font-size:11px; color:rgba(255,255,255,.45); }
+.fz-auth-avatar{ width:32px; height:32px; border-radius:50%; background:rgba(138,169,201,.2); color:var(--teal);
+  font-weight:800; font-size:12px; display:grid; place-items:center; flex:none; }
+.fz-auth-sub{ font-size:11px; text-transform:uppercase; letter-spacing:.5px; color:var(--teal); margin-top:18px; }
+.fz-auth-lista{ display:flex; flex-direction:column; gap:6px; max-height:260px; overflow:auto; }
+.fz-auth-row{ display:grid; grid-template-columns:32px 1fr auto auto; gap:10px; align-items:center;
+  padding:8px 10px; border-radius:10px; background:rgba(255,255,255,.04); }
+.fz-auth-badge{ font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; padding:3px 8px;
+  border-radius:999px; background:rgba(255,255,255,.08); color:#ccc; }
+.fz-auth-badge.admin{ background:rgba(138,169,201,.2); color:var(--teal); }
+.fz-auth-acoes{ display:flex; gap:6px; align-items:center; }
+.fz-auth-acoes button, .fz-auth-inline button{ background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.1);
+  color:#ddd; border-radius:7px; padding:5px 9px; font-size:12px; cursor:pointer; font-family:inherit; }
+.fz-auth-acoes button:hover, .fz-auth-inline button:hover{ background:rgba(255,255,255,.12); }
+.fz-auth-acoes button[data-act="remover"]:hover{ color:var(--fz-bad); border-color:var(--fz-bad); }
+.fz-auth-eu{ font-size:11px; color:rgba(255,255,255,.4); }
+.fz-auth-inline{ grid-column:1 / -1; display:flex; gap:6px; align-items:center; }
+.fz-auth-inline[hidden]{ display:none; }
+.fz-auth-inline input{ flex:1; margin-top:0 !important; }
+.fz-auth-form{ display:grid; grid-template-columns:1fr 1fr; gap:0 12px; }
+@media (max-width:600px){ .fz-auth-form{ grid-template-columns:1fr; } }
+
+/* =====================================================================
+   FORZY - Diagnostico (Investigacao / Vista Explodida - Causa Raiz -
+   Projecao) + Governanca. Portado de forzy_th. Sub-abas de
+   #screen-diagnostico e #screen-governanca. Usa tokens existentes.
+   ===================================================================== */
+
+/* ---- barra de diagnostico resumida ---- */
+.fz-xv-diagbar{ display:flex; flex-wrap:wrap; gap:12px; align-items:center;
+  background:var(--card); border:1px solid var(--hairline); border-radius:12px;
+  padding:12px 16px; margin-top:14px; font-size:14px; color:var(--text); }
+.fz-xv-diagbar b{ font-size:15px; }
+
+/* ---- layout ---- */
+.fz-xv-grid{ display:grid; grid-template-columns:1.15fr 1fr; gap:18px; margin-top:16px; }
+@media (max-width:980px){ .fz-xv-grid{ grid-template-columns:1fr; } }
+.fz-xv-stage{ display:flex; flex-direction:column; gap:12px; }
+
+/* ---- SVG do corte ---- */
+.fz-xv-svg{ width:100%; height:auto; aspect-ratio:1/.72; background:var(--field);
+  border:1px solid var(--hairline); border-radius:12px; }
+.fz-xv-ground{ stroke:var(--hairline-2); stroke-width:.6; stroke-dasharray:2 2; }
+.fz-xv-g{ transition:transform .45s cubic-bezier(.4,0,.2,1); cursor:pointer; }
+.fz-xv-part{ fill:var(--card); stroke:var(--text-3); stroke-width:.8;
+  transition:fill .2s, stroke .2s, stroke-width .2s; }
+.fz-xv-g:hover .fz-xv-part{ stroke:var(--teal); }
+.fz-xv-sev-P3{ fill:var(--fz-ok-soft); stroke:var(--fz-ok); }
+.fz-xv-sev-P2{ fill:var(--fz-warn-soft); stroke:var(--fz-warn); }
+.fz-xv-sev-P1{ fill:var(--fz-bad-soft); stroke:var(--fz-bad); }
+.fz-xv-primario{ stroke-width:1.6; }
+.fz-xv-sel .fz-xv-part, .fz-xv-part.fz-xv-sel{ stroke:var(--teal); stroke-width:1.8; }
+.fz-xv-g.fz-xv-sel .fz-xv-part{ stroke:var(--teal); stroke-width:1.8; }
+
+/* ---- legenda ---- */
+.fz-xv-legend{ display:flex; flex-wrap:wrap; gap:6px; }
+.fz-xv-legrow{ display:flex; align-items:center; gap:7px; background:var(--field);
+  border:1px solid var(--hairline); border-radius:999px; padding:5px 11px;
+  font-size:12px; color:var(--text-2); cursor:pointer; transition:border-color .15s, color .15s; }
+.fz-xv-legrow:hover{ border-color:var(--teal); color:var(--text); }
+.fz-xv-dot{ width:9px; height:9px; border-radius:2px; background:var(--text-3); flex:none; }
+
+/* ---- painel do componente ---- */
+.fz-xv-panel-head{ display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:6px; }
+.fz-xv-panel-nome{ font-size:17px; font-weight:800; color:var(--text); }
+.fz-xv-estado{ font-size:13px; color:var(--text); margin:4px 0 12px; line-height:1.55; }
+.fz-xv-acoes{ margin:6px 0 4px; padding-left:18px; line-height:1.75; font-size:13px; color:var(--text); }
+.fz-xv-panel-cta{ display:flex; flex-wrap:wrap; gap:9px; margin-top:14px; }
+
+/* ---- sparkline do componente ---- */
+.fz-xv-spark{ width:100%; height:54px; margin:4px 0 10px; overflow:visible; }
+.fz-xv-spark-line{ fill:none; stroke:var(--teal); stroke-width:1.5; }
+.fz-xv-lim-a{ stroke:var(--fz-warn); stroke-width:1; stroke-dasharray:3 3; opacity:.7; }
+.fz-xv-lim-al{ stroke:var(--fz-bad); stroke-width:1; stroke-dasharray:3 3; opacity:.7; }
+
+/* ---- RCA / Causa Raiz ---- */
+.fz-rc-report{ border:1px solid var(--teal); }
+.fz-rc-timeline{ list-style:none; margin:8px 0 0; padding:0;
+  border-left:2px solid var(--hairline-2); }
+.fz-rc-timeline li{ position:relative; padding:7px 0 7px 18px; font-size:13px; color:var(--text); line-height:1.5; }
+.fz-rc-timeline li::before{ content:""; position:absolute; left:-5px; top:12px; width:8px; height:8px;
+  border-radius:50%; background:var(--text-3); }
+.fz-rc-timeline li.hot::before{ background:var(--fz-bad); }
+.fz-rc-timeline .rc-h{ display:inline-block; min-width:66px; font-weight:700;
+  font-family:var(--font-num, inherit); color:var(--text-2); margin-right:8px; }
+.fz-rc-manual{ margin-top:16px; padding-top:14px; border-top:1px solid var(--hairline); }
+
+/* ---- Projecao de degradacao ---- */
+.fz-pr-card{ display:flex; flex-direction:column; gap:10px; }
+.fz-pr-head{ display:flex; justify-content:space-between; align-items:center; }
+.fz-pr-kpis{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+.fz-pr-kpis > div, .fz-pr-proj-row > div{ display:flex; flex-direction:column; gap:3px; }
+.fz-pr-kpis span, .fz-pr-proj-row span{ font-size:10.5px; font-weight:700; text-transform:uppercase;
+  letter-spacing:.04em; color:var(--text-2); }
+.fz-pr-kpis b{ font-size:16px; color:var(--text); }
+.fz-pr-kpis b i, .fz-pr-proj-row b i{ font-style:normal; font-size:11px; font-weight:600; color:var(--text-2); }
+.fz-pr-proj-row{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:2px; }
+.fz-pr-proj-row b{ font-size:14px; color:var(--text); }
+.fz-pr-chart{ width:100%; height:120px; background:var(--field); border:1px solid var(--hairline);
+  border-radius:10px; overflow:visible; }
+.fz-pr-line{ fill:none; stroke:var(--teal); stroke-width:1.6; }
+.fz-pr-proj{ stroke:var(--fz-bad); stroke-width:1.6; stroke-dasharray:5 4; }
+.fz-pr-lim-a{ stroke:var(--fz-warn); stroke-width:1; stroke-dasharray:3 3; opacity:.7; }
+.fz-pr-lim-al{ stroke:var(--fz-bad); stroke-width:1; stroke-dasharray:3 3; opacity:.7; }
+
+/* ---- Governanca ---- */
+.fz-gov-body{ margin-top:16px; }
+.fz-gov-stack{ display:flex; flex-direction:column; gap:14px; }
+.fz-gov-kpi-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:14px; }
+.fz-gov-kpi-grid .fz-gov-note{ grid-column:1/-1; }
+.fz-gov-kpi-row{ display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid var(--hairline); font-size:13px; }
+.fz-gov-kpi-row:last-child{ border-bottom:none; }
+.fz-gov-kpi-row span{ color:var(--text-2); }
+.fz-gov-kpi-row b{ font-family:var(--font-num); font-weight:800; }
+.fz-gov-note{ font-size:12px; color:var(--text-3); line-height:1.6; background:var(--field); border-radius:10px; padding:12px 14px; }
+.fz-gov-th th{ background:var(--field); color:var(--text-2) !important; }
+.fz-gov-simrow{ display:flex; flex-wrap:wrap; gap:8px; margin:10px 0; }
+.fz-gov-cb{ border-radius:10px; padding:14px 16px; font-size:13px; line-height:1.65; border:1px solid; margin-top:8px; }
+.fz-gov-cb p{ margin:6px 0 0; max-width:none; color:var(--text); }
+.fz-gov-cb-t{ font-weight:800; font-size:13px; text-transform:uppercase; letter-spacing:.05em; color:var(--text); }
+.fz-gov-cb-foot{ margin-top:10px; padding-top:10px; border-top:1px solid rgba(127,127,127,.25); font-size:11.5px; color:var(--text); }
+.fz-gov-cb-ok{ background:var(--fz-ok-soft); border-color:var(--fz-ok); }
+.fz-gov-cb-warn{ background:var(--fz-warn-soft); border-color:var(--fz-warn); }
+.fz-gov-cb-trip{ background:var(--fz-bad-soft); border-color:var(--fz-bad); }
+.fz-gov-audit-head{ display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:6px; }
+.fz-gov-audit-tools{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.fz-gov-audit-tools .fz-input{ min-width:220px; }
+.fz-gov-integ{ font-size:11px; color:var(--fz-ok); font-weight:700; }
+.fz-gov-fair-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:14px; }
+.fz-gov-bias-h{ display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+.fz-gov-bias-h b{ font-size:14px; color:var(--text); }
+.fz-gov-bias-mit{ background:var(--field); border-radius:8px; padding:9px 11px; font-size:12px; color:var(--teal); margin-top:8px; }
+@media (max-width:900px){ .fz-gov-kpi-grid,.fz-gov-fair-grid{ grid-template-columns:1fr; } }

@@ -40,9 +40,24 @@
   const T0 = new Date(F.meta.t0).getTime();
   function tlabel(i){ const d=new Date(T0 + F.t[i]*1000); return d.toLocaleTimeString('pt-BR',{hour12:false}); }
 
+  // Z-score do modelo estatístico antigo. Mantido só como termo de COMPARAÇÃO
+  // na aba Baseline ML — a classificação de verdade agora vem da rede (modelo.js).
   function zscore(reading){ const z={}; for(const c of COLS){ const b=BL[c]; z[c]= b.std? Math.abs(reading[c]-b.mean)/b.std : 0; } return z; }
   function classify(score){ if(score<2) return ['Normal',C.ok]; if(score<3) return ['Alerta',C.warn]; return ['Anomalia',C.bad]; }
   function maxZ(z){ let m=0; for(const k in z) if(z[k]>m)m=z[k]; return m; }
+
+  /* ----------  REDE NEURAL (modelo.js + data/forzy-model.js)  ---------- */
+  // A rede é a fonte de verdade da classificação. Se o arquivo de pesos não
+  // carregar, tudo aqui cai de volta no Z-score sem quebrar a tela.
+  const rede = () => (window.FZModelo && window.FZModelo.pronto()) ? window.FZModelo : null;
+  function avaliarRede(reading){ const m = rede(); return m ? m.avaliar(reading) : null; }
+  // veredito unificado: [rótulo, cor, índice] — rede quando disponível, Z-score senão
+  function veredito(reading){
+    const r = avaliarRede(reading);
+    if (r && r.ok) return [r.rotulo, r.cor, r.indice, r];
+    const s = maxZ(zscore(reading)); const [cl, co] = classify(s);
+    return [cl, co, s, null];
+  }
 
   // índices uniformemente espaçados (downsample)
   function idxLinspace(n, k){ if(n<=k) return Array.from({length:n},(_,i)=>i); const out=[]; for(let i=0;i<k;i++) out.push(Math.round(i*(n-1)/(k-1))); return out; }
@@ -859,60 +874,199 @@
      =================================================================== */
   const ml = { vars:['m1_vel','m2_vel'] };
   let _mlSerie=null;
-  function mlSerie(){ if(_mlSerie) return _mlSerie; const idx=idxLinspace(F.meta.n,400); const rows=idx.map(i=>{ const z=zscore(readingAt(i)); const sc=maxZ(z); return {i,score:sc,z}; }); _mlSerie={idx,rows}; return _mlSerie; }
+  // Série do histórico avaliada pela rede. Guarda também o Z-score do modelo
+  // antigo pra aba conseguir mostrar os dois lado a lado.
+  function mlSerie(){
+    if(_mlSerie) return _mlSerie;
+    const idx=idxLinspace(F.meta.n,400);
+    const rows=idx.map(i=>{
+      const leitura=readingAt(i);
+      const z=zscore(leitura);
+      const r=avaliarRede(leitura);
+      return { i, leitura, z, zs:maxZ(z),
+               score: r&&r.ok ? r.indice : maxZ(z),
+               nivel: r&&r.ok ? r.nivelRede : (maxZ(z)>=3?2:(maxZ(z)>=2?1:0)),
+               erroCol: r&&r.ok ? r.fora : null };
+    });
+    _mlSerie={idx,rows}; return _mlSerie;
+  }
   function renderMl(){
     const p=document.getElementById('fzPanel-ml');
-    const live=curReading(); const z=zscore(live); const score=maxZ(z); const [classe,cor]=classify(score);
+    const m=rede(); const meta=m?m.info():null;
+    const live=curReading();
+    const r=avaliarRede(live);
+    const z=zscore(live); const zs=maxZ(z);
     p.innerHTML='';
 
-    // Card de referência ISA-18.2
+    if(!m){
+      const w=el('div','fz-card');
+      w.innerHTML='<div class="fz-card-title">Rede neural indisponível</div><div class="fz-card-sub">'
+        +'O arquivo <code>data/forzy-model.js</code> não carregou. Rode <code>python treinar_modelo.py</code> para gerar os pesos. '
+        +'Exibindo o modelo estatístico antigo (Z-score) como reserva.</div>';
+      p.appendChild(w);
+    }
+
+    /* ---- 1. A rede: o que é, como foi treinada ---- */
+    const net=el('div','fz-card fz-ml-net');
+    net.innerHTML=`
+      <div class="fz-card-title">Detector de Anomalia — Rede Neural (Autoencoder)</div>
+      <div class="fz-card-sub">
+        Não é uma lista de limites fixos. É uma rede treinada com o histórico completo do Dataset Forzy
+        que aprendeu sozinha como as seis variáveis dos dois eixos se relacionam. Ela tenta reconstruir
+        cada leitura; quando não consegue, é porque aquela <b>combinação</b> de valores nunca aconteceu na máquina —
+        e isso é a anomalia.
+      </div>
+      ${meta?`<div class="fz-ml-specs">
+        <div class="fz-ml-spec"><span>Arquitetura</span><b>${meta.arquitetura}</b><i>gargalo de 2 neurônios</i></div>
+        <div class="fz-ml-spec"><span>Parâmetros</span><b>${meta.parametros}</b><i>pesos e vieses treinados</i></div>
+        <div class="fz-ml-spec"><span>Amostras</span><b>${meta.amostras.toLocaleString('pt-BR')}</b><i>+ ${meta.validacao.toLocaleString('pt-BR')} de validação</i></div>
+        <div class="fz-ml-spec"><span>Épocas</span><b>${meta.epocas}</b><i>otimizador Adam</i></div>
+        <div class="fz-ml-spec"><span>Erro treino</span><b>${meta.mseTreino.toFixed(6)}</b><i>MSE</i></div>
+        <div class="fz-ml-spec"><span>Erro validação</span><b>${meta.mseValidacao.toFixed(6)}</b><i>sem sobreajuste</i></div>
+      </div>
+      <div class="fz-ml-nota">Treino offline em <code>treinar_modelo.py</code> (NumPy) · pesos em <code>data/forzy-model.js</code> ·
+      inferência no browser em <code>modelo.js</code> · versão ${escHtml(meta.versao)}, gerada em ${escHtml(meta.gerado)}</div>`:''}`;
+    p.appendChild(net);
+
+    /* ---- 2. Como o índice vira prioridade ISA-18.2 ---- */
+    const limCrit=r&&r.ok?r.limCritico:2.56;
     const isaCard=el('div','fz-card fz-isa-ref-card');
     isaCard.innerHTML=`
-      <div class="fz-card-title" style="font-size:12px;color:var(--teal,#8aa9c9)">Referência ISA-18.2 — Gestão de Alarmes</div>
+      <div class="fz-card-title" style="font-size:12px;color:var(--teal,#8aa9c9)">Do índice da rede para a prioridade ISA-18.2</div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px">
-        <span class="fz-badge fz-badge-isa fz-badge-ok">Z &lt; 2,0 &nbsp;· Normal (sem alarme)</span>
-        <span class="fz-badge fz-badge-isa fz-badge-warn">2,0 ≤ Z &lt; 3,0 &nbsp;· P2 Alto (verificar)</span>
-        <span class="fz-badge fz-badge-isa fz-badge-bad">Z ≥ 3,0 &nbsp;· P1 Crítico (intervir)</span>
+        <span class="fz-badge fz-badge-isa fz-badge-ok">Índice &lt; 1,00 &nbsp;· Normal (sem alarme)</span>
+        <span class="fz-badge fz-badge-isa fz-badge-warn">1,00 – ${fmt(limCrit,2)} &nbsp;· P2 Alto (verificar)</span>
+        <span class="fz-badge fz-badge-isa fz-badge-bad">≥ ${fmt(limCrit,2)} &nbsp;· P1 Crítico (intervir)</span>
       </div>
-      <div style="margin-top:6px;font-size:10px;color:rgba(255,255,255,.35)">Histerese de 10% aplicada. Baseado em ISA-18.2:2016.</div>`;
+      <div style="margin-top:6px;font-size:10px;color:rgba(255,255,255,.35)">
+        Os limiares não foram escolhidos a dedo: saem da própria distribuição de erro da rede sobre o histórico
+        (percentil 95 → atenção, percentil 99,5 → crítico). O veredito final é o <b>pior</b> entre a rede e a norma
+        ISO 10816 / ISA-18.2 — o modelo pode agravar um alarme, nunca silenciar um alarme normativo.
+      </div>`;
     p.appendChild(isaCard);
 
-    const intro=el('div','fz-card'); intro.innerHTML=`<div class="fz-card-title">Baseline de Operação — Modelo Estatístico</div><div class="fz-card-sub">Z-score multivariado sobre o histórico completo do Dataset Forzy. Score &lt; 2,0 = Normal · 2,0–3,0 = Alerta · &gt; 3,0 = Anomalia</div>`; p.appendChild(intro);
+    /* ---- 3. Leitura atual: gauge + veredito ---- */
+    const score=r&&r.ok?r.indice:zs;
+    const cor=r&&r.ok?r.cor:classify(zs)[1];
+    const classe=r&&r.ok?r.rotulo:classify(zs)[0];
+    const gMax=Math.max(limCrit*1.6, Math.min(score*1.25, 12));
 
-    const top=el('div','fz-card'); top.style.display='grid'; top.style.gridTemplateColumns='220px 1fr'; top.style.gap='18px';
+    const top=el('div','fz-card'); top.style.display='grid'; top.style.gridTemplateColumns='240px 1fr'; top.style.gap='18px';
     const ga=el('div'); ga.style.textAlign='center';
-    ga.innerHTML=`<div class="fz-section-label" style="text-align:center">Score Anomalia</div><div class="fz-gauge">${gaugeSVG(score,5,2,3,'',2)}</div><div style="margin-top:8px"><span class="fz-badge" style="background:${cor}22;color:${cor};border:1px solid ${cor};font-size:12px;padding:5px 18px">${classe.toUpperCase()}</span></div>`;
+    ga.innerHTML=`<div class="fz-section-label" style="text-align:center">Índice de anomalia</div>
+      <div class="fz-gauge">${gaugeSVG(Math.min(score,gMax),gMax,1,limCrit,'',2)}</div>
+      <div style="margin-top:8px"><span class="fz-badge" style="background:${cor}22;color:${cor};border:1px solid ${cor};font-size:12px;padding:5px 18px">${escHtml(classe.toUpperCase())}</span></div>
+      ${r&&r.ok&&score>gMax?`<div class="fz-ml-nota" style="margin-top:6px">valor real ${fmt(score,1)} — ponteiro no fim de escala</div>`:''}
+      ${r&&r.ok?`<div class="fz-ml-fonte">${r.motivo==='ambos'?'rede neural + norma':r.motivo==='rede'?'detectado pela rede':r.motivo==='norma'?'limite normativo':'dentro do esperado'}</div>`:''}`;
     top.appendChild(ga);
-    const zg=el('div','fz-zgrid');
-    COLS.forEach(c=>{
-      const zz=z[c]; const [,zc]=classify(zz); const b=BL[c];
-      const desvio = b.mean !== 0 ? ((live[c] - b.mean) / b.mean * 100) : 0;
-      const desvioStr = (desvio >= 0 ? '+' : '') + desvio.toFixed(1) + '%';
-      zg.appendChild(el('div','fz-zcard',`<div class="z-lbl">${b.label}</div><div class="z-top"><span class="z-val">${fmt(live[c],3)} ${b.unit==='C'?'°C':b.unit}</span><span class="z-z" style="color:${zc}">Z=${fmt(zz,2)}</span></div><div class="z-desvio" style="color:${zc}">Desvio: ${desvioStr}</div><div class="z-base">média ${fmt(b.mean,3)} ± ${fmt(b.std,3)}</div>`));
-      const card=zg.lastChild; card.style.borderLeftColor=zc;
-    });
-    const zgWrap=el('div'); zgWrap.appendChild(zg); top.appendChild(zgWrap);
+
+    const dir=el('div');
+    if(r&&r.ok){
+      dir.appendChild(el('div','fz-ml-explica',escHtml(r.explicacao)));
+      const zg=el('div','fz-zgrid');
+      r.fora.forEach(f=>{
+        const b=BL[f.col];
+        const un=f.unidade;
+        const dif=f.medido-f.esperado;
+        const forte=f.pct>=0.30;
+        const cc=forte?(r.nivelRede?C.warn:C.m1):'transparent';
+        zg.appendChild(el('div','fz-zcard',
+          `<div class="z-lbl">${escHtml(b.label)}</div>
+           <div class="z-top"><span class="z-val">${fmt(f.medido,3)} ${escHtml(un)}</span>
+             <span class="z-z" style="color:${forte?C.warn:'var(--text-2)'}">${(f.pct*100).toFixed(0)}%</span></div>
+           <div class="z-desvio">rede esperava ${fmt(f.esperado,3)} ${escHtml(un)} <b style="color:${Math.abs(dif)>1e-9&&forte?C.warn:'inherit'}">(${dif>=0?'+':''}${fmt(dif,3)})</b></div>
+           <div class="z-base">${(f.pct*100).toFixed(0)}% do erro de reconstrução</div>`));
+        zg.lastChild.style.borderLeftColor=cc;
+      });
+      dir.appendChild(zg);
+    } else {
+      const zg=el('div','fz-zgrid');
+      COLS.forEach(c=>{ const zz=z[c]; const [,zc]=classify(zz); const b=BL[c];
+        zg.appendChild(el('div','fz-zcard',`<div class="z-lbl">${escHtml(b.label)}</div><div class="z-top"><span class="z-val">${fmt(live[c],3)} ${b.unit==='C'?'°C':escHtml(b.unit)}</span><span class="z-z" style="color:${zc}">Z=${fmt(zz,2)}</span></div><div class="z-base">média ${fmt(b.mean,3)} ± ${fmt(b.std,3)}</div>`));
+        zg.lastChild.style.borderLeftColor=zc; });
+      dir.appendChild(zg);
+    }
+    top.appendChild(dir);
     p.appendChild(top);
 
-    // evolução do score
     const s=mlSerie();
-    const ec=el('div','fz-card'); ec.innerHTML='<div class="fz-section-label">Evolução do Score de Anomalia — Dataset Histórico</div>'; const ech=el('div','fz-chart'); ec.appendChild(ech); p.appendChild(ec);
-    let smax=0; s.rows.forEach(r=>{if(r.score>smax)smax=r.score;}); smax=Math.max(smax*1.1,3.2);
+
+    /* ---- 4. Evolução do índice sobre o histórico ---- */
+    const ec=el('div','fz-card'); ec.innerHTML='<div class="fz-section-label">Índice de Anomalia da Rede — Dataset Histórico</div>';
+    const ech=el('div','fz-chart'); ec.appendChild(ech); p.appendChild(ec);
+    let smax=0; s.rows.forEach(x=>{ if(x.score>smax) smax=x.score; });
+    smax=Math.max(Math.min(smax*1.1, limCrit*6), limCrit*1.4);
     lineChart(ech,{n:s.rows.length,height:260,yMax:smax,dec:3,xLabel:i=>tlabel(s.idx[i]),
-      series:[{name:'Score Z-score',color:'#7ec8e3',data:s.rows.map(r=>r.score)}],
-      bands:[{y0:0,y1:2,color:'rgba(46,204,113,.06)'},{y0:2,y1:3,color:'rgba(243,156,18,.08)'},{y0:3,y1:smax,color:'rgba(231,76,60,.08)'}],
-      thresholds:[{y:2,color:C.warn},{y:3,color:C.bad}] });
+      series:[{name:'Índice (rede neural)',color:'#7ec8e3',data:s.rows.map(x=>Math.min(x.score,smax))}],
+      bands:[{y0:0,y1:1,color:'rgba(46,204,113,.06)'},{y0:1,y1:limCrit,color:'rgba(243,156,18,.08)'},{y0:limCrit,y1:smax,color:'rgba(231,76,60,.08)'}],
+      thresholds:[{y:1,color:C.warn},{y:limCrit,color:C.bad}] });
 
-    // z individuais
-    const zc2=el('div','fz-card'); zc2.innerHTML='<div class="fz-section-label">Z-scores Individuais por Variável</div>';
-    const sel=el('div','fz-controls'); sel.style.marginBottom='10px';
-    COLS.forEach(c=>{ const on=ml.vars.includes(c); const b=el('button','fz-subtab '+(on?'active':''),BL[c].label); b.addEventListener('click',()=>{ if(ml.vars.includes(c)) ml.vars=ml.vars.filter(x=>x!==c); else ml.vars.push(c); renderMl(); }); sel.appendChild(b); });
-    zc2.appendChild(sel); const zch=el('div','fz-chart'); zc2.appendChild(zch); p.appendChild(zc2);
-    const palette=['#3498db','#2ecc71','#e74c3c','#f39c12','#9b59b6','#1abc9c'];
-    const zser=ml.vars.map((c,i)=>({name:BL[c].label,color:palette[i%palette.length],data:s.rows.map(r=>r.z[c])}));
-    lineChart(zch,{n:s.rows.length,height:250,dec:3,xLabel:i=>tlabel(s.idx[i]),series:zser.length?zser:[{name:'—',color:C.m1,data:s.rows.map(()=>0)}],thresholds:[{y:2,color:C.warn},{y:3,color:C.bad}]});
+    /* ---- 5. Rede × Z-score: por que trocamos ---- */
+    if(m){
+      const pior=F.m1.vel.indexOf(Math.max.apply(null,F.m1.vel));
+      const lPior=readingAt(pior>=0?pior:0);
+      const rPior=avaliarRede(lPior); const zPior=maxZ(zscore(lPior));
+      const lImp={ m1_vel:7.0, m1_acel:0.50, m1_temp:32.0, m2_vel:0.05, m2_acel:0.00, m2_temp:36.0 };
+      const rImp=avaliarRede(lImp); const zImp=maxZ(zscore(lImp));
 
-    // tabela baseline
+      const cmp=el('div','fz-card');
+      cmp.innerHTML=`
+        <div class="fz-section-label">Por que a rede substituiu o Z-score</div>
+        <div class="fz-card-sub">O modelo estatístico anterior media cada variável isolada contra a própria média.
+        Como a máquina fica metade do tempo parada, a distribuição é bimodal e o desvio-padrão do
+        <code>m1_vel</code> (${fmt(BL.m1_vel.std,2)}) ficou maior que a média (${fmt(BL.m1_vel.mean,2)}).
+        Resultado: nada dava Z alto — nem o pior frame do dataset.</div>
+        <table class="fz-table" style="margin-top:10px">
+          <thead><tr><th>Cenário</th><th>ISO 10816</th><th>Z-score (antigo)</th><th>Rede neural (atual)</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>Pior vibração do dataset — ${fmt(lPior.m1_vel,2)} mm/s nos dois eixos</td>
+              <td style="color:${C.bad}">ALARME</td>
+              <td style="color:${classify(zPior)[1]}">Z = ${fmt(zPior,2)} · ${escHtml(classify(zPior)[0])}</td>
+              <td style="color:${rPior?rPior.cor:''}">índice ${rPior?fmt(rPior.indice,2):'—'} · ${escHtml(rPior?rPior.rotulo:'—')}</td>
+            </tr>
+            <tr>
+              <td>Eixo 1 a 7,00 mm/s com o eixo 2 parado — fisicamente impossível nesta bomba</td>
+              <td style="color:${C.bad}">ALARME</td>
+              <td style="color:${classify(zImp)[1]}">Z = ${fmt(zImp,2)} · ${escHtml(classify(zImp)[0])}</td>
+              <td style="color:${rImp?rImp.cor:''}">índice ${rImp?fmt(rImp.indice,2):'—'} · ${escHtml(rImp?rImp.rotulo:'—')}</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="fz-ml-nota" style="margin-top:8px">O segundo caso é o que nenhum limite fixo pega: cada valor, sozinho,
+        passa em qualquer <i>if</i>. Só um modelo que aprendeu que os dois eixos têm correlação 1,00 percebe que a
+        combinação não existe.</div>`;
+      p.appendChild(cmp);
+
+      // as duas séries no mesmo gráfico, cada uma na sua escala de limiar
+      const cmpCh=el('div','fz-card');
+      cmpCh.innerHTML='<div class="fz-section-label">As duas curvas sobre o mesmo histórico (1,00 = limiar de atenção de cada modelo)</div>';
+      const cch=el('div','fz-chart'); cmpCh.appendChild(cch); p.appendChild(cmpCh);
+      lineChart(cch,{n:s.rows.length,height:230,yMax:4,dec:2,xLabel:i=>tlabel(s.idx[i]),
+        series:[
+          {name:'Rede neural (÷ 1,00)',color:'#7ec8e3',data:s.rows.map(x=>Math.min(x.score,4))},
+          {name:'Z-score antigo (÷ 2,00)',color:'#9b59b6',data:s.rows.map(x=>Math.min(x.zs/2,4))},
+        ],
+        thresholds:[{y:1,color:C.warn}] });
+    }
+
+    /* ---- 6. Erro de reconstrução por variável ---- */
+    if(m){
+      const zc2=el('div','fz-card');
+      zc2.innerHTML='<div class="fz-section-label">Erro de Reconstrução por Variável — onde a rede erra mais</div>'
+        +'<div class="fz-card-sub">Quanto cada sensor contribuiu para o índice, ao longo do histórico. Um pico isolado numa variável só costuma indicar problema de sensor; picos casados indicam problema mecânico.</div>';
+      const sel=el('div','fz-controls'); sel.style.marginBottom='10px';
+      COLS.forEach(c=>{ const on=ml.vars.includes(c); const b=el('button','fz-subtab '+(on?'active':''),BL[c].label);
+        b.addEventListener('click',()=>{ if(ml.vars.includes(c)) ml.vars=ml.vars.filter(x=>x!==c); else ml.vars.push(c); renderMl(); }); sel.appendChild(b); });
+      zc2.appendChild(sel); const zch=el('div','fz-chart'); zc2.appendChild(zch); p.appendChild(zc2);
+      const palette=['#3498db','#2ecc71','#e74c3c','#f39c12','#9b59b6','#1abc9c'];
+      const zser=ml.vars.map((c,i)=>({name:BL[c].label,color:palette[i%palette.length],
+        data:s.rows.map(x=>{ if(!x.erroCol) return 0; const f=x.erroCol.find(y=>y.col===c); return f?f.pct*100:0; })}));
+      lineChart(zch,{n:s.rows.length,height:250,yMax:100,dec:1,xLabel:i=>tlabel(s.idx[i]),
+        series:zser.length?zser:[{name:'—',color:C.m1,data:s.rows.map(()=>0)}]});
+    }
+
+    /* ---- 7. Estatísticas do baseline (referência) ---- */
     const tc=el('div','fz-card'); tc.innerHTML='<div class="fz-section-label">Estatísticas do Baseline (Dataset Completo)</div>'+
       `<table class="fz-table"><thead><tr><th>Variável</th><th>Unidade</th><th>Média</th><th>Desvio</th><th>P5</th><th>P95</th><th>N</th></tr></thead><tbody>${COLS.map(c=>{const b=BL[c];return `<tr><td>${b.label}</td><td>${b.unit==='C'?'°C':b.unit}</td><td>${fmt(b.mean,3)}</td><td>${fmt(b.std,3)}</td><td>${fmt(b.p5,3)}</td><td>${fmt(b.p95,3)}</td><td>${b.n}</td></tr>`;}).join('')}</tbody></table>`;
     p.appendChild(tc);
@@ -925,20 +1079,26 @@
     if(!window.FZStore) return [];
     return window.FZStore.getAtivosIndustrial().filter(a=> a.origem!=='forzy' && !['FZ-M1','FZ-M2','FZ-M3'].includes(a.tag));
   }
-  function updateLiveBadge(){ const b=document.getElementById('fzLiveBadge'); if(!b)return; const z=zscore(curReading()); const [cl,co]=classify(maxZ(z)); b.innerHTML=`<span class="fz-badge" style="background:${co}22;color:${co};border:1px solid ${co}">${cl.toUpperCase()}</span>`; }
+  function updateLiveBadge(){
+    const b=document.getElementById('fzLiveBadge'); if(!b)return;
+    const [cl,co,,r]=veredito(curReading());
+    const tip = r ? 'Rede neural · índice '+fmt(r.indice,2)+(r.motivo?' ('+r.motivo+')':'') : 'Z-score';
+    b.innerHTML=`<span class="fz-badge" style="background:${co}22;color:${co};border:1px solid ${co}" title="${escHtml(tip)}">${escHtml(cl.toUpperCase())}</span>`;
+  }
   function renderSourceBar(){
     const sb=document.getElementById('fzSourceBar');
     const ativos=ativosReais();
     if(state.fonte==='ativo' && !state.ativoCod && ativos.length) state.ativoCod=ativos[0].codigo;
     const esp32Connected = window.FZIoT && window.FZIoT.isConnected();
     const cloudLoaded = window.FZCloud && window.FZCloud.isLoaded();
-    const isV2 = !!document.getElementById('breadcrumb'); // seletor colapsável é exclusivo da sidebar nova (nav-v2.js)
+    // seletor colapsável é exclusivo da sidebar nova (.nav-group-flat, ver nav-v2.js)
+    const isV2 = !!document.querySelector('.nav-group-flat');
 
     if(!isV2){
       // ---- vision.html (produção): barra original, sem colapsar ----
       sb.innerHTML=`
         <div class="fz-field"><span>Fonte de dados</span><div class="fz-seg" data-act="fonte">
-          ${[['forzy','Dataset Forzy'],['ativo','Ativo Cadastrado'],['sim','Simulado']].map(([v,l])=>`<button data-v="${v}" class="${v==state.fonte?'active':''}">${l}</button>`).join('')}
+          ${[['forzy','Dataset Forzy (rede neural)'],['ativo','Ativo Cadastrado'],['sim','Simulado']].map(([v,l])=>`<button data-v="${v}" class="${v==state.fonte?'active':''}">${l}</button>`).join('')}
           <button data-v="esp32" class="${'esp32'==state.fonte?'active':''}" style="${esp32Connected?'color:var(--fz-ok)':'opacity:.55'}">
             ⬤ ESP32
           </button>
@@ -958,7 +1118,7 @@
 
     // ---- sidebar nova: seletor colapsável + Norma ISO atrás de engrenagem ----
     const FONTES=[
-      ['forzy','Dataset Forzy', true],
+      ['forzy','Dataset Forzy (rede neural)', true],
       ['ativo','Ativo Cadastrado', true],
       ['sim','Simulado', true],
       ['esp32','ESP32', esp32Connected],
@@ -1068,13 +1228,24 @@
     });
     y = doc.lastAutoTable.finalY + 26;
 
-    // 2. Leitura atual + Z-scores
-    const live = curReading(); const z = zscore(live); const score = maxZ(z); const [classe] = classify(score);
-    sectionTitle(`Leitura Atual — Classificação: ${classe.toUpperCase()} (Score Z = ${fmt(score,2)})`);
+    // 2. Leitura atual avaliada pela rede neural
+    const live = curReading(); const [classe,,score,rr] = veredito(live);
+    const mInfo = rede() ? rede().info() : null;
+    sectionTitle(mInfo
+      ? `Leitura Atual — Classificação: ${classe.toUpperCase()} (índice de anomalia = ${fmt(score,2)}; atenção ≥ 1,00, crítico ≥ ${fmt(mInfo.limCritico,2)})`
+      : `Leitura Atual — Classificação: ${classe.toUpperCase()} (Score Z = ${fmt(score,2)})`);
+    if(mInfo){
+      doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(90,110,130);
+      doc.text(doc.splitTextToSize(`Modelo: autoencoder ${mInfo.arquitetura}, ${mInfo.parametros} parâmetros, treinado em ${mInfo.amostras} amostras do Dataset Forzy (validação ${mInfo.validacao}). ${rr?rr.explicacao:''}`, W-80), 40, y);
+      y += 12 + doc.splitTextToSize(`Modelo: autoencoder ${mInfo.arquitetura}, ${mInfo.parametros} parâmetros, treinado em ${mInfo.amostras} amostras do Dataset Forzy (validação ${mInfo.validacao}). ${rr?rr.explicacao:''}`, W-80).length*10;
+    }
     doc.autoTable({
       startY: y,
-      head: [['Variável','Valor','Z-score','Média baseline','Desvio']],
-      body: COLS.map(c=>{ const b=BL[c]; return [b.label, fmt(live[c],3)+' '+(b.unit==='C'?'°C':b.unit), fmt(z[c],2), fmt(b.mean,3), fmt(b.std,3)]; }),
+      head: rr ? [['Variável','Medido','Esperado pela rede','% do erro','Média baseline']]
+                : [['Variável','Valor','Z-score','Média baseline','Desvio']],
+      body: rr
+        ? rr.fora.map(f=>{ const b=BL[f.col]; return [b.label, fmt(f.medido,3)+' '+f.unidade, fmt(f.esperado,3)+' '+f.unidade, (f.pct*100).toFixed(0)+'%', fmt(b.mean,3)]; })
+        : COLS.map(c=>{ const b=BL[c]; const z=zscore(live); return [b.label, fmt(live[c],3)+' '+(b.unit==='C'?'°C':b.unit), fmt(z[c],2), fmt(b.mean,3), fmt(b.std,3)]; }),
       theme:'grid', headStyles:{ fillColor:[15,42,69], textColor:[226,234,244] },
       styles:{ fontSize:8, cellPadding:4 }, margin:{ left:40, right:40 }
     });
@@ -1082,14 +1253,27 @@
 
     // 3. Anomalias detectadas (score > limiar de alerta) sobre a série histórica
     const s = mlSerie();
-    const anomalias = s.rows.filter(r=>r.score>=2).sort((a,b)=>b.score-a.score).slice(0,25);
+    const limAn = mInfo ? 1 : 2;
+    const anomalias = s.rows.filter(r=>r.score>=limAn).sort((a,b)=>b.score-a.score).slice(0,25);
     if(y > doc.internal.pageSize.getHeight()-120){ doc.addPage(); y = 60; }
-    sectionTitle(`Anomalias Detectadas (Baseline ML) — ${anomalias.length} ponto(s) com Z ≥ 2,0`);
+    sectionTitle(mInfo
+      ? `Anomalias Detectadas pela Rede Neural — ${anomalias.length} ponto(s) com índice ≥ 1,00`
+      : `Anomalias Detectadas (Baseline ML) — ${anomalias.length} ponto(s) com Z ≥ 2,0`);
     if(anomalias.length){
       doc.autoTable({
         startY: y,
-        head: [['Timestamp','Score Z','Classe','Variável crítica']],
-        body: anomalias.map(r=>{ const [cl]=classify(r.score); let mc=COLS[0],mv=-1; COLS.forEach(c=>{ if(Math.abs(r.z[c])>mv){mv=Math.abs(r.z[c]);mc=c;} }); return [tlabel(r.i), fmt(r.score,2), cl, BL[mc].label]; }),
+        head: mInfo ? [['Timestamp','Índice','Classe','Variável dominante']]
+                    : [['Timestamp','Score Z','Classe','Variável crítica']],
+        body: anomalias.map(r=>{
+          if(mInfo){
+            const cl = window.FZModelo.ROTULO[r.nivel] || '—';
+            const dom = r.erroCol && r.erroCol.length ? BL[r.erroCol[0].col].label : '—';
+            return [tlabel(r.i), fmt(r.score,2), cl, dom];
+          }
+          const [cl]=classify(r.score); let mc=COLS[0],mv=-1;
+          COLS.forEach(c=>{ if(Math.abs(r.z[c])>mv){mv=Math.abs(r.z[c]);mc=c;} });
+          return [tlabel(r.i), fmt(r.score,2), cl, BL[mc].label];
+        }),
         theme:'grid', headStyles:{ fillColor:[15,42,69], textColor:[226,234,244] },
         styles:{ fontSize:8, cellPadding:4 }, margin:{ left:40, right:40 }
       });
@@ -1108,11 +1292,15 @@
   }
 
   function exportReportPrintFallback(){
-    const live = curReading(); const z = zscore(live); const score = maxZ(z); const [classe] = classify(score);
+    const live = curReading(); const z = zscore(live); const [classe,,score,rr] = veredito(live);
     const stamp = new Date().toLocaleString('pt-BR',{hour12:false});
     const fonteLbl = state.fonte==='sim' ? 'Simulado' : 'Dataset Forzy';
     const rowsBL = COLS.map(c=>{ const b=BL[c]; return `<tr><td>${b.label}</td><td>${b.unit==='C'?'°C':b.unit}</td><td>${fmt(b.mean,3)}</td><td>${fmt(b.std,3)}</td><td>${fmt(b.p5,3)}</td><td>${fmt(b.p95,3)}</td><td>${b.n}</td></tr>`; }).join('');
-    const rowsZ = COLS.map(c=>{ const b=BL[c]; return `<tr><td>${b.label}</td><td>${fmt(live[c],3)} ${b.unit==='C'?'°C':b.unit}</td><td>${fmt(z[c],2)}</td></tr>`; }).join('');
+    const rowsZ = rr
+      ? rr.fora.map(f=>{ const b=BL[f.col]; return `<tr><td>${b.label}</td><td>${fmt(f.medido,3)} ${f.unidade}</td><td>${fmt(f.esperado,3)} ${f.unidade}</td><td>${(f.pct*100).toFixed(0)}%</td></tr>`; }).join('')
+      : COLS.map(c=>{ const b=BL[c]; return `<tr><td>${b.label}</td><td>${fmt(live[c],3)} ${b.unit==='C'?'°C':b.unit}</td><td>${fmt(z[c],2)}</td><td>—</td></tr>`; }).join('');
+    const cabZ = rr ? '<th>Variável</th><th>Medido</th><th>Esperado pela rede</th><th>% do erro</th>'
+                    : '<th>Variável</th><th>Valor</th><th>Z-score</th><th></th>';
     const w = window.open('','_blank');
     w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Forzy — Relatório</title>
       <style>@page{size:A4 landscape;margin:14mm}body{font-family:Arial,sans-serif;color:#0b1a2b}
@@ -1123,8 +1311,9 @@
       <div class="sub">Gerado em ${stamp} · Fonte: ${fonteLbl} · Norma: ${state.norma}</div>
       <h2>Resumo Operacional — Baseline</h2>
       <table><thead><tr><th>Variável</th><th>Unidade</th><th>Média</th><th>Desvio</th><th>P5</th><th>P95</th><th>N</th></tr></thead><tbody>${rowsBL}</tbody></table>
-      <h2>Leitura Atual — ${classe.toUpperCase()} (Score Z = ${fmt(score,2)})</h2>
-      <table><thead><tr><th>Variável</th><th>Valor</th><th>Z-score</th></tr></thead><tbody>${rowsZ}</tbody></table>
+      <h2>Leitura Atual — ${classe.toUpperCase()} (${rr?'índice de anomalia':'Score Z'} = ${fmt(score,2)})</h2>
+      ${rr?`<div class="sub">${rr.explicacao}</div>`:''}
+      <table><thead><tr>${cabZ}</tr></thead><tbody>${rowsZ}</tbody></table>
       </body></html>`);
     w.document.close();
   }
