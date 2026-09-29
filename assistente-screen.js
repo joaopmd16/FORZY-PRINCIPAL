@@ -138,8 +138,16 @@
         </div>`).join('')
       : '<div class="fz-chat-hist-empty">Nenhuma conversa ainda.</div>';
 
+    const ativos = (window.FZStore && window.FZStore.getAtivosIndustrial?.()) || [];
+    const origemAtual = sessaoAtual()?.origem || '';
+    const ativosHtml = ativos.length
+      ? ativos.map(a => `<button class="fz-chat-project ${origemAtual === 'ativo:' + a.codigo ? 'active' : ''}" data-cod="${esc(a.codigo)}" title="${esc(a.descricao || '')}"><i data-lucide="cpu"></i><span>${esc(a.codigo)}</span></button>`).join('')
+      : '<div class="fz-chat-hist-empty">Nenhum ativo cadastrado.</div>';
+
     el.innerHTML = `
       <button class="fz-chat-new" id="fzChatNew"><i data-lucide="plus"></i> Novo Chat</button>
+      <div class="fz-chat-side-label">Conversar sobre um ativo</div>
+      <div class="fz-chat-projects">${ativosHtml}</div>
       <div class="fz-chat-side-label">Projetos</div>
       <div class="fz-chat-projects">
         ${PROJETOS.map(p => `<button class="fz-chat-project ${projetoAtivo === p.id ? 'active' : ''}" data-pid="${p.id}"><i data-lucide="${p.icon}"></i><span>${esc(p.nome)}</span></button>`).join('')}
@@ -149,7 +157,8 @@
     `;
 
     el.querySelector('#fzChatNew').addEventListener('click', () => { novaSessao(projetoAtivo); salvar(); renderTudo(); });
-    el.querySelectorAll('.fz-chat-project').forEach(b => b.addEventListener('click', () => {
+    el.querySelectorAll('[data-cod]').forEach(b => b.addEventListener('click', () => abrirAtivo(b.dataset.cod)));
+    el.querySelectorAll('.fz-chat-project[data-pid]').forEach(b => b.addEventListener('click', () => {
       projetoAtivo = projetoAtivo === b.dataset.pid ? null : b.dataset.pid;
       renderSidebar();
     }));
@@ -220,6 +229,11 @@
   function redesenharHeader() {
     const t = document.getElementById('fzChatCurTitle');
     if (t) t.textContent = tituloTruncado(sessaoAtual()?.title);
+    const sub = document.getElementById('fzChatCurSub');
+    if (sub) {
+      const rot = rotuloOrigem(sessaoAtual()?.origem);
+      sub.textContent = rot ? ('Conversa focada em: ' + rot) : 'IA técnica · Manutenção preditiva · GPT-4o mini';
+    }
   }
 
   function renderTudo() {
@@ -252,7 +266,7 @@
               <div class="fz-chat-avatar"><i data-lucide="bot"></i></div>
               <div>
                 <div class="fz-chat-title" id="fzChatCurTitle">Nova conversa</div>
-                <div class="fz-chat-sub">IA técnica · Manutenção preditiva · GPT-4o mini</div>
+                <div class="fz-chat-sub" id="fzChatCurSub">IA técnica · Manutenção preditiva · GPT-4o mini</div>
               </div>
             </div>
             <button class="fz-chat-clear" id="fzChatClear" title="Excluir esta conversa"><i data-lucide="trash-2"></i></button>
@@ -342,31 +356,41 @@
     if (el) el.querySelector('.fz-chat-bubble-inner').innerHTML = html;
   }
 
-  function contextoAtivos() {
+  function linhaAtivo(a) {
+    const partes = [
+      `[${a.codigo}]`,
+      a.tag ? `Tag: ${a.tag}` : '',
+      a.descricao ? a.descricao : '',
+      a.fabricante ? `Fab: ${a.fabricante}` : '',
+      a.potencia_kw ? `${a.potencia_kw} kW` : '',
+      a.tensao_v ? `${a.tensao_v}V` : '',
+      a.ip_rating ? `IP${a.ip_rating}` : '',
+      a.status ? `Status: ${a.status}` : '',
+    ].filter(Boolean).join(' | ');
+    const leituras = window.FZStore.getLeituras?.(a.codigo, 1) || [];
+    let leituraTxt = '';
+    if (leituras.length) {
+      const l = leituras[0];
+      const flag = (l.vel_rms >= 4.5) ? 'ALARME' : (l.vel_rms >= 1.8) ? 'ALERTA' : 'Normal';
+      leituraTxt = ` — Última leitura: Vel=${(l.vel_rms||0).toFixed(3)}mm/s (${flag}), Temp=${(l.temp_c||0).toFixed(1)}°C`;
+    } else {
+      leituraTxt = ' — Sem leituras registradas ainda';
+    }
+    return `  ${partes}${leituraTxt}`;
+  }
+
+  // Quando a conversa tem um ativo selecionado (origem 'ativo:CODIGO'), manda só
+  // os dados daquele ativo. Sem seleção, manda a lista toda (conversa geral).
+  function contextoAtivos(origem) {
     if (!window.FZStore) return '';
     const ativos = window.FZStore.getAtivosIndustrial?.() || [];
     if (!ativos.length) return '';
-    const linhas = ativos.map(a => {
-      const partes = [
-        `[${a.codigo}]`,
-        a.tag ? `Tag: ${a.tag}` : '',
-        a.descricao ? a.descricao : '',
-        a.fabricante ? `Fab: ${a.fabricante}` : '',
-        a.potencia_kw ? `${a.potencia_kw} kW` : '',
-        a.tensao_v ? `${a.tensao_v}V` : '',
-        a.ip_rating ? `IP${a.ip_rating}` : '',
-        a.status ? `Status: ${a.status}` : '',
-      ].filter(Boolean).join(' | ');
-      const leituras = window.FZStore.getLeituras?.(a.codigo, 1) || [];
-      let leituraTxt = '';
-      if (leituras.length) {
-        const l = leituras[0];
-        const flag = (l.vel_rms >= 4.5) ? 'ALARME' : (l.vel_rms >= 1.8) ? 'ALERTA' : 'Normal';
-        leituraTxt = ` — Última leitura: Vel=${(l.vel_rms||0).toFixed(3)}mm/s (${flag}), Temp=${(l.temp_c||0).toFixed(1)}°C`;
-      }
-      return `  ${partes}${leituraTxt}`;
-    });
-    return `\n\n[ATIVOS CADASTRADOS — dados de placa]\n${linhas.join('\n')}`;
+    const codAlvo = origem && origem.indexOf('ativo:') === 0 ? origem.slice(6) : null;
+    if (codAlvo) {
+      const alvo = ativos.find(a => a.codigo === codAlvo);
+      if (alvo) return `\n\n[ATIVO SELECIONADO NESTA CONVERSA — dados de placa]\n${linhaAtivo(alvo)}`;
+    }
+    return `\n\n[ATIVOS CADASTRADOS — dados de placa]\n${ativos.map(linhaAtivo).join('\n')}`;
   }
 
   function contextoRede(leituraFixa) {
@@ -433,7 +457,7 @@ Responda de forma técnica, clara e objetiva. Use normas ISO 10816 e ISA-18.2 qu
 Quando o assunto for um alerta ou falha, baseie o diagnóstico nos dados de placa (fabricante, potência, modelo) do ativo envolvido.
 Seja direto: máximo 3-4 parágrafos por resposta. Use **negrito** para destacar termos técnicos importantes.`;
 
-    s.historico.push({ role: 'user', content: (opts.prompt || msg) + anexoCtx + contextoAtivos() + contextoRede(opts.leitura) });
+    s.historico.push({ role: 'user', content: (opts.prompt || msg) + anexoCtx + contextoAtivos(s.origem) + contextoRede(opts.leitura) });
 
     const thinkId = 'ai-think-' + Date.now();
     addBubble('ai', '<span class="fz-chat-thinking"><span></span><span></span><span></span></span>', thinkId);
@@ -513,7 +537,13 @@ Seja direto: máximo 3-4 parágrafos por resposta. Use **negrito** para destacar
     salvar(); renderTudo();
   }
 
-  window.FZChatScreen = { init, enviarAlerta, ajustarAltura, getSessao, perguntar, abrirConversa, onAlerta };
+  function abrirAtivo(codigo) {
+    if (!codigo) return;
+    abrirConversa('ativo:' + codigo, 'Ativo ' + codigo);
+    ajustarAltura();
+  }
+
+  window.FZChatScreen = { init, enviarAlerta, ajustarAltura, getSessao, perguntar, abrirConversa, abrirAtivo, onAlerta };
 
   const alertasAnalisados = new Set();
 

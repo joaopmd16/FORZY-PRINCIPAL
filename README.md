@@ -172,6 +172,44 @@ Output: {"ax_rms":...,"mag_rms":...,"temp_c":...,"freq_hz":...} a ~1 Hz
 
 ---
 
+## Modelo de Machine Learning
+
+O índice de anomalia que aparece no dashboard, na Governança e no Assistente IA vem de um
+**autoencoder** — não é um classificador supervisionado, porque o dataset não tem rótulo
+("aqui quebrou"). O autoencoder aprende a *reconstruir* uma leitura normal da bomba; quando
+uma leitura foge do que ele aprendeu a reconstruir, o erro de reconstrução sobe e isso vira o
+índice de anomalia.
+
+| Item | Valor |
+|---|---|
+| Tipo de modelo | Autoencoder (rede neural não supervisionada) |
+| Arquitetura | `6 → 8 → 2 → 8 → 6` (152 parâmetros) |
+| Ativações | tanh nas camadas ocultas, sigmoide na saída |
+| Entradas (6) | `m1_vel, m1_acel, m1_temp, m2_vel, m2_acel, m2_temp` |
+| Biblioteca | NumPy puro — **sem TensorFlow/scikit-learn** |
+| Dados de treino | 5.746 amostras (validação: 1.437) do Dataset Forzy |
+| Normalização | min-max robusto (percentil 0,5 – 99,5) |
+| MSE treino / validação | 0,000330 / 0,000351 |
+| Limiar de atenção (P2) / crítico (P1) | 0,00123 / 0,00313 (erro de reconstrução) |
+| Script de treino | [`treinar_modelo.py`](treinar_modelo.py) |
+| Pesos + limiares gerados | [`data/forzy-model.js`](data/forzy-model.js) (`window.FORZY_MODELO`) |
+| Inferência (browser, sem lib) | [`modelo.js`](modelo.js) (`window.FZModelo`) |
+
+Por que autoencoder e não um `if` com limites fixos: as 6 variáveis são correlacionadas
+(`m1_vel`/`m1_acel` ≈ 1,00 de correlação; `m1`/`m2` ≈ 1,00; temperaturas ≈ 0,95). Um valor
+isolado pode estar dentro do limite normal e ainda assim ser fisicamente impossível na
+combinação com os outros 5 — só uma rede que aprendeu a relação entre as variáveis pega isso.
+O gargalo de 2 neurônios no meio da rede obriga o modelo a resumir os 6 sensores em 2 números,
+ou seja, a descobrir sozinho que a máquina só tem ~2 graus de liberdade reais (vibração e
+temperatura).
+
+Para retreinar do zero (gera um novo `data/forzy-model.js`):
+```bash
+python treinar_modelo.py
+```
+
+---
+
 ## Licença
 
 Projeto acadêmico FIAP × Forzy-Promon — uso educacional.

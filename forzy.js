@@ -32,6 +32,7 @@
 
   const clamp = (v,a,b)=> Math.max(a, Math.min(b, v));
   const fmt = (v,d=2)=> (v==null||v!==v) ? '—' : Number(v).toFixed(d);
+  const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   function cssVar(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
   function el(tag, cls, html){ const e=document.createElement(tag); if(cls)e.className=cls; if(html!=null)e.innerHTML=html; return e; }
   function S(tag, attrs){ const e=document.createElementNS(NS,tag); for(const k in attrs) e.setAttribute(k, attrs[k]); return e; }
@@ -538,6 +539,15 @@
       <div class="fz-progress"><span>${isEsp32?'ESP32 ao vivo':isAtivo?('Ativo '+(state.ativoCod||'')):isCloud?'Forzy Cloud (S1/S2)':state.fonte==='sim'?'Simulado':'Dataset'} ${isObj?'':'frame '+(state.fidx+1)+'/'+F.meta.n}</span><div class="track"><div class="fill" style="width:${prog}%"></div></div><span>${tsLabel}</span></div>`;
     p.appendChild(head);
 
+    if(isAtivo && !objWin.length){
+      const vazio=el('div','fz-card');
+      vazio.style.borderLeft='3px solid var(--fz-warn)';
+      vazio.innerHTML=`<div class="fz-card-title">Nenhuma leitura registrada ainda para ${esc(state.ativoCod||'este ativo')}</div>
+        <div class="fz-card-sub">Este ativo foi cadastrado, mas ainda não recebeu nenhuma leitura de sensor (ESP32 ou bridge). Os gráficos abaixo ficam zerados até a primeira leitura chegar.</div>
+        <button class="fz-btn ghost" id="fzAtivoFalarIA" style="margin-top:10px">💬 Conversar com o Assistente sobre ${esc(state.ativoCod||'')}</button>`;
+      p.appendChild(vazio);
+    }
+
     if(isEsp32 || isAtivo){
       const label = isEsp32 ? ('ESP32 ao vivo' + (window.FZIoT&&window.FZIoT.isConnected()?' · <span style="color:var(--fz-ok)">⬤ ONLINE</span>':' · <span style="color:var(--fz-bad)">⬤ OFF</span>')) : ('Sensor do Ativo · '+(state.ativoCod||''));
 
@@ -573,6 +583,10 @@
     p.querySelectorAll('[data-act]').forEach(node=>{ const act=node.dataset.act;
       if(act==='auto') node.addEventListener('click',()=>{ state.auto=!state.auto; node.classList.toggle('on',state.auto); manageMonTimer(); });
       else node.addEventListener('change',e=>{ const v=e.target.value; if(act==='interval'){state.interval=+v; manageMonTimer();} if(act==='step')state.step=+v; if(act==='sim'){state.simMode=v; simStep();} renderMon(); });
+    });
+    document.getElementById('fzAtivoFalarIA')?.addEventListener('click', ()=>{
+      if(state.ativoCod && window.FZChatScreen && window.FZChatScreen.abrirAtivo) window.FZChatScreen.abrirAtivo(state.ativoCod);
+      if(typeof window.showScreen==='function') window.showScreen('assistente');
     });
     window.scrollTo(0, scrollY);
     manageMonTimer();
@@ -1061,7 +1075,7 @@
     const cur = FONTES.find(f=>f[0]===state.fonte) || FONTES[0];
     sb.innerHTML=`
       <div class="fz-field">
-        <span>Fonte de dados</span>
+        <span title="De onde vêm os números dos gráficos abaixo. Para organizar os ativos por planta/área, use Ativos → Plantas &amp; Áreas.">Fonte de dados ⓘ</span>
         <div class="fz-fonte-picker" data-act="fonte">
           <button class="fz-fonte-current" data-act="toggle-fonte" type="button">
             <span class="fz-fonte-dot" style="background:${cur[2]?'var(--fz-ok)':'var(--text-3)'}"></span>
@@ -1069,7 +1083,7 @@
             <i data-lucide="chevron-down"></i>
           </button>
           <div class="fz-fonte-drop" id="fzFonteDrop">
-            ${FONTES.filter(f=>f[0]!==state.fonte).map(([v,l,on])=>`<button data-v="${v}" ${v==='cloud'?'title="S1/S2 via daily_bridge.py — só a aba Monitoramento usa essa fonte"':''}><span class="fz-fonte-dot" style="background:${on?'var(--fz-ok)':'var(--text-3)'}"></span>${l}</button>`).join('')}
+            ${FONTES.filter(f=>f[0]!==state.fonte).map(([v,l,on])=>`<button data-v="${v}" ${v==='cloud'?'title="S1/S2 via daily_bridge.py — só a aba Monitoramento usa essa fonte"':v==='ativo'?'title="Mostra as leituras de UM ativo cadastrado, escolhido no campo Ativo ao lado. Pra ver a organização por planta e área, vá em Ativos → Plantas & Áreas."':''}><span class="fz-fonte-dot" style="background:${on?'var(--fz-ok)':'var(--text-3)'}"></span>${l}</button>`).join('')}
           </div>
         </div>
       </div>
