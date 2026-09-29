@@ -1,14 +1,23 @@
 /* ===================================================================
-   FORZY · Assistente IA — OpenAI (gpt-4o-mini)
-   Bolinha flutuante no canto inferior direito.
-   Entende o projeto, os motores, as métricas e responde em PT-BR.
+   PROJETO FORZY - Sistema de Monitoramento Industrial
+   Trabalho academico FIAP + Forzy-Promon
+
+   Integrantes:
+   - Arthur Baptista dos Santos       (RM 565346)
+   - Joao Pedro de Moura Dutra Franco (RM 561738)
+   - Nelson Felix Neto                (RM 565603)
+   - Pietro Boroto Rodrigues          (RM 562407)
+   - Vitor Soares Goncalves           (RM 566181)
+
+   Arquivo: assistant.js
+   O que faz: bolinha flutuante do assistente de IA (versao antiga)
    =================================================================== */
+
 (function () {
 
   const OPENAI_KEY = window.FORZY_OPENAI_KEY || '';
   const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
 
-  /* ----------  System Prompt — contexto completo do projeto  ---------- */
   const SYSTEM = `Você é o **Assistente Técnico Forzy**, especialista em manutenção preditiva de bombas centrífugas e motores elétricos.
 Você faz parte do sistema IMS · Forzy — um dashboard industrial de monitoramento em tempo real.
 
@@ -69,23 +78,17 @@ Use SEMPRE esse contexto. Se o usuário perguntar "onde estou?" ou "o que é iss
 - Máximo de 3 parágrafos por resposta
 - Nunca responda sobre telas/abas que não estejam no contexto injetado`;
 
-  /* ----------  Estado do chat  ---------- */
-  let historico = [];   // { role, parts }
+  let historico = [];
   let aberto = false;
   let carregando = false;
 
-  // vision.html tem uma tela dedicada de chat (assistente-screen.js) — nesse caso
-  // não criamos a bolinha flutuante duplicada e NÃO empurramos alarme nenhum pra IA:
-  // a análise é pedida pelo operador (modal/rail → FZAssistente.abrirComContexto).
   function telaDedicada() {
     return document.getElementById('fz-chat-screen') ? window.FZChatScreen : null;
   }
 
-  /* ----------  Lê contexto ao vivo do sistema  ---------- */
   function contextoAtual() {
     const ctx = [];
 
-    // --- 1. Qual tela está ativa ---
     const telaMap = {
       'screen-inicio':   'Início (KPIs ao vivo)',
       'screen-forzy':    'Dashboard do Motor',
@@ -99,17 +102,14 @@ Use SEMPRE esse contexto. Se o usuário perguntar "onde estou?" ou "o que é iss
     const telaNome  = telaMap[telaId] || telaId || 'desconhecida';
     ctx.push(`TELA ATUAL: ${telaNome}`);
 
-    // --- 2. Sub-aba ativa dentro da tela (tabs com .active, .fz-tab-active etc) ---
     if (telaAtiva) {
       const tabAtiva = telaAtiva.querySelector('.fz-tab.active, .fz-tab-active, [data-tab].active, .tab-btn.active');
       if (tabAtiva) ctx.push(`Aba ativa: ${tabAtiva.textContent.trim()}`);
 
-      // sub-aba de gestão (Pipeline / RPA / Navegação)
       const gestaoTab = telaAtiva.querySelector('.fz-nav-item.active, .fz-sidebar-item.active');
       if (gestaoTab) ctx.push(`Seção: ${gestaoTab.textContent.trim()}`);
     }
 
-    // --- 3. Motor / ativo selecionado no Dashboard ---
     try {
       const motorSel = document.querySelector('#forzy-motor-select, #fz-motor-sel, [id*="motor"][id*="sel"]');
       if (motorSel && motorSel.value) ctx.push(`Motor selecionado: ${motorSel.options[motorSel.selectedIndex]?.text || motorSel.value}`);
@@ -118,13 +118,11 @@ Use SEMPRE esse contexto. Se o usuário perguntar "onde estou?" ou "o que é iss
       if (fonteSel) ctx.push(`Fonte de dados: ${fonteSel.textContent.trim()}`);
     } catch(_) {}
 
-    // --- 4. Ativo aberto no Cadastro ---
     try {
       const ativoNome = document.querySelector('#da-titulo, .da-nome, #fz-da-titulo');
       if (ativoNome && ativoNome.textContent.trim()) ctx.push(`Ativo aberto: ${ativoNome.textContent.trim()}`);
     } catch(_) {}
 
-    // --- 5. KPIs visíveis na tela Início ---
     try {
       if (telaId === 'screen-inicio') {
         const kpis = [...document.querySelectorAll('.fz-kpi-val, .kpi-val')].slice(0,6)
@@ -136,7 +134,6 @@ Use SEMPRE esse contexto. Se o usuário perguntar "onde estou?" ou "o que é iss
       }
     } catch(_) {}
 
-    // --- 6. ESP32 ao vivo ---
     try {
       if (window.FZIoT) {
         const last = window.FZIoT.getLast();
@@ -149,7 +146,6 @@ Use SEMPRE esse contexto. Se o usuário perguntar "onde estou?" ou "o que é iss
       }
     } catch(_) {}
 
-    // --- 7. Ativos cadastrados + specs completas ---
     try {
       if (window.FZStore) {
         const ativos = window.FZStore.getAtivosIndustrial ? window.FZStore.getAtivosIndustrial() : [];
@@ -170,7 +166,6 @@ Use SEMPRE esse contexto. Se o usuário perguntar "onde estou?" ou "o que é iss
             ].filter(Boolean);
             ctx.push('  ' + partes.join(' | '));
 
-            // última leitura do ativo
             const leituras = window.FZStore.getLeituras(a.codigo, 1);
             if (leituras.length) {
               const l = leituras[0];
@@ -180,7 +175,6 @@ Use SEMPRE esse contexto. Se o usuário perguntar "onde estou?" ou "o que é iss
           });
         }
 
-        // dataset histórico Forzy (BBA-001 / BBA-002)
         if (window.FORZY) {
           ctx.push('Dataset histórico Forzy: um motor (WEG, 380V, IP55) monitorado em dois eixos — BBA-001 (Eixo 1) e BBA-002 (Eixo 2)');
         }
@@ -190,14 +184,11 @@ Use SEMPRE esse contexto. Se o usuário perguntar "onde estou?" ou "o que é iss
     return '\n\n[CONTEXTO DO SISTEMA]\n' + ctx.map(l => '• ' + l).join('\n');
   }
 
-  /* ----------  Imagem pendente  ---------- */
-  let imagemPendente = null;  // { base64, mime, nome }
+  let imagemPendente = null;
 
-  /* ----------  Chama Groq (texto ou visão)  ---------- */
   async function perguntarGemini(texto) {
     const ctx = contextoAtual();
 
-    // monta conteúdo da mensagem do usuário
     let userContent;
     if (imagemPendente) {
       userContent = [
@@ -212,7 +203,6 @@ Use SEMPRE esse contexto. Se o usuário perguntar "onde estou?" ou "o que é iss
 
     historico.push({ role: 'user', content: userContent });
 
-    // gpt-4o-mini é multimodal — mesmo modelo atende texto e imagem
     const ehOperador = !!(window.FZPerfil && window.FZPerfil.isOperador && window.FZPerfil.isOperador());
     const sys = ehOperador
       ? SYSTEM + `\n\n## Modo OPERADOR (chão de fábrica)\nResponda em no máximo 2 frases curtas. Veredito direto, linguagem simples, sem normas nem jargão (nada de ISO, ISA, Z-score). Diga o que fazer agora.`
@@ -235,7 +225,6 @@ Use SEMPRE esse contexto. Se o usuário perguntar "onde estou?" ou "o que é iss
     return resposta;
   }
 
-  /* ----------  Preview de imagem no chat  ---------- */
   function mostrarPreviewImagem(nome) {
     let prev = document.getElementById('fz-img-preview');
     if (!prev) {
@@ -250,7 +239,6 @@ Use SEMPRE esse contexto. Se o usuário perguntar "onde estou?" ou "o que é iss
     document.getElementById('fz-img-preview')?.remove();
   }
 
-  /* ----------  Markdown simples → HTML  ---------- */
   function md(txt) {
     return txt
       .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
@@ -260,7 +248,6 @@ Use SEMPRE esse contexto. Se o usuário perguntar "onde estou?" ou "o que é iss
       .replace(/\n/g,'<br>');
   }
 
-  /* ----------  Cria o HTML do assistente  ---------- */
   function montar() {
     const wrap = document.createElement('div');
     wrap.id = 'fz-ai-wrap';
@@ -366,7 +353,6 @@ Use SEMPRE esse contexto. Se o usuário perguntar "onde estou?" ou "o que é iss
     document.getElementById('fz-ai-expand').addEventListener('click', toggleExpand);
     document.getElementById('fz-ai-send').addEventListener('click', enviar);
 
-    // Clipe → abre seletor de arquivo
     document.getElementById('fz-img-btn').addEventListener('click', () =>
       document.getElementById('fz-img-input').click()
     );
@@ -375,7 +361,7 @@ Use SEMPRE esse contexto. Se o usuário perguntar "onde estou?" ou "o que é iss
       if (!file) return;
       const reader = new FileReader();
       reader.onload = ev => {
-        const dataUrl = ev.target.result;          // data:image/png;base64,...
+        const dataUrl = ev.target.result;
         const [meta, base64] = dataUrl.split(',');
         const mime = meta.match(/:(.*?);/)[1];
         imagemPendente = { base64, mime, nome: file.name };
@@ -383,7 +369,7 @@ Use SEMPRE esse contexto. Se o usuário perguntar "onde estou?" ou "o que é iss
         document.getElementById('fz-ai-input').focus();
       };
       reader.readAsDataURL(file);
-      e.target.value = '';   // reset para permitir selecionar o mesmo arquivo
+      e.target.value = '';
     });
     document.getElementById('fz-ai-input').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviar(); } });
     document.querySelectorAll('.fz-chat-tags span').forEach(tag => {
@@ -395,7 +381,6 @@ Use SEMPRE esse contexto. Se o usuário perguntar "onde estou?" ou "o que é iss
     });
   }
 
-  /* ----------  Abre / fecha / expande  ---------- */
   let expandido = false;
 
   function togglePanel() { aberto ? fecharPanel() : abrirPanel(); }
@@ -433,7 +418,7 @@ Use SEMPRE esse contexto. Se o usuário perguntar "onde estou?" ou "o que é iss
   function atualizarIconeExpand() {
     const btn = document.getElementById('fz-ai-expand');
     if (!btn) return;
-    // expandido → ícone de colapsar; normal → ícone de expandir
+
     btn.innerHTML = expandido
       ? `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
            <polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/>
@@ -445,7 +430,6 @@ Use SEMPRE esse contexto. Se o usuário perguntar "onde estou?" ou "o que é iss
          </svg>`;
   }
 
-  /* ----------  Adiciona mensagem na tela  ---------- */
   function addMsg(role, html) {
     const msgs = document.getElementById('fz-ai-msgs');
     const div = document.createElement('div');
@@ -456,7 +440,6 @@ Use SEMPRE esse contexto. Se o usuário perguntar "onde estou?" ou "o que é iss
     return div;
   }
 
-  /* ----------  Enviar mensagem  ---------- */
   async function enviar() {
     if (carregando) return;
     const inp = document.getElementById('fz-ai-input');
@@ -480,22 +463,19 @@ Use SEMPRE esse contexto. Se o usuário perguntar "onde estou?" ou "o que é iss
       document.getElementById('fz-ai-msgs').scrollTop = 99999;
     }
 
-    // notifica bolinha se painel estiver fechado
     if (!aberto) document.getElementById('fz-ai-dot').style.display = 'block';
   }
 
-  /* ----------  API pública — alertas automáticos de IoT  ---------- */
-  let _ultimoAlertaFlag = -1; // evita repetir o mesmo nível
+  let _ultimoAlertaFlag = -1;
 
   async function alertarIoT({ vel, temp, flag, arms }) {
-    // só abre 1x por transição de nível (evita spam)
+
     if (flag <= 0 || flag === _ultimoAlertaFlag) return;
     _ultimoAlertaFlag = flag;
 
     const nivel = flag === 2 ? '🔴 ALARME — P1 Crítico' : '🟡 ALERTA — P2 Alto';
     const limiteVel = flag === 2 ? '4,5 mm/s' : '1,8 mm/s';
 
-    // monta mensagem técnica automática
     const msg = `${nivel} detectado pelo sensor ESP32 / VIM32PL!
 
 **Leituras atuais:**
@@ -508,15 +488,11 @@ Por favor, analise esse desvio operacional seguindo a norma ISO 10816 e ISA-18.2
 2. **Risco** se não tratado
 3. **Ação corretiva recomendada**`;
 
-    // Com a tela dedicada o alarme já chega ao operador pelo topbar.js (modal P1 /
-    // faixa P2 / rail) e a IA só é acionada quando ele pede lá. Nada a empurrar aqui.
     if (telaDedicada()) return;
 
-    // abre o painel e envia automaticamente
     if (!aberto) abrirPanel();
     await new Promise(r => setTimeout(r, 400));
 
-    // reseta estado de loading se travado
     carregando = false;
     document.getElementById('fz-ai-send').disabled = false;
 
@@ -527,7 +503,7 @@ Por favor, analise esse desvio operacional seguindo a norma ISO 10816 e ISA-18.2
     const typing = addMsg('bot', `<span style="color:${cor};font-weight:700">${nivel}</span><br><span class="fz-ai-typing"><span></span><span></span><span></span></span>`);
 
     try {
-      // perguntarGemini já gerencia historico internamente — não push manual
+
       const resp = await perguntarGemini(msg);
       typing.querySelector('.fz-ai-bubble').innerHTML = `<span style="color:${cor};font-weight:700">${nivel}</span><br>${md(resp)}`;
     } catch (e) {
@@ -539,13 +515,9 @@ Por favor, analise esse desvio operacional seguindo a norma ISO 10816 e ISA-18.2
     }
   }
 
-  // reseta quando volta ao normal
   function resetarAlertaIoT() { _ultimoAlertaFlag = -1; }
 
-  // cooldown de notificações do sininho — por origem (não mais global), pra um alerta
-  // de uma fonte não bloquear os das outras. P1 Crítico NUNCA é bloqueado pelo cooldown:
-  // um alarme crítico sempre tem que chegar na IA, mesmo que um P2 tenha acabado de disparar.
-  const _cooldownPorOrigem = new Map(); // origem → timestamp em que libera de novo
+  const _cooldownPorOrigem = new Map();
   async function alertarNotificacao({ prioridade, titulo, msg, nivel, valor, unidade, origem }) {
     const critico = /P1/.test(prioridade);
     const chaveCooldown = origem || 'geral';
@@ -553,7 +525,7 @@ Por favor, analise esse desvio operacional seguindo a norma ISO 10816 e ISA-18.2
       const liberaEm = _cooldownPorOrigem.get(chaveCooldown) || 0;
       if (Date.now() < liberaEm) return;
     }
-    _cooldownPorOrigem.set(chaveCooldown, Date.now() + 30000); // cooldown 30s
+    _cooldownPorOrigem.set(chaveCooldown, Date.now() + 30000);
 
     const emoji = nivel === 'bad' ? '🔴' : '🟡';
     const valorFmt = valor != null ? `**${Number(valor).toFixed(unidade === '°C' ? 1 : 2)} ${unidade}**` : '';
@@ -567,7 +539,6 @@ Seguindo as normas ISO 10816 e ISA-18.2, responda com:
 2. **Risco** se não houver intervenção
 3. **Ação corretiva recomendada** (imediata e preventiva)`;
 
-    // idem alertarIoT: com a tela dedicada, a IA só analisa sob demanda
     if (telaDedicada()) return;
 
     if (!aberto) abrirPanel();
@@ -596,14 +567,13 @@ Seguindo as normas ISO 10816 e ISA-18.2, responda com:
 
   window.FZAssistant = { alertarIoT, resetarAlertaIoT, alertarNotificacao, togglePanel };
 
-  /* ----------  Inicia  ---------- */
   function init() {
-    // vision.html usa a tela dedicada (assistente-screen.js) — não duplica a bolinha
+
     if (document.getElementById('fz-chat-screen')) return;
 
     injectCSS();
     montar();
-    // notifica se ESP32 conectar enquanto painel fechado
+
     setInterval(() => {
       if (!aberto && window.FZIoT && window.FZIoT.isConnected()) {
         document.getElementById('fz-ai-dot').style.display = 'block';
@@ -611,7 +581,6 @@ Seguindo as normas ISO 10816 e ISA-18.2, responda com:
     }, 5000);
   }
 
-  /* ----------  CSS embutido  ---------- */
   function injectCSS() {
     const s = document.createElement('style');
     s.textContent = `

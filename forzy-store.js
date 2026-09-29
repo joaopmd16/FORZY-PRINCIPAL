@@ -1,14 +1,22 @@
 /* ===================================================================
-   FORZY · STORE — camada de dados client-side (localStorage)
-   Espelha database.py (Sprint 3): plantas, areas, ativos_industrial,
-   leituras, log_execucoes, historico_atualizacoes.
-   Exposto como window.FZStore. Sem libs, sem build.
+   PROJETO FORZY - Sistema de Monitoramento Industrial
+   Trabalho academico FIAP + Forzy-Promon
+
+   Integrantes:
+   - Arthur Baptista dos Santos       (RM 565346)
+   - Joao Pedro de Moura Dutra Franco (RM 561738)
+   - Nelson Felix Neto                (RM 565603)
+   - Pietro Boroto Rodrigues          (RM 562407)
+   - Vitor Soares Goncalves           (RM 566181)
+
+   Arquivo: forzy-store.js
+   O que faz: guarda os dados dos ativos no localStorage do navegador
    =================================================================== */
+
 (function () {
-  const KEY = 'forzy-db-v3';   // v3: 2 ativos do Dataset Forzy (M1/M2), origem:'forzy', não-graváveis pelo ESP
+  const KEY = 'forzy-db-v3';
   const STATUS = ['ativo', 'manutencao', 'inativo'];
 
-  /* ----------  persistência  ---------- */
   function blank() {
     return {
       seq: { plantas: 0, areas: 0, ativos: 0, leituras: 0, logs: 0, hist: 0 },
@@ -22,8 +30,8 @@
     try {
       const raw = localStorage.getItem(KEY);
       if (raw) return JSON.parse(raw);
-    } catch (e) { /* ignore */ }
-    try { localStorage.removeItem('forzy-db-v1'); localStorage.removeItem('forzy-db-v2'); } catch (e) { /* descarta bases antigas */ }
+    } catch (e) {  }
+    try { localStorage.removeItem('forzy-db-v1'); localStorage.removeItem('forzy-db-v2'); } catch (e) {  }
     const fresh = seed(blank());
     persist(fresh);
     return fresh;
@@ -33,12 +41,6 @@
   function nowISO() { return new Date().toISOString(); }
   function nextId(t) { db.seq[t] = (db.seq[t] || 0) + 1; return db.seq[t]; }
 
-  /* ----------  seed (Dataset Forzy: 1 motor · 2 eixos)  ----------
-     O motor do Dataset Forzy é monitorado em 2 eixos (Eixo 1 / Eixo 2), cada um
-     exposto como ativo (Navegação, Cadastro, Pipeline) e totalmente editável.
-     Marcados com origem:'forzy' para que
-     o IoT/ESP NUNCA grave dados novos por cima deles (só leitura do histórico).
-     O usuário cria seus próprios ativos (ex.: sensor ESP32) à parte. */
   function seed(d) {
     const p = { id: ++d.seq.plantas, nome: 'Planta Forzy', descricao: 'Bancada de bombas centrífugas — Forzy/Promon', criado_em: nowISO() };
     d.plantas.push(p);
@@ -63,7 +65,6 @@
     return d;
   }
 
-  /* ----------  helpers  ---------- */
   const clone = o => JSON.parse(JSON.stringify(o));
   function plantaNome(id) { const p = db.plantas.find(x => x.id === id); return p ? p.nome : null; }
   function areaJoin(a) {
@@ -72,7 +73,6 @@
              planta_id: ar ? ar.planta_id : null };
   }
 
-  /* ----------  Plantas / Áreas  ---------- */
   function getPlantas() { return clone(db.plantas).sort((a, b) => a.nome.localeCompare(b.nome)); }
   function criarPlanta(nome, descricao = '') {
     if (db.plantas.some(p => p.nome === nome)) return false;
@@ -83,7 +83,7 @@
     const p = db.plantas.find(x => x.id === id);
     if (!p) return false;
     if (dados.nome !== undefined) {
-      if (db.plantas.some(x => x.id !== id && x.nome === dados.nome)) return false;  // nome duplicado
+      if (db.plantas.some(x => x.id !== id && x.nome === dados.nome)) return false;
       p.nome = dados.nome;
     }
     if (dados.descricao !== undefined) p.descricao = dados.descricao;
@@ -121,7 +121,6 @@
     logHist('areas', 'DELETE', { id }, null); save(); return { ok: true };
   }
 
-  /* ----------  Ativos Industriais  ---------- */
   function getAtivosIndustrial(area_id = null, status = null) {
     let r = db.ativos_industrial.slice();
     if (area_id) r = r.filter(a => a.area_id === area_id);
@@ -160,14 +159,13 @@
     save(); return { ok: true };
   }
 
-  /* ----------  Leituras (IoT)  ---------- */
   function getLeituras(ativo_codigo = null, limit = 500) {
     let r = db.leituras.slice();
     if (ativo_codigo) r = r.filter(l => l.ativo_id === ativo_codigo);
     r.sort((a, b) => (b.coletado_em || '').localeCompare(a.coletado_em || ''));
     return clone(r.slice(0, limit));
   }
-  const MAX_LEITURAS = 6000;   // cap global p/ não estourar o localStorage
+  const MAX_LEITURAS = 6000;
   function insertLeitura(ativo_codigo, dados) {
     const reg = { id: nextId('leituras'), ativo_id: ativo_codigo, fonte: dados.fonte || 'esp32',
       coletado_em: dados.coletado_em || nowISO(), flag_anomalia: dados.flag_anomalia || 0, ...dados };
@@ -176,7 +174,6 @@
     save(); return reg.id;
   }
 
-  /* ----------  Logs / Auditoria  ---------- */
   function logExecucao(automacao, status, proc = 0, erros = 0, detalhes = '') {
     db.log_execucoes.push({ id: nextId('logs'), automacao, status,
       registros_proc: proc, registros_erro: erros, detalhes, iniciado_em: nowISO() });
@@ -194,7 +191,6 @@
     return clone(db.historico_atualizacoes).sort((a, b) => b.ts.localeCompare(a.ts)).slice(0, limit);
   }
 
-  /* ----------  utilidades  ---------- */
   function reset() { db = seed(blank()); save(); }
   function statusLabel(s) { return { ativo: 'Ativo', manutencao: 'Manutenção', inativo: 'Inativo' }[s] || s; }
   function statusColor(s) {

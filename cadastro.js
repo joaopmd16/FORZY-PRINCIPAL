@@ -1,7 +1,18 @@
 /* ===================================================================
-   FORZY · CADASTRO — CRUD de ativos industriais (4 abas)
-   Lista · Novo · Editar · Dashboard do Ativo. Usa window.FZStore.
+   PROJETO FORZY - Sistema de Monitoramento Industrial
+   Trabalho academico FIAP + Forzy-Promon
+
+   Integrantes:
+   - Arthur Baptista dos Santos       (RM 565346)
+   - Joao Pedro de Moura Dutra Franco (RM 561738)
+   - Nelson Felix Neto                (RM 565603)
+   - Pietro Boroto Rodrigues          (RM 562407)
+   - Vitor Soares Goncalves           (RM 566181)
+
+   Arquivo: cadastro.js
+   O que faz: tela de Cadastro de Ativos (criar, editar, listar motores)
    =================================================================== */
+
 (function () {
   const S = window.FZStore;
   const F = window.FORZY;
@@ -17,9 +28,8 @@
 
   const state = { selEditar: null, selDash: null, dashTimer: null };
 
-  /* ----------  troca de abas  ---------- */
   function switchTab(name) {
-    if (state.dashTimer) { clearInterval(state.dashTimer); state.dashTimer = null; }   // para o real-time ao trocar de aba
+    if (state.dashTimer) { clearInterval(state.dashTimer); state.dashTimer = null; }
     document.querySelectorAll('#cadTabs .fz-tab').forEach(b => b.classList.toggle('active', b.dataset.ctab === name));
     document.querySelectorAll('#screen-cadastro .fz-cpanel').forEach(p => p.classList.toggle('active', p.dataset.cpanel === name));
     if (name === 'lista') renderLista();
@@ -34,7 +44,6 @@
     return `<div class="fz-feedback ${ok ? 'ok' : 'bad'}">${esc(msg)}</div>`;
   }
 
-  /* =================  PLANTAS & ÁREAS (editar / inativar / excluir)  ================= */
   function statusOf(o) { return o.status || 'ativo'; }
   function statusBadge(st) {
     const c = S.statusColor(st);
@@ -133,7 +142,6 @@
     }));
   }
 
-  /* =================  LISTA  ================= */
   function renderLista() {
     const p = el('cadLista'); if (!p) return;
     const plantas = S.getPlantas();
@@ -201,11 +209,6 @@
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'ativos.csv'; a.click(); URL.revokeObjectURL(a.href);
   }
 
-  /* =================  OCR PLACA  ================= */
-
-  // O que sugerir quando a IA não consegue ler o campo — mostrado no placeholder
-  // do input e na lista de pendências, em vez de deixar o campo mudo ou (pior)
-  // jogar dado solto num campo que não é dele.
   const SUGESTAO_CAMPO = {
     tag:          { el: 'nTag',  rot: 'TAG',              dica: 'código do equipamento — ex: MTR-001' },
     descricao:    { el: 'nDesc', rot: 'Descrição',        dica: 'ex: Motor de Indução Trifásico' },
@@ -266,7 +269,7 @@ Não inclua o campo de localização/endereço: essa informação nunca vem da p
           ]}],
           max_tokens: 700,
           temperature: 0,
-          response_format: { type: 'json_object' },   // garante JSON válido, sem regex frágil
+          response_format: { type: 'json_object' },
         }),
       });
       const data = await res.json();
@@ -298,7 +301,6 @@ Não inclua o campo de localização/endereço: essa informação nunca vem da p
       const file = inp.files[0]; if (!file) return;
       if (!file.type.startsWith('image/')) { status.textContent = 'Arquivo inválido. Envie uma imagem.'; status.style.color = 'var(--fz-bad)'; return; }
 
-      // preview
       const reader = new FileReader();
       reader.onload = async ev => {
         const dataUrl = ev.target.result;
@@ -322,8 +324,6 @@ Não inclua o campo de localização/endereço: essa informação nunca vem da p
         }
         const dados = resultado.dados;
 
-        // A imagem não é placa de motor → não preenche NADA (era o caso que jogava
-        // dado aleatório nos campos), só avisa o que foi detectado.
         if (dados.eh_placa_motor === false) {
           status.innerHTML = `<span style="color:var(--fz-bad)">⚠ Isto não parece a placa de um motor elétrico.</span>`
             + (dados.tipo_detectado ? `<br><small style="color:var(--text-2)">Detectado: ${esc(dados.tipo_detectado)}</small>` : '')
@@ -331,8 +331,6 @@ Não inclua o campo de localização/endereço: essa informação nunca vem da p
           return;
         }
 
-        // Trava: a IA às vezes repete o fabricante/descrição no TAG. TAG é código de
-        // instalação (MTR-001) e vira o Código do ativo — se não parecer um, descarta.
         if (dados.tag) {
           const t = String(dados.tag).trim();
           const igualOutroCampo = [dados.fabricante, dados.descricao]
@@ -340,7 +338,6 @@ Não inclua o campo de localização/endereço: essa informação nunca vem da p
           if (igualOutroCampo || !/\d/.test(t)) dados.tag = null;
         }
 
-        // preenche SÓ o que veio lido; nada de dado solto em campo que não é dele
         const lidos = [], faltando = [];
         const setSe = (chave, valor, aplicar) => {
           if (valor != null && valor !== '') { aplicar(valor); lidos.push(chave); }
@@ -359,8 +356,6 @@ Não inclua o campo de localização/endereço: essa informação nunca vem da p
           if (opt) ipSel.value = v;
         });
 
-        // dados técnicos extras vão para OBSERVAÇÕES — nunca para Localização,
-        // que é informação de planta e não existe na placa.
         const extras = [];
         if (dados.rpm)               extras.push(`${dados.rpm} RPM`);
         if (dados.frequencia_hz)     extras.push(`${dados.frequencia_hz} Hz`);
@@ -371,7 +366,6 @@ Não inclua o campo de localização/endereço: essa informação nunca vem da p
         const obsEl = el('nObs');
         if (extras.length && obsEl) obsEl.value = extras.join(' · ');
 
-        // campos que a IA não conseguiu ler ganham uma sugestão visível no próprio input
         faltando.forEach(k => {
           const cfg = SUGESTAO_CAMPO[k];
           const campo = el(cfg.el);
@@ -398,7 +392,6 @@ Não inclua o campo de localização/endereço: essa informação nunca vem da p
     });
   }
 
-  /* =================  NOVO  ================= */
   function renderNovo(msg) {
     const p = el('cadNovo'); if (!p) return;
     const plantas = S.getPlantas();
@@ -530,7 +523,6 @@ Não inclua o campo de localização/endereço: essa informação nunca vem da p
     });
   }
 
-  /* =================  EDITAR  ================= */
   function renderEditar(msg) {
     const p = el('cadEditar'); if (!p) return;
     const ativos = S.getAtivosIndustrial();
@@ -602,7 +594,6 @@ Não inclua o campo de localização/endereço: essa informação nunca vem da p
     });
   }
 
-  /* =================  DASHBOARD DO ATIVO  ================= */
   function lastReading() {
     if (!F) return null;
     const i = F.meta.n - 1; const o = {};
@@ -628,7 +619,7 @@ Não inclua o campo de localização/endereço: essa informação nunca vem da p
       <path d="${d}" fill="none" stroke="${ac}" stroke-width="2"/></svg>`;
   }
   function iotLiveBlock(leituras) {
-    const rec = leituras.slice(0, 300).reverse();          // antigo → recente p/ o gráfico
+    const rec = leituras.slice(0, 300).reverse();
     const vib = rec.map(l => +l.vibracao_mm_s || 0);
     const last = leituras[0];
     const v = +last.vibracao_mm_s || 0; const fl = flagISO(v);
@@ -774,7 +765,6 @@ Não inclua o campo de localização/endereço: essa informação nunca vem da p
 
     el('daSel').addEventListener('change', e => { state.selDash = e.target.value; renderDash(); });
 
-    // auto-refresh em tempo real quando o ativo tem leituras IoT gravando
     if (state.dashTimer) { clearInterval(state.dashTimer); state.dashTimer = null; }
     if (temIoT) {
       state.dashTimer = setInterval(() => {
@@ -784,7 +774,7 @@ Não inclua o campo de localização/endereço: essa informação nunca vem da p
         renderDash();
       }, 2000);
     }
-    // histórico filtrado pelo código
+
     const hist = S.getHistorico(100).filter(h =>
       (h.dados_antes || '').includes(a.codigo) || (h.dados_depois || '').includes(a.codigo)).slice(0, 10);
     el('daHist').innerHTML = hist.length ? `<div style="overflow:auto"><table class="fz-table">
@@ -797,7 +787,6 @@ Não inclua o campo de localização/endereço: essa informação nunca vem da p
     return `<div class="da-spec"><div class="s-lbl">${label}</div><div class="s-val">${esc(val) || '—'}</div></div>`;
   }
 
-  /* gauge semicircular SVG (0..5) */
   function gaugeSVG(score, cor) {
     const W = 180, H = 110, cx = W / 2, cy = H - 10, R = 74;
     const frac = Math.max(0, Math.min(1, score / 5));
@@ -813,7 +802,6 @@ Não inclua o campo de localização/endereço: essa informação nunca vem da p
     </svg>`;
   }
 
-  /* mini chart multi-série (m1_vel, m2_vel downsample) */
   function refChart() {
     if (!F) return '';
     const N = F.meta.n, K = 120, W = 720, H = 240, padL = 40, padR = 12, padT = 12, padB = 24;
@@ -833,7 +821,6 @@ Não inclua o campo de localização/endereço: essa informação nunca vem da p
     </svg>`;
   }
 
-  /* ----------  init  ---------- */
   function init() {
     const tabs = el('cadTabs'); if (!tabs) return;
     tabs.querySelectorAll('.fz-tab').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.ctab)));

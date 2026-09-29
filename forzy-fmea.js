@@ -1,13 +1,20 @@
 /* ===================================================================
-   FORZY · FMEA — base de conhecimento compartilhada de modo de falha
-   Mapa modo→componentes, árvore de componentes do motor e extensão de
-   "manual de conserto" (reparabilidade, parada, tempo, ferramentas).
-   Consumido por investigacao.js e rca.js. Sem libs, sem build.
-   As chaves de modo espelham copiloto.js (window.FZCopiloto.MODOS).
+   PROJETO FORZY - Sistema de Monitoramento Industrial
+   Trabalho academico FIAP + Forzy-Promon
+
+   Integrantes:
+   - Arthur Baptista dos Santos       (RM 565346)
+   - Joao Pedro de Moura Dutra Franco (RM 561738)
+   - Nelson Felix Neto                (RM 565603)
+   - Pietro Boroto Rodrigues          (RM 562407)
+   - Vitor Soares Goncalves           (RM 566181)
+
+   Arquivo: forzy-fmea.js
+   O que faz: lista os tipos de falha e as pecas de cada motor
    =================================================================== */
+
 (function () {
-  // componentes do motor/bomba, com posição relativa para o desenho "explodido"
-  // x,y em unidades de viewBox 0..100 (corte lateral); dx,dy = deslocamento ao explodir
+
   const COMPONENTES = [
     { id: 'carcaca',     nome: 'Carcaça / base',        x: 50, y: 50, dx: 0,   dy: 26  },
     { id: 'estator',     nome: 'Estator / bobinado',    x: 50, y: 50, dx: 0,   dy: -24 },
@@ -19,7 +26,6 @@
   ];
   const NOME = COMPONENTES.reduce((m, c) => (m[c.id] = c.nome, m), {});
 
-  // modo de falha (chave do copiloto) → componentes suspeitos, do mais provável ao menos
   const MODO_COMPONENTES = {
     balanceamento: ['rotor', 'eixo', 'carcaca'],
     rolamento:     ['rolamento_la', 'rolamento_ld'],
@@ -29,7 +35,6 @@
     normal:        [],
   };
 
-  // extensão do "manual de conserto"
   const REPARO = {
     balanceamento: {
       reparavel: 'Sim — balanceamento do conjunto rotativo e realinhamento em campo, sem substituir o motor.',

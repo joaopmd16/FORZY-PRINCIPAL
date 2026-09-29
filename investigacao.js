@@ -1,18 +1,25 @@
 /* ===================================================================
-   FORZY · Investigação & Vista Explodida  —  sub-aba de #screen-diagnostico
-   Corte do motor em SVG com componentes selecionáveis; o componente
-   suspeito acende conforme o modo de falha do Copiloto. Clique abre
-   painel com estado, evidências, risco, diagnóstico e recomendação.
-   Nível 1 (SVG) da "exploded view" — sem Three.js, sem libs.
-   Consome window.FZCopiloto, window.FZFMEA, window.FORZY, window.FZStore.
+   PROJETO FORZY - Sistema de Monitoramento Industrial
+   Trabalho academico FIAP + Forzy-Promon
+
+   Integrantes:
+   - Arthur Baptista dos Santos       (RM 565346)
+   - Joao Pedro de Moura Dutra Franco (RM 561738)
+   - Nelson Felix Neto                (RM 565603)
+   - Pietro Boroto Rodrigues          (RM 562407)
+   - Vitor Soares Goncalves           (RM 566181)
+
+   Arquivo: investigacao.js
+   O que faz: sub-aba de Investigacao (vista explodida do motor)
    =================================================================== */
+
 (function () {
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const fmt = (v, d = 2) => (v == null || v !== v) ? '—' : Number(v).toFixed(d);
 
   let _root = null, _eixo = 'm1', _ativo = null, _explodido = false, _sel = null, _diag = null;
-  let _momento = 'auto'; // 'auto' | 'atual' | 'pior'
+  let _momento = 'auto';
 
   function ativos() {
     try { return (window.FZStore && window.FZStore.getAtivosIndustrial()) || []; } catch (e) { return []; }
@@ -26,7 +33,7 @@
   }
   function leituraDoMomento() {
     let now = null;
-    try { now = window.FZCopiloto.leituraAtual(); } catch (e) { /* noop */ }
+    try { now = window.FZCopiloto.leituraAtual(); } catch (e) {  }
     const bad = window.FZCopiloto.piorLeitura(_eixo);
     if (_momento === 'atual') return { r: now, tag: 'leitura atual', idx: null };
     if (_momento === 'pior') return { r: bad, tag: 'pior momento da série', idx: bad ? bad.idx : null };
@@ -40,7 +47,6 @@
     return p === 'P1' ? 'var(--fz-bad)' : p === 'P2' ? 'var(--fz-warn)' : 'var(--fz-ok)';
   }
 
-  /* ----------  SVG do corte do motor  ---------- */
   const PARTS = [
     { id: 'ventilacao',  d: 'M6,38 h10 v24 h-10 z M8,34 h6 v32 h-6 z' },
     { id: 'rolamento_ld',d: 'M24,42 a6,8 0 1 0 0.01,0 z' },
@@ -73,7 +79,6 @@
     </svg>`;
   }
 
-  /* ----------  sparkline do histórico do componente  ---------- */
   function sparkGrandeza(col) {
     const F = window.FORZY; if (!F) return '';
     const src = F[_eixo] && F[_eixo][col]; if (!src) return '';

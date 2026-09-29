@@ -1,23 +1,29 @@
 /* ===================================================================
-   FORZY · Projeção de Degradação  —  sub-aba de #screen-diagnostico
-   Projeção linear da tendência da vibração RMS (regressão sobre a
-   janela recente) → tempo estimado até cruzar os limites ISO 10816.
-   + score de anomalia (Z-score) e ranking de risco da frota.
-   NÃO é previsão de falha por ML — é extrapolação de tendência, e
-   está rotulada como tal. Motivo provável reaproveita o Copiloto.
+   PROJETO FORZY - Sistema de Monitoramento Industrial
+   Trabalho academico FIAP + Forzy-Promon
+
+   Integrantes:
+   - Arthur Baptista dos Santos       (RM 565346)
+   - Joao Pedro de Moura Dutra Franco (RM 561738)
+   - Nelson Felix Neto                (RM 565603)
+   - Pietro Boroto Rodrigues          (RM 562407)
+   - Vitor Soares Goncalves           (RM 566181)
+
+   Arquivo: preditivo.js
+   O que faz: sub-aba de Projecao (estimativa de quando pode dar falha)
    =================================================================== */
+
 (function () {
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const fmt = (v, d = 2) => (v == null || v !== v) ? '—' : Number(v).toFixed(d);
 
-  let _root = null, _win = 30; // janela de regressão em minutos
+  let _root = null, _win = 30;
 
   function ativos() {
     try { return (window.FZStore && window.FZStore.getAtivosIndustrial()) || []; } catch (e) { return []; }
   }
 
-  // regressão linear de vel RMS sobre os últimos `_win` minutos da série
   function projetar(eixo) {
     const F = window.FORZY;
     if (!F || !F[eixo]) return null;
@@ -34,7 +40,7 @@
     let sx = 0, sy = 0, sxy = 0, sxx = 0;
     for (let k = 0; k < w; k++) { const x = ts[k] - x0; sx += x; sy += seg[k]; sxy += x * seg[k]; sxx += x * x; }
     const denom = (w * sxx - sx * sx) || 1;
-    const slopePerSec = (w * sxy - sx * sy) / denom;      // mm/s por segundo
+    const slopePerSec = (w * sxy - sx * sy) / denom;
     const atual = seg[w - 1];
     const slopePerHora = slopePerSec * 3600;
 
@@ -46,7 +52,7 @@
       const d = seg / 86400;
       return { txt: d > 60 ? '> 60 dias' : d >= 2 ? `~${d.toFixed(1)} dias` : d >= 1 ? '~1 dia' : `~${Math.max(1, Math.round(d * 24))} h`, v: d };
     }
-    // Z-score de anomalia na última leitura
+
     const last = n - 1;
     const zmax = Math.max(
       window.FZCopiloto.zscore(eixo + '_vel', F[eixo].vel[last]),
@@ -78,7 +84,7 @@
     const X = i => pad + i / (arr.length - 1) * (w - pad * 2);
     const Y = v => h - pad - v / mx * (h - pad * 2);
     const line = arr.map((v, i) => `${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(' ');
-    // projeção: continua do último ponto com a inclinação, por ~50% da largura
+
     const lastX = arr.length - 1, projSpanSec = 1800;
     const slopePerSec = p.slopePerHora / 3600;
     const projEnd = p.atual + slopePerSec * projSpanSec;
@@ -131,7 +137,6 @@
       </div>`;
     };
 
-    // frota: 1 linha por ativo (usa o eixo de maior risco entre m1/m2)
     const melhor = riscoScore(p1) >= riscoScore(p2) ? p1 : p2;
     const linhasFrota = list.map(a => {
       const s = riscoScore(melhor);
@@ -174,7 +179,6 @@
     if (_ia && !semChave) _ia.addEventListener('click', refinarIA);
   }
 
-  // resumo textual da projecao — alimenta o prompt da IA e a "coligacao"
   function resumoTexto(p1, p2) {
     const F = window.FORZY || {};
     const linha = (p, nome) => {

@@ -1,6 +1,18 @@
 /* ===================================================================
-   FORZY · GESTÃO — Navegação · RPA · Pipeline (funcionais, via FZStore)
+   PROJETO FORZY - Sistema de Monitoramento Industrial
+   Trabalho academico FIAP + Forzy-Promon
+
+   Integrantes:
+   - Arthur Baptista dos Santos       (RM 565346)
+   - Joao Pedro de Moura Dutra Franco (RM 561738)
+   - Nelson Felix Neto                (RM 565603)
+   - Pietro Boroto Rodrigues          (RM 562407)
+   - Vitor Soares Goncalves           (RM 566181)
+
+   Arquivo: gestao.js
+   O que faz: telas de Navegacao, RPA e Pipeline
    =================================================================== */
+
 (function () {
   const S = window.FZStore;
   if (!S) { console.error('gestao.js: FZStore ausente'); return; }
@@ -29,7 +41,6 @@
         </div></details></div>`;
   }
 
-  /* mini-mapa SVG (substitui st.map) */
   function miniMap(points, selCod) {
     const pts = points.filter(p => p.lat && p.lon);
     if (!pts.length) return `<div class="fz-empty">Coordenadas não cadastradas.</div>`;
@@ -56,12 +67,8 @@
       <span><i style="background:${cssVar('--fz-bad')}"></i>Inativo</span></div>`;
   }
 
-  /* =====================================================================
-     NAVEGAÇÃO — Drill-down visual: Fábrica → Área → Equipamento → Sensores
-     ===================================================================== */
   const nav = { planta: null, area: null, ativo: null, query: '', level: 'plantas' };
 
-  /* ---------- busca NLP ---------- */
   function buscaNLP(query, ativos) {
     const toks = query.toLowerCase().split(/\s+/).filter(t => t.length >= 2);
     if (!toks.length) return [];
@@ -76,7 +83,6 @@
     return res.map(r => r[1]);
   }
 
-  /* ---------- breadcrumb ---------- */
   function breadcrumb() {
     const plantas = S.getPlantas();
     const pl = plantas.find(p => p.id === nav.planta);
@@ -96,7 +102,6 @@
     </nav>`;
   }
 
-  /* ---------- mini-sparkline inline ---------- */
   function sparkLine(vals, cor) {
     if (!vals.length) return '';
     const W = 120, H = 36, pad = 3;
@@ -107,13 +112,11 @@
     return `<svg viewBox="0 0 ${W} ${H}" style="width:${W}px;height:${H}px;vertical-align:middle"><path d="${d}" fill="none" stroke="${cor}" stroke-width="1.8"/></svg>`;
   }
 
-  /* ---------- status badge ---------- */
   function badge(st) {
     const c = S.statusColor(st);
     return `<span class="fz-badge" style="background:${c}22;border:1px solid ${c};color:${c}">${S.statusLabel(st)}</span>`;
   }
 
-  /* ---------- renderiza o container principal do drill ---------- */
   function renderNavDrill() {
     const wrap = el('navDrill'); if (!wrap) return;
     wrap.innerHTML = breadcrumb() + `<div id="navDrillContent"></div>`;
@@ -127,7 +130,6 @@
     else if (nav.level === 'detalhe') renderDetalheAtivo();
   }
 
-  /* ---------- nível 1: plantas ---------- */
   function renderPlantas() {
     const box = el('navDrillContent'); if (!box) return;
     const plantas = S.getPlantas();
@@ -169,7 +171,6 @@
     );
   }
 
-  /* ---------- nível 2: áreas ---------- */
   function renderAreas() {
     const box = el('navDrillContent'); if (!box) return;
     const areas = S.getAreas(nav.planta);
@@ -209,7 +210,6 @@
     );
   }
 
-  /* ---------- nível 3: ativos/equipamentos ---------- */
   function renderAtivos() {
     const box = el('navDrillContent'); if (!box) return;
     const ativos = S.getAtivosIndustrial(nav.area);
@@ -253,7 +253,6 @@
     );
   }
 
-  /* ---------- nível 4: detalhe com sensores ---------- */
   function renderDetalheAtivo() {
     const box = el('navDrillContent'); if (!box) return;
     if (!nav.ativo) { box.innerHTML = `<div class="fz-empty">Ativo não encontrado.</div>`; return; }
@@ -264,7 +263,6 @@
     const areaAtivos = S.getAtivosIndustrial(a.area_id).map(x => ({ lat: x.latitude, lon: x.longitude, status: x.status, codigo: x.codigo }));
     const specCell = (l, v) => `<div class="nv-cell"><div class="c-lbl">${l}</div><div class="c-val">${esc(String(v ?? '—'))}</div></div>`;
 
-    /* gauge z-score via dataset Forzy */
     const F = window.FORZY;
     let scoreHtml = '';
     if (F) {
@@ -287,7 +285,6 @@
       </div>`;
     }
 
-    /* vibração chart */
     let vibHtml = '';
     if (leituras.length) {
       const rec = leituras.slice(0, 120).reverse();
@@ -424,9 +421,6 @@
     renderNavDrill();
   }
 
-  /* =====================================================================
-     RPA
-     ===================================================================== */
   function rpaSwitch(name) {
     document.querySelectorAll('#rpaTabs .fz-tab').forEach(b => b.classList.toggle('active', b.dataset.rtab === name));
     document.querySelectorAll('#screen-rpa .fz-cpanel').forEach(p => p.classList.toggle('active', p.dataset.rpanel === name));
@@ -557,9 +551,6 @@
     rpaAssoc();
   }
 
-  /* =====================================================================
-     PIPELINE
-     ===================================================================== */
   function pipeSwitch(name) {
     document.querySelectorAll('#pipeTabs .fz-tab').forEach(b => b.classList.toggle('active', b.dataset.ptab === name));
     document.querySelectorAll('#screen-pipeline .fz-cpanel').forEach(p => p.classList.toggle('active', p.dataset.ppanel === name));
@@ -630,7 +621,6 @@
 
   const OCR = { campos: null, imagemUpload: null };
 
-  // rasteriza a plaqueta SVG de demonstração em PNG (base64) pra poder mandar como imagem pra IA de visão
   function svgToPngDataUrl(svgMarkup, w = 520, h = 300) {
     return new Promise((resolve, reject) => {
       const blob = new Blob([svgMarkup], { type: 'image/svg+xml;charset=utf-8' });
@@ -777,7 +767,6 @@ Se um campo não estiver legível ou não existir na imagem, use null nesse camp
     pipeExec();
   }
 
-  /* ----------  init  ---------- */
   function init() { initNav(); initRpa(); initPipe(); if (window.lucide) lucide.createIcons(); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();

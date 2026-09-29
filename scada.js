@@ -1,6 +1,18 @@
 /* ===================================================================
-   FORZY · SCADA — Player + Planta 2D (SVG) + Vista 3D (canvas) + Histórico
+   PROJETO FORZY - Sistema de Monitoramento Industrial
+   Trabalho academico FIAP + Forzy-Promon
+
+   Integrantes:
+   - Arthur Baptista dos Santos       (RM 565346)
+   - Joao Pedro de Moura Dutra Franco (RM 561738)
+   - Nelson Felix Neto                (RM 565603)
+   - Pietro Boroto Rodrigues          (RM 562407)
+   - Vitor Soares Goncalves           (RM 566181)
+
+   Arquivo: scada.js
+   O que faz: tela SCADA com planta 2D e modelo 3D da bomba
    =================================================================== */
+
 (function () {
   const F = window.FORZY;
   if (!F) { console.error('scada.js: FORZY ausente'); return; }
@@ -13,7 +25,6 @@
   const flag = (v, a, al) => (v >= al ? 2 : v >= a ? 1 : 0);
   const TH = { tempA: 35, tempAl: 42, velA: 1.8, velAl: 4.5, acelA: 0.25, acelAl: 0.45 };
 
-  /* ----------  downsample (~400 frames)  ---------- */
   const DS = (function () {
     const N = F.meta.n, K = Math.min(400, N);
     const idx = []; for (let i = 0; i < K; i++) idx.push(Math.round(i * (N - 1) / (K - 1)));
@@ -26,14 +37,12 @@
   function tlabel(i) { return new Date(T0 + DS.t[i] * 1000).toLocaleTimeString('pt-BR', { hour12: false }); }
   function rowAt(i) { return { v1: DS.m1v[i], a1: DS.m1a[i], t1: DS.m1t[i], v2: DS.m2v[i], a2: DS.m2a[i], t2: DS.m2t[i] }; }
 
-  // Fonte da 2D/3D/alertas: no modo "Ao vivo" segue a leitura atual do Monitoramento
-  // (ESP32 / Ativo / Simulado / Forzy Cloud); senão usa o frame do dataset (playback).
   const num = (v, d) => (v == null || isNaN(v)) ? (d || 0) : +v;
   function liveRow() {
     const d = window.FZDashboard;
     if (!st.live || !d || typeof d.getCurrentReading !== 'function') return rowAt(st.fidx);
     const r = d.getCurrentReading() || {};
-    // Eixo 2 pode vir NaN (ex.: ESP32 = 1 sensor) → cai pro Eixo 1
+
     return {
       v1: num(r.m1_vel), a1: num(r.m1_acel), t1: num(r.m1_temp, 25),
       v2: num(r.m2_vel, num(r.m1_vel)), a2: num(r.m2_acel, num(r.m1_acel)), t2: num(r.m2_temp, num(r.m1_temp, 25)),
@@ -48,7 +57,6 @@
     return f === 'esp32' || f === 'ativo' || f === 'sim' || f === 'cloud';
   };
 
-  /* ----------  player bar  ---------- */
   function renderPlayer() {
     const p = el('scadaPlayer'); if (!p) return;
     const liveCtrls = `
@@ -87,7 +95,6 @@
   }
   function sync() { const s = el('scadaPlayer'); if (!s) return; const r = s.querySelector('[data-act="scrub"]'); if (r) r.value = st.fidx; const t = el('spTime'); if (t) t.textContent = tlabel(st.fidx); }
 
-  /* ----------  alertas  ---------- */
   function renderAlerts() {
     const box = el('scadaAlerts'); if (!box) return;
     const r = liveRow();
@@ -101,7 +108,6 @@
     box.innerHTML = banner('EIXO 1', r.t1, r.v1, r.a1) + banner('EIXO 2', r.t2, r.v2, r.a2);
   }
 
-  /* ----------  Planta 2D (SVG)  ---------- */
   function render2D() {
     const p = el('scada2d'); if (!p) return;
     const r = liveRow();
@@ -145,11 +151,9 @@
     </div></div>`;
   }
 
-  /* ----------  Vista 3D (canvas)  ---------- */
-  const MESH = buildMesh();   // fallback paramétrico
-  let activeMesh = MESH;       // troca pelo mesh real do Streamlit quando carregar
+  const MESH = buildMesh();
+  let activeMesh = MESH;
 
-  // Parser .npy (subset: descr <f4 / <i4, C-order)
   async function loadNpy(url) {
     const buf = await (await fetch(url)).arrayBuffer();
     const head = new Uint8Array(buf, 8, 2);
@@ -157,7 +161,7 @@
     const txt = new TextDecoder().decode(new Uint8Array(buf, 10, hlen));
     const descr = /'descr':\s*'([^']+)'/.exec(txt)[1];
     const off = 10 + hlen;
-    const slice = buf.slice(off); // copia → garante alinhamento
+    const slice = buf.slice(off);
     if (descr === '<f4') return new Float32Array(slice);
     if (descr === '<i4') return new Int32Array(slice);
     throw new Error('descr não suportado: ' + descr);
@@ -167,14 +171,14 @@
       const [vd, fd] = await Promise.all([loadNpy('data/bomba_verts.npy'), loadNpy('data/bomba_faces.npy')]);
       const verts = [];
       for (let i = 0; i < vd.length; i += 3) verts.push([vd[i], vd[i + 1], vd[i + 2]]);
-      // centraliza e escala pra caber na cena (~8 unidades), Z = cima
+
       const mn = [Infinity, Infinity, Infinity], mx = [-Infinity, -Infinity, -Infinity];
       for (const v of verts) for (let k = 0; k < 3; k++) { if (v[k] < mn[k]) mn[k] = v[k]; if (v[k] > mx[k]) mx[k] = v[k]; }
       const c = [(mn[0] + mx[0]) / 2, (mn[1] + mx[1]) / 2, (mn[2] + mx[2]) / 2];
       const span = Math.max(mx[0] - mn[0], mx[1] - mn[1], mx[2] - mn[2]) || 1;
       const s = 8 / span;
       for (const v of verts) { v[0] = (v[0] - c[0]) * s; v[1] = (v[1] - c[1]) * s; v[2] = (v[2] - c[2]) * s; }
-      // classifica por Z (já centrado/escalado): base = 20% inferiores do mesh
+
       const zsCentered = verts.map(v => v[2]);
       const zMinC = Math.min(...zsCentered), zMaxC = Math.max(...zsCentered);
       const baseThresh = zMinC + (zMaxC - zMinC) * 0.20;
@@ -186,7 +190,7 @@
       }
       activeMesh = { verts, faces };
       if (el('scadaCanvas')) draw3D();
-    } catch (e) { /* mantém o mesh paramétrico */ console.warn('Mesh real não carregou:', e.message); }
+    } catch (e) {  console.warn('Mesh real não carregou:', e.message); }
   }
   function buildMesh() {
     const verts = [], faces = [];
@@ -196,21 +200,21 @@
       const p = [];
       for (const dz of [-1, 1]) for (const dy of [-1, 1]) for (const dx of [-1, 1])
         p.push(add([cx + dx * h[0], cy + dy * h[1], cz + dz * h[2]]));
-      // p index: bit0=dx,bit1=dy,bit2=dz
+
       const q = (a, b, c, d) => faces.push({ idx: [p[a], p[b], p[c], p[d]], group });
       q(0, 1, 3, 2); q(4, 6, 7, 5); q(0, 4, 5, 1); q(2, 3, 7, 6); q(0, 2, 6, 4); q(1, 5, 7, 3);
     }
-    function cyl(cx, cy, cz, r, len, seg, group) { // axis along X
+    function cyl(cx, cy, cz, r, len, seg, group) {
       const a = [], b = [];
       for (let i = 0; i < seg; i++) { const t = i / seg * Math.PI * 2; const y = cy + r * Math.cos(t), z = cz + r * Math.sin(t); a.push(add([cx - len / 2, y, z])); b.push(add([cx + len / 2, y, z])); }
       for (let i = 0; i < seg; i++) { const j = (i + 1) % seg; faces.push({ idx: [a[i], a[j], b[j], b[i]], group }); }
       const ca = add([cx - len / 2, cy, cz]), cb = add([cx + len / 2, cy, cz]);
       for (let i = 0; i < seg; i++) { const j = (i + 1) % seg; faces.push({ idx: [ca, a[j], a[i]], group }); faces.push({ idx: [cb, b[i], b[j]], group }); }
     }
-    box(0, 0, -1.6, 7.5, 4.0, 1.2, 'base');     // skid
-    cyl(-0.4, 0, 0.4, 1.5, 4.6, 26, 'machine');  // motor body
-    cyl(2.9, 0, 0.2, 1.1, 1.4, 22, 'machine');   // pump housing
-    box(2.9, 0, 1.6, 0.5, 0.5, 1.6, 'machine');  // outlet
+    box(0, 0, -1.6, 7.5, 4.0, 1.2, 'base');
+    cyl(-0.4, 0, 0.4, 1.5, 4.6, 26, 'machine');
+    cyl(2.9, 0, 0.2, 1.1, 1.4, 22, 'machine');
+    box(2.9, 0, 1.6, 0.5, 0.5, 1.6, 'machine');
     return { verts, faces };
   }
   function shade(hex, b) {
@@ -265,7 +269,7 @@
       if (st.drag && !st.drag.moved) showMotorInfo(st.drag.motor);
       st.drag = null; cv.style.cursor = 'grab';
       try { cv.releasePointerCapture(e.pointerId); } catch (_) {}
-      draw3D(); // redraw full quality ao soltar
+      draw3D();
     };
     cv.addEventListener('pointerup', end);
     cv.addEventListener('pointercancel', end);
@@ -305,15 +309,15 @@
     };
     const light = [0.4, -0.5, 0.75];
     const R = activeMesh.verts.map(rot);
-    const step = 1; // back-face culling já reduz ~50% das faces — sem precisar pular
+    const step = 1;
     const faces = [];
     for (let fi = 0; fi < activeMesh.faces.length; fi += step) {
       const f = activeMesh.faces[fi];
       const vs = f.idx.map(i => R[i]);
       const n = normal(vs);
-      if (n[1] > 0) continue; // back-face culling: câmera olha ao longo de +Y, descarta faces que apontam pra trás
+      if (n[1] > 0) continue;
       let depth = 0; for (const v of vs) depth += v[1]; depth /= vs.length;
-      // quantiza brilho em 48 níveis → mais faces por bucket de cor → menos draw calls
+
       const brRaw = 0.45 + 0.55 * Math.max(0, n[0] * light[0] + n[1] * light[1] + n[2] * light[2]);
       const br = Math.round(Math.min(1, brRaw) * 48) / 48;
       faces.push({ vs, depth, br, isBase: f.group === 'base' });
@@ -324,7 +328,7 @@
 
   function draw3D() {
     const cv = el('scadaCanvas'); if (!cv) return;
-    // resolução real = CSS × dpr (nítido em HiDPI)
+
     const dpr = window.devicePixelRatio || 1;
     const cssW = cv.clientWidth || 760, cssH = Math.round(cssW * 400 / 760);
     if (cv.width !== Math.round(cssW * dpr) || cv.height !== Math.round(cssH * dpr)) {
@@ -348,14 +352,14 @@
 
     function drawMotor(cx0, faces, rot, statusIdx, label) {
       const col = [cOk, cW, cB][statusIdx];
-      // batch por cor: 1 fill() por grupo em vez de 1 por face (~10k→~50 draw calls)
+
       const buckets = new Map();
       for (const f of faces) {
         const c = shade(f.isBase ? '#4a5060' : col, f.br);
         if (!buckets.has(c)) buckets.set(c, []);
         buckets.get(c).push(f);
       }
-      // desenha do mais fundo pro mais próximo por bucket
+
       const sorted2 = [...buckets.entries()].sort((a, b) => {
         const da = a[1].reduce((s, f) => s + f.depth, 0) / a[1].length;
         const db = b[1].reduce((s, f) => s + f.depth, 0) / b[1].length;
@@ -370,7 +374,7 @@
         }
         ctx.fillStyle = color; ctx.fill();
       }
-      // sensores (diamantes roxos)
+
       for (const sx of [-1.4, 1.4]) {
         const v = rot([sx, 0, 2.1]);
         const px = cx0 + v[0] * scale, py = cy0 - v[2] * scale;
@@ -379,7 +383,7 @@
       }
       ctx.fillStyle = col; ctx.font = 'bold 13px system-ui,sans-serif'; ctx.textAlign = 'center';
       ctx.fillText(`${label} · ${SLABEL[statusIdx]}`, cx0, H - 10);
-      // hint de clique
+
       ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.font = '11px system-ui,sans-serif';
       ctx.fillText('clique para info', cx0, H + 4);
     }
@@ -394,7 +398,6 @@
     const L = Math.hypot(n[0], n[1], n[2]) || 1; return [n[0] / L, n[1] / L, n[2] / L];
   }
 
-  /* ----------  Histórico (3 charts SVG)  ---------- */
   function renderHist() {
     const p = el('scadaHist'); if (!p) return;
     const upto = st.fidx + 1;
@@ -427,7 +430,6 @@
     </svg>`;
   }
 
-  /* ----------  loop / render  ---------- */
   const activeTab = () => { const t = document.querySelector('#scadaTabs .fz-tab.active'); return t ? t.dataset.stab : 'p2d'; };
   const scadaOn = () => document.getElementById('screen-scada').classList.contains('active');
   function render() {
@@ -442,7 +444,7 @@
     if (st.timer) clearInterval(st.timer);
     if (st.liveTimer) { clearInterval(st.liveTimer); st.liveTimer = null; }
     if (st.live) {
-      // modo ao vivo: só refaz render seguindo a fonte do Monitoramento
+
       st.liveTimer = setInterval(() => {
         if (!scadaOn() || !st.live) return;
         const t = el('spTime');
@@ -458,7 +460,6 @@
       render();
     }, st.speed);
   }
-  // rotação agora é manual (arrastar). Sem auto-spin.
 
   function switchTab(name) {
     document.querySelectorAll('#scadaTabs .fz-tab').forEach(b => b.classList.toggle('active', b.dataset.stab === name));
@@ -473,12 +474,11 @@
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 
-  // API pública — usada pelo modal de alerta crítico ("Ver na Vista 3D")
   window.FZScada = {
     show3D(eixoIdx) {
       if (typeof window.showScreen === 'function') window.showScreen('scada');
       switchTab('p3d');
-      // showMotorInfo é 1-based (Eixo 1 / Eixo 2); aceita 2, '2' ou 'm2'
+
       const s = String(eixoIdx).toLowerCase();
       const motor = (s === '2' || s === 'm2') ? 2 : 1;
       try { showMotorInfo(motor); } catch (_) {}

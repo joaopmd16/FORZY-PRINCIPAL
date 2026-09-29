@@ -1,21 +1,29 @@
-/* =====================================================================
-   Vision — Marketing Dashboard UI
-   Faithful recreation of the "Vision" Figma kit.
-   Light + Dark themes via [data-theme] on <html>.
-   ===================================================================== */
+/* ===================================================================
+   PROJETO FORZY - Sistema de Monitoramento Industrial
+   Trabalho academico FIAP + Forzy-Promon
+
+   Integrantes:
+   - Arthur Baptista dos Santos       (RM 565346)
+   - Joao Pedro de Moura Dutra Franco (RM 561738)
+   - Nelson Felix Neto                (RM 565603)
+   - Pietro Boroto Rodrigues          (RM 562407)
+   - Vitor Soares Goncalves           (RM 566181)
+
+   Arquivo: styles.css
+   O que faz: estilo visual de todas as telas (tema claro e escuro)
+   =================================================================== */
 
 @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap');
 @import url('https://api.fontshare.com/v2/css?f[]=clash-display@400,500,600&display=swap');
 
-/* ----------  TOKENS  ---------- */
 :root {
   --font: 'Quicksand', system-ui, sans-serif;
   --font-num: 'Inter', system-ui, sans-serif;
   --font-logo: 'Clash Display', 'Quicksand', sans-serif;
 
-  --teal: #2a2a2e;            /* accent neutro (sobrescrito por tema) */
+  --teal: #2a2a2e;
   --teal-soft: rgba(127,127,135,.14);
-  --accent-ink: #ffffff;      /* cor do texto sobre o accent */
+  --accent-ink: #ffffff;
   --red: #fa5757;
   --red-soft: #ffe5e5;
   --amber: #f5b72e;
@@ -29,44 +37,42 @@
   --gap: 26px;
 }
 
-/* Light theme (default) */
 html[data-theme='light'] {
   --bg: #f1f4fa;
   --card: #ffffff;
   --field: #fafafa;
   --text: #0b0b0b;
   --text-2: #747474;
-  --text-3: #99b2c6;            /* inactive nav / muted blue-grey */
-  --label: #a6a6a6;             /* section labels */
+  --text-3: #99b2c6;
+  --label: #a6a6a6;
   --hairline: #eef0f4;
   --hairline-2: #e8e8e8;
   --table-head: #99b2c6;
   --shadow: 0 18px 40px -24px rgba(28,40,64,.28);
   --pill-track: #c7d2e0;
-  --teal: #1c1c20;                  /* accent charcoal no tema claro */
+  --teal: #1c1c20;
   --teal-soft: rgba(20,20,24,.07);
   --accent-ink: #ffffff;
   --thumb-grad: linear-gradient(160deg,#6b6b6b 0%, rgba(26,26,26,.9) 70%);
 }
 
-/* Dark theme */
 html[data-theme='dark'] {
-  /* Paleta Vision (Marketing Dashboard UI KIT) — charcoal + Blue Deep */
-  --bg: #050506;                    /* preto piano (base) — brilho aplicado no body */
-  --card: #161618;                  /* preto fosco — superfícies/cards (matte) */
-  --field: #1e1e21;                 /* preto fosco mais claro — inputs/segmentos */
-  --text: #ffffff;                  /* WHITE */
-  --text-2: #a0a0a7;                /* GREY 100 */
-  --text-3: #6f6f77;                /* GREY BLACK (muted) */
+
+  --bg: #050506;
+  --card: #161618;
+  --field: #1e1e21;
+  --text: #ffffff;
+  --text-2: #a0a0a7;
+  --text-3: #6f6f77;
   --label: #6f6f77;
   --hairline: #2c2c32;
   --hairline-2: #38383f;
   --table-head: #8a8a92;
   --shadow: 0 18px 50px -26px rgba(0,0,0,.9);
   --pill-track: #34343c;
-  --teal: #ffffff;                  /* accent — branco (substitui Blue Deep) */
+  --teal: #ffffff;
   --teal-soft: rgba(255,255,255,.14);
-  --accent-ink: #11161c;            /* texto escuro sobre o accent */
+  --accent-ink: #11161c;
   --thumb-grad: linear-gradient(160deg,#3a3a44 0%, rgba(20,20,24,.95) 70%);
 }
 
@@ -83,7 +89,6 @@ button { font-family: inherit; cursor: pointer; border: none; }
 img { display: block; }
 .lucide, [data-lucide] { stroke-width: 2; }
 
-/* ----------  LOGO MARK  ---------- */
 .logo-mark {
   --acc: var(--logo-accent);
   --moon: #000;
@@ -95,14 +100,12 @@ img { display: block; }
 .logo-mark .mn { fill: var(--moon); }
 .logo-mark.inv { --acc: #616161; --moon: #fff; }
 
-/* ----------  WORLD MAP  ---------- */
 .worldmap { position: relative; width: 100%; min-height: 280px; }
 .worldmap svg { width: 100%; height: auto; display: block; }
 .worldmap .land { fill: #d7dbe2; }
 html[data-theme='dark'] .worldmap .land { fill: #34373c; }
 .glow { filter: blur(2px); }
 
-/* ----------  APP SHELL  ---------- */
 .app {
   display: grid;
   grid-template-columns: var(--sidebar-w) 1fr;
@@ -114,7 +117,6 @@ html[data-theme='dark'] .worldmap .land { fill: #34373c; }
   align-items: start;
 }
 
-/* ----------  SIDEBAR  ---------- */
 .sidebar {
   position: sticky;
   top: 28px;
@@ -167,7 +169,6 @@ html[data-theme='dark'] .worldmap .land { fill: #34373c; }
 }
 .nav-item svg { width: 23px; height: 23px; flex: none; }
 
-/* bolinha de alerta não-lido (Assistente IA) — pisca até o usuário abrir a tela */
 .fz-nav-dot {
   display: none;
   position: absolute; top: 10px; right: 16px;
@@ -238,7 +239,6 @@ html[data-theme='dark'] .switch::after { transform: translateX(22px); }
 }
 .copyright svg { width: 15px; height: 15px; }
 
-/* ----------  MAIN  ---------- */
 .main { display: flex; flex-direction: column; gap: var(--gap); min-width: 0; }
 
 .topbar { display: flex; gap: 16px; }
@@ -278,7 +278,6 @@ html[data-theme='dark'] .switch::after { transform: translateX(22px); }
 .avatar-card img { width: 100%; height: 100%; object-fit: cover; }
 .avatar-card svg { width: 28px; height: 28px; }
 
-/* ----------  GENERIC CARD  ---------- */
 .card {
   background: var(--card);
   border-radius: var(--radius-card);
@@ -292,7 +291,6 @@ html[data-theme='dark'] .switch::after { transform: translateX(22px); }
 .dots { color: var(--text-3); background: none; padding: 4px; }
 .dots svg { width: 22px; height: 22px; }
 
-/* ----------  CONTENT GRID  ---------- */
 .content {
   display: grid;
   grid-template-columns: minmax(0,1fr) 360px;
@@ -301,7 +299,6 @@ html[data-theme='dark'] .switch::after { transform: translateX(22px); }
 }
 .col { display: flex; flex-direction: column; gap: var(--gap); min-width: 0; }
 
-/* ----------  HERO (dark gradient)  ---------- */
 .hero {
   position: relative;
   border-radius: var(--radius-card);
@@ -335,7 +332,7 @@ html[data-theme='dark'] .switch::after { transform: translateX(22px); }
   background: linear-gradient(180deg,#000 0%, #3e3e3e 100%);
   padding: 22px 26px 26px;
 }
-.stat::after { /* shelf behind */
+.stat::after {
   content:''; position:absolute; left:6%; right:6%; bottom:-8px; height:30px;
   background:#626262; border-radius: 0 0 14px 14px; z-index:-1; opacity:.85;
 }
@@ -348,7 +345,6 @@ html[data-theme='dark'] .switch::after { transform: translateX(22px); }
 .stat-value { text-align: right; font-size: 40px; font-weight: 700; margin: 8px 0 4px; }
 .stat-sub { text-align: right; color: #b7b7b7; font-size: 18px; font-weight: 700; }
 
-/* ----------  TRANSACTIONS TABLE  ---------- */
 .panel { padding: 30px 32px; }
 table.tx { width: 100%; border-collapse: collapse; }
 table.tx th {
@@ -380,7 +376,6 @@ table.tx .chk {
 }
 html[data-theme='dark'] .btn-detail { background: #000; border: 1px solid #3a3d42; }
 
-/* ----------  MARKETING GOAL  ---------- */
 .goal {
   background: linear-gradient(180deg,#0a0a0a 0%, rgba(10,10,10,.72) 100%);
   color: #fff; padding: 28px 30px 34px; position: relative; overflow: hidden;
@@ -409,7 +404,6 @@ html[data-theme='dark'] .btn-detail { background: #000; border: 1px solid #3a3d4
   font-weight:700; font-size:15px; padding:13px 26px; border-radius:8px;
 }
 
-/* ----------  SALES HISTORY  ---------- */
 .sales-row {
   display: flex; align-items: center; gap: 16px; padding: 13px 0;
 }
@@ -431,7 +425,6 @@ html[data-theme='dark'] .btn-detail { background: #000; border: 1px solid #3a3d4
   font-weight: 700; font-size: 15px; padding: 12px 18px; border-radius: 8px;
 }
 
-/* ----------  ANALYTICS  ---------- */
 .astats { display:grid; grid-template-columns: repeat(3,1fr); gap: 16px; position:relative; z-index:1; }
 .astat {
   background: linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.01));
@@ -477,7 +470,6 @@ html[data-theme='dark'] .btn-detail { background: #000; border: 1px solid #3a3d4
 .device-name { flex:1; font-size:17px; font-weight:700; }
 .device-val { font-size:17px; font-weight:700; }
 
-/* ----------  SALES  ---------- */
 #screen-dashboard.active,
 #screen-sales.active,
 #screen-product.active,
@@ -510,7 +502,6 @@ html[data-theme='dark'] .btn-export { background: #fff; color: #000; }
 .metric-foot svg { width: 16px; height: 16px; color: var(--teal); }
 .metric-foot .up { color: var(--teal); }
 
-/* chart tools */
 .chart-tools { display: flex; align-items: center; gap: 12px; }
 .seg { display: inline-flex; background: var(--field); border-radius: 11px; padding: 4px; gap: 4px; }
 .seg-btn { padding: 8px 18px; border-radius: 8px; background: none; color: var(--text-2); font-weight: 700; font-size: 14px; }
@@ -522,7 +513,6 @@ html[data-theme='dark'] .btn-export { background: #fff; color: #000; }
 }
 .seg-week svg { width: 16px; height: 16px; }
 
-/* area chart */
 .chart { position: relative; width: 100%; }
 .chart svg { width: 100%; height: auto; display: block; overflow: visible; }
 .chart .grid-line { stroke: var(--hairline); stroke-width: 1; }
@@ -543,7 +533,6 @@ html[data-theme='dark'] .btn-export { background: #fff; color: #000; }
 @media (max-width: 1180px) { .metrics-row { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 860px)  { .metrics-row { grid-template-columns: 1fr; } .page-title { font-size: 26px; } }
 
-/* ----------  PRODUCT  ---------- */
 .filter-bar {
   display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
   padding: 18px 22px;
@@ -591,7 +580,6 @@ html[data-theme='dark'] .s-pending { background: rgba(245,183,46,.16); }
 .pop-row { display: flex; align-items: center; gap: 14px; padding: 12px 0; }
 .pop-row .rank { font-family: var(--font-num); font-weight: 700; font-size: 15px; color: var(--text-3); width: 26px; flex: none; }
 
-/* ----------  CUSTOMER  ---------- */
 .head-actions { display: flex; gap: 14px; }
 .btn-ghost {
   display: inline-flex; align-items: center; gap: 10px;
@@ -627,14 +615,12 @@ html[data-theme='dark'] .s-pending { background: rgba(245,183,46,.16); }
 
 .cust-tx td, .cust-tx th { white-space: nowrap; }
 
-/* bar chart */
 .bar { transition: opacity .12s ease; }
 .bar-ghost { fill: var(--hairline-2); }
 .bar-main { fill: var(--teal); }
 
 @media (max-width: 1180px) { .cust-grid { grid-template-columns: 1fr; } }
 
-/* ----------  PAYOUT  ---------- */
 .payout-top { display: grid; grid-template-columns: 1.6fr 1fr 1fr; gap: var(--gap); }
 .balance-card {
   background: linear-gradient(180deg,#000 0%, #2e2e2e 100%);
@@ -659,7 +645,6 @@ html[data-theme='dark'] .s-paid { background: rgba(63,184,169,.16); }
 .payout-tx td, .payout-tx th { white-space: nowrap; }
 @media (max-width: 1180px) { .payout-top { grid-template-columns: 1fr; } }
 
-/* ----------  PROFILE  ---------- */
 .profile-grid { display: grid; grid-template-columns: minmax(0,1fr) 400px; gap: var(--gap); align-items: start; }
 .profile-header { overflow: hidden; padding: 0; }
 .cover { height: 150px; background: linear-gradient(120deg, #3fb8a9 0%, #6c8df0 100%); }
@@ -699,7 +684,6 @@ html[data-theme='dark'] .s-paid { background: rgba(63,184,169,.16); }
 html[data-theme='dark'] .btn-follow.on { background: #fff; border-color: #fff; color: var(--accent-ink); }
 @media (max-width: 1180px) { .profile-grid { grid-template-columns: 1fr; } .form-grid { grid-template-columns: 1fr; } }
 
-/* ----------  INBOX  ---------- */
 .inbox-card { display: flex; padding: 0; overflow: hidden; min-height: 660px; }
 .inbox-list { width: 360px; flex: none; border-right: 1px solid var(--hairline); display: flex; flex-direction: column; padding: 22px; gap: 14px; min-width: 0; }
 .inbox-search { height: 48px; box-shadow: none; background: var(--field); border-radius: 12px; padding: 0 18px; }
@@ -735,7 +719,6 @@ html[data-theme='dark'] .bubble.out { background: var(--teal); }
 @media (max-width: 1180px) { .inbox-list { width: 300px; } }
 @media (max-width: 860px) { .inbox-card { flex-direction: column; } .inbox-list { width: auto; border-right: none; border-bottom: 1px solid var(--hairline); } .msg-list { max-height: 280px; } }
 
-/* ----------  SETTINGS  ---------- */
 .settings-tabs { display: flex; gap: 6px; border-bottom: 1px solid var(--hairline); margin-bottom: 30px; }
 .stab { padding: 12px 20px; background: none; font-weight: 700; font-size: 16px; color: var(--text-2); border-bottom: 3px solid transparent; margin-bottom: -1px; transition: color .12s; }
 .stab:hover { color: var(--text); }
@@ -771,7 +754,6 @@ html[data-theme='dark'] .bubble.out { background: var(--teal); }
 }
 .toggle.on::after { transform: translateX(20px); }
 
-/* ----------  LOGIN  ---------- */
 .login-wrap { padding: 28px; max-width: 1900px; margin: 0 auto; }
 .login {
   display:grid; grid-template-columns: 1fr 1fr; gap: 0;
@@ -829,18 +811,16 @@ html[data-theme='dark'] .btn-login { background:#fff; color:#000; }
 .showcase .logo-text { color:#fff; }
 .showcase-h { font-size:48px; font-weight:700; line-height:1.18; letter-spacing:-.5px; position:relative; margin:0; max-width:640px; }
 
-/* ----------  SCREENS  ---------- */
 .screen { display: none; }
 .screen.active { display: block; }
 #screen-login.active { display: block; }
 
-/* page transition animation */
 @keyframes screenIn {
   from { opacity: 0; transform: translateY(18px) scale(.992); }
   to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 .screen.active { animation: screenIn .42s cubic-bezier(.22,.61,.36,1) both; }
-/* stagger inner blocks for a richer feel */
+
 .screen.active > * { animation: screenIn .5s cubic-bezier(.22,.61,.36,1) both; }
 .screen.active > *:nth-child(1) { animation-delay: .02s; }
 .screen.active > *:nth-child(2) { animation-delay: .08s; }
@@ -850,7 +830,6 @@ html[data-theme='dark'] .btn-login { background:#fff; color:#000; }
   .screen.active, .screen.active > * { animation: none; }
 }
 
-/* ----------  RESPONSIVE  ---------- */
 @media (max-width: 1180px) {
   .content { grid-template-columns: 1fr; }
   .login { grid-template-columns: 1fr; }
@@ -883,9 +862,6 @@ html[data-theme='dark'] .btn-login { background:#fff; color:#000; }
   .social { flex-direction: column; }
 }
 
-/* =====================================================================
-   FORZY — Dashboard de Motores (5 tabs)  ·  tokens de estado
-   ===================================================================== */
 :root{
   --fz-ok:#2ecc71; --fz-warn:#f39c12; --fz-bad:#e74c3c;
   --fz-m1:#ffffff; --fz-m2:#9b59b6;
@@ -894,16 +870,13 @@ html[data-theme='dark'] .btn-login { background:#fff; color:#000; }
 .fz-dash{ display:flex; flex-direction:column; gap:18px; }
 .fz-eyebrow{ font-size:13px; font-weight:700; letter-spacing:.04em; color:var(--teal); text-transform:uppercase; }
 
-/* toolbar (Modo TV / Exportar) */
 .fz-toolbar{ display:flex; gap:10px; flex-wrap:wrap; }
 
-/* fonte / norma bar */
 .fz-sourcebar{ display:flex; gap:14px; align-items:center; flex-wrap:wrap; position:relative;
   background:var(--card); border-radius:var(--radius-inner); padding:14px 18px; box-shadow:var(--shadow); }
 .fz-field{ display:flex; flex-direction:column; gap:5px; }
 .fz-field > span{ font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--label); }
 
-/* seletor de fonte de dados — colapsado, expande em dropdown animado */
 .fz-fonte-picker{ position:relative; }
 .fz-fonte-current{ display:flex; align-items:center; gap:8px; background:var(--field); border-radius:9px; padding:8px 12px; font-weight:700; font-size:13px; color:var(--text); }
 .fz-fonte-current i{ width:14px; height:14px; transition:transform .18s ease; }
@@ -916,7 +889,6 @@ html[data-theme='dark'] .btn-login { background:#fff; color:#000; }
 .fz-fonte-drop button{ display:flex; align-items:center; gap:8px; padding:8px 10px; border-radius:7px; background:none; color:var(--text-2); font-weight:600; font-size:13px; text-align:left; }
 .fz-fonte-drop button:hover{ background:var(--field); color:var(--text); }
 
-/* norma ISO / ISA — escondida atrás do ícone de engrenagem */
 .fz-norm-wrap{ position:relative; }
 .fz-norm-gear{ padding:9px; }
 .fz-norm-pop{ position:absolute; top:calc(100% + 6px); right:0; background:var(--card); border-radius:10px;
@@ -924,18 +896,15 @@ html[data-theme='dark'] .btn-login { background:#fff; color:#000; }
   opacity:0; visibility:hidden; transform:translateY(-6px); transition:opacity .18s ease,transform .18s ease,visibility .18s; pointer-events:none; }
 .fz-norm-pop.open{ opacity:1; visibility:visible; transform:translateY(0); pointer-events:auto; }
 
-/* tabs */
 .fz-tabs{ display:flex; gap:6px; background:var(--field); border-radius:14px; padding:5px; overflow:auto; }
 .fz-tab{ flex:1; white-space:nowrap; padding:11px 16px; border-radius:10px; background:none;
   color:var(--text-2); font-weight:700; font-size:14px; transition:background .15s,color .15s; }
 .fz-tab:hover{ color:var(--text); }
 .fz-tab.active{ background:#fff; color:var(--accent-ink); }
 
-/* panels */
 .fz-panel{ display:none; flex-direction:column; gap:18px; animation:screenIn .4s ease both; }
 .fz-panel.active{ display:flex; }
 
-/* cards */
 .fz-card{ background:var(--card); border-radius:var(--radius-card); padding:22px 24px; box-shadow:var(--shadow); min-width:0; }
 .fz-card-title{ font-size:16px; font-weight:700; color:var(--text); margin:0 0 4px; }
 .fz-card-sub{ font-size:12.5px; color:var(--text-2); margin-bottom:14px; }
@@ -943,7 +912,6 @@ html[data-theme='dark'] .btn-login { background:#fff; color:#000; }
 .fz-row3{ display:grid; grid-template-columns:repeat(3,1fr); gap:18px; }
 @media (max-width:980px){ .fz-row2,.fz-row3{ grid-template-columns:1fr; } }
 
-/* motor card */
 .fz-banner{ border-radius:10px; padding:9px 16px; font-weight:700; text-align:center; color:#fff; margin-bottom:12px; font-size:15px; }
 .fz-health{ display:flex; align-items:center; gap:10px; margin-bottom:14px; }
 .fz-health .lbl{ font-size:12px; color:var(--text-2); white-space:nowrap; }
@@ -962,11 +930,9 @@ html[data-theme='dark'] .btn-login { background:#fff; color:#000; }
 .fz-g-num{ font-family:var(--font-num); font-weight:700; fill:var(--text); }
 .fz-g-unit{ font-family:var(--font-num); fill:var(--text-2); }
 
-/* charts */
 .fz-chart{ position:relative; width:100%; }
 .fz-chart svg{ width:100%; height:auto; display:block; overflow:visible; }
 
-/* Animação suave nos gráficos ao vivo (monitoramento) */
 @keyframes fzChartIn {
   from { opacity:0; transform:translateY(5px); }
   to   { opacity:1; transform:translateY(0); }
@@ -984,7 +950,6 @@ html[data-theme='dark'] .btn-login { background:#fff; color:#000; }
 .fz-legend span{ display:flex; align-items:center; gap:6px; font-size:12.5px; font-weight:700; color:var(--text-2); }
 .fz-legend i{ width:11px; height:11px; border-radius:3px; display:inline-block; }
 
-/* metric strip (dark cards reused vibe) */
 .fz-metrics{ display:grid; gap:14px; }
 .fz-m4{ grid-template-columns:repeat(4,1fr); }
 .fz-m6{ grid-template-columns:repeat(6,1fr); }
@@ -994,14 +959,12 @@ html[data-theme='dark'] .btn-login { background:#fff; color:#000; }
 .fz-metric .m-lbl{ font-size:11.5px; color:var(--text-2); font-weight:700; }
 .fz-metric .m-val{ font-family:var(--font-num); font-size:22px; font-weight:700; margin-top:6px; }
 
-/* sub-tabs (Operacional) */
 .fz-subtabs{ display:flex; gap:5px; background:var(--field); border-radius:11px; padding:4px; flex-wrap:wrap; }
 .fz-subtab{ padding:8px 15px; border-radius:8px; background:none; color:var(--text-2); font-weight:700; font-size:13px; }
 .fz-subtab.active{ background:var(--card); color:var(--text); box-shadow:var(--shadow); }
 .fz-subpanel{ display:none; flex-direction:column; gap:16px; margin-top:14px; }
 .fz-subpanel.active{ display:flex; }
 
-/* controls */
 .fz-controls{ display:flex; gap:14px; flex-wrap:wrap; align-items:flex-end; }
 .fz-seg{ display:inline-flex; background:var(--field); border-radius:10px; padding:4px; gap:4px; }
 .fz-seg button{ padding:7px 14px; border-radius:7px; background:none; color:var(--text-2); font-weight:700; font-size:13px; }
@@ -1017,19 +980,16 @@ html[data-theme='dark'] .btn-login { background:#fff; color:#000; }
 .fz-btn{ background:var(--teal); color:var(--accent-ink); border-radius:9px; padding:9px 16px; font-weight:700; font-size:13px; }
 .fz-btn.ghost{ background:var(--field); color:var(--text); }
 
-/* tables */
 .fz-table{ width:100%; border-collapse:collapse; font-size:13px; }
 .fz-table th{ text-align:left; color:var(--table-head); font-weight:700; font-size:11.5px; text-transform:uppercase; letter-spacing:.04em; padding:8px 10px; border-bottom:1px solid var(--hairline); }
 .fz-table td{ padding:9px 10px; border-bottom:1px solid var(--hairline); color:var(--text); font-family:var(--font-num); }
 .fz-table tr:last-child td{ border-bottom:none; }
 .fz-badge{ font-size:10.5px; font-weight:800; letter-spacing:.04em; padding:2px 9px; border-radius:20px; }
 
-/* progress */
 .fz-progress{ display:flex; align-items:center; gap:10px; font-size:12px; color:var(--text-2); }
 .fz-progress .track{ flex:1; height:7px; border-radius:5px; background:var(--field); overflow:hidden; }
 .fz-progress .fill{ height:7px; background:var(--teal); border-radius:5px; }
 
-/* z-score card (Baseline ML) */
 .fz-zgrid{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
 @media (max-width:760px){ .fz-zgrid{ grid-template-columns:1fr 1fr; } }
 .fz-zcard{ background:var(--field); border-radius:10px; padding:11px 14px; border-left:3px solid var(--teal); }
@@ -1041,13 +1001,11 @@ html[data-theme='dark'] .btn-login { background:#fff; color:#000; }
 .fz-section-label{ font-size:12px; color:var(--text-2); font-weight:700; text-transform:uppercase; letter-spacing:.06em; margin:4px 0 2px; }
 .fz-heatcell text{ font-family:var(--font-num); font-size:9px; }
 
-/* ----------  FORZY · NAV SUB-ITEMS  ---------- */
 .nav-sub{ display:flex; flex-direction:column; margin:2px 0 2px 30px; border-left:1px solid var(--hairline); padding-left:6px; }
 .nav-subitem{ text-align:left; background:none; border:none; cursor:pointer; color:var(--text-3);
   font-size:12.5px; font-weight:500; padding:6px 10px; border-radius:7px; transition:color .15s, background .15s; }
 .nav-subitem:hover{ color:var(--teal); background:var(--field); }
 
-/* ----------  FORZY · INÍCIO / PÁGINAS  ---------- */
 .fz-hero-bar{ display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;
   background:var(--card); border:1px solid var(--hairline);
   border-radius:var(--radius-inner); padding:18px 26px; box-shadow:var(--shadow); }
@@ -1055,7 +1013,6 @@ html[data-theme='dark'] .btn-login { background:#fff; color:#000; }
 .fz-hero-meta{ text-align:right; }
 .fz-hero-time{ font-size:12px; color:var(--text-2); margin-top:8px; }
 
-/* v2 — cabeçalho compacto do Início: só a tag de status + hora, sem repetir título/subtítulo */
 .fz-hero-compact{ padding:12px 20px; }
 .fz-hero-compact .fz-hero-meta{ display:flex; align-items:center; gap:12px; text-align:left; }
 .fz-hero-compact .fz-hero-time{ margin-top:0; }
@@ -1064,7 +1021,6 @@ html[data-theme='dark'] .btn-login { background:#fff; color:#000; }
 .fz-icon-btn:hover{ background:var(--card); transform:translateY(-1px); }
 .fz-icon-btn[aria-expanded="true"]{ background:var(--teal); }
 
-/* v2 — painel de configurações (Fonte/Auto-refresh) escondido atrás da engrenagem */
 .fz-controls-drop{ display:grid; grid-template-rows:0fr; opacity:0; transform:translateY(-6px);
   transition:grid-template-rows .25s ease, opacity .2s ease, transform .2s ease, margin .25s ease; margin:0; }
 .fz-controls-drop > *{ overflow:hidden; }
@@ -1143,7 +1099,6 @@ html[data-theme='dark'] .btn-login { background:#fff; color:#000; }
 .fz-soon .soon-title{ font-size:16px; font-weight:700; color:var(--text); }
 .fz-soon .soon-sub{ font-size:13px; max-width:480px; line-height:1.6; }
 
-/* ----------  ISA-18.2 — Baseline ML + Source Bar  ---------- */
 .fz-isa-ref-card { border-left: 3px solid var(--teal, #8aa9c9); }
 .fz-badge-isa { font-size: 10px; font-weight: 600; padding: 3px 9px; border-radius: 4px; border: 1px solid; }
 .fz-badge-ok   { background: rgba(46,204,113,.15);  color: #2ecc71; border-color: rgba(46,204,113,.4); }
@@ -1152,7 +1107,6 @@ html[data-theme='dark'] .btn-login { background:#fff; color:#000; }
 .fz-badge-isa-sb { font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 4px; background: rgba(138,169,201,.15); color: var(--teal,#8aa9c9); border: 1px solid rgba(138,169,201,.3); margin-left: 6px; vertical-align: middle; white-space: nowrap; }
 .z-desvio { font-size: 10px; margin-top: 2px; font-weight: 600; }
 
-/* ----------  FORZY · CADASTRO / FORMS  ---------- */
 .fz-cpanel{ display:none; flex-direction:column; gap:0; animation:screenIn .35s ease both; }
 .fz-cpanel.active{ display:flex; }
 
@@ -1182,7 +1136,6 @@ html[data-theme='dark'] .btn-login { background:#fff; color:#000; }
 .fz-feedback.bad{ background:var(--fz-bad-soft); color:var(--fz-bad); border:1px solid var(--fz-bad); }
 .fz-empty{ text-align:center; color:var(--text-2); font-size:13px; padding:30px 10px; }
 
-/* asset dashboard header */
 .da-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap; }
 .da-cod{ font-size:20px; font-weight:700; color:var(--text); }
 .da-desc{ font-size:13px; color:var(--text-2); margin-top:2px; }
@@ -1192,7 +1145,6 @@ html[data-theme='dark'] .btn-login { background:#fff; color:#000; }
 .da-spec .s-lbl{ font-size:10px; color:var(--text-2); text-transform:uppercase; letter-spacing:.07em; }
 .da-spec .s-val{ font-size:14px; font-weight:700; color:var(--text); margin-top:2px; }
 
-/* Ficha Técnica — Dashboard do Ativo */
 .da-ficha-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:20px; }
 @media(max-width:860px){ .da-ficha-grid{ grid-template-columns:1fr 1fr; } }
 @media(max-width:560px){ .da-ficha-grid{ grid-template-columns:1fr; } }
@@ -1207,7 +1159,6 @@ html[data-theme='dark'] .btn-login { background:#fff; color:#000; }
 .da-kpi-lbl{ font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--text-2); margin-bottom:4px; }
 .da-kpi-val{ font-size:18px; font-weight:700; color:var(--text); }
 
-/* ----------  FORZY · GESTÃO (Navegação / RPA / Pipeline)  ---------- */
 .fz-checklist{ display:flex; flex-direction:column; gap:6px; max-height:220px; overflow:auto; padding:4px 2px; }
 .fz-checklist.inline{ flex-direction:row; flex-wrap:wrap; gap:14px; max-height:none; }
 .fz-check{ display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600; color:var(--text-2); cursor:pointer; }
@@ -1227,7 +1178,6 @@ html[data-theme='dark'] .btn-login { background:#fff; color:#000; }
 .ocr-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px; font-size:13px; }
 .fz-nameplate{ width:100%; height:auto; border-radius:10px; display:block; }
 
-/* ----------  FORZY · SCADA  ---------- */
 .scada-player{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
 .sp-btn{ padding:8px 14px; font-size:15px; line-height:1; }
 .sp-time{ font-family:var(--font-num); font-size:13px; color:var(--text-2); min-width:74px; text-align:right; }
@@ -1239,7 +1189,6 @@ html[data-theme='dark'] .btn-login { background:#fff; color:#000; }
 @keyframes blinkY{ 0%,100%{ background:#f39c12; box-shadow:0 0 12px #f39c12; opacity:1 } 50%{ background:#7d5005; box-shadow:0 0 3px #f39c12; opacity:.55 } }
 .scada-2d svg{ width:100%; height:auto; display:block; }
 
-/* ----------  FORZY · IoT  ---------- */
 .i-lbl{ font-size:11px; color:var(--text-2); text-transform:uppercase; letter-spacing:.06em; font-weight:700; }
 .iot-dot{ width:11px; height:11px; border-radius:50%; display:inline-block; }
 .dot-online{ background:var(--fz-ok); box-shadow:0 0 8px var(--fz-ok); }
@@ -1249,7 +1198,6 @@ html[data-theme='dark'] .btn-login { background:#fff; color:#000; }
 .iot-chan{ display:flex; justify-content:space-between; padding:7px 0; border-bottom:1px solid var(--hairline); font-size:13px; }
 .iot-chan:last-child{ border-bottom:none; }
 
-/* ---- Plantas & Áreas (editar/inativar/excluir) ---- */
 .lc-item{ border:1px solid var(--hairline-2); border-radius:14px; padding:14px 16px; margin-top:14px; background:var(--field); }
 .lc-head{ display:flex; align-items:center; gap:10px; margin-bottom:10px; }
 .lc-name{ font-weight:700; font-size:15px; color:var(--text); }
@@ -1259,12 +1207,8 @@ html[data-theme='dark'] .btn-login { background:#fff; color:#000; }
 .fz-btn.danger{ background:transparent; color:var(--fz-bad); border:1px solid var(--fz-bad); }
 .fz-btn.danger:hover{ background:var(--fz-bad); color:#fff; }
 
-/* ----------  FORZY · Navegação Drill-down  ---------- */
-
-/* Wrapper geral da tela de navegação */
 #screen-navegacao .fz-dash{ padding-top: 8px; }
 
-/* Breadcrumb */
 .fz-breadcrumb{
   display: flex;
   align-items: center;
@@ -1305,7 +1249,6 @@ html[data-theme='dark'] .btn-login { background:#fff; color:#000; }
   white-space: nowrap;
 }
 
-/* Label de seção */
 .fz-drill-label{
   font-size: 11px;
   font-weight: 700;
@@ -1315,7 +1258,6 @@ html[data-theme='dark'] .btn-login { background:#fff; color:#000; }
   margin: 0 0 14px;
 }
 
-/* Grid de cards */
 .fz-drill-grid{
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
@@ -1323,7 +1265,6 @@ html[data-theme='dark'] .btn-login { background:#fff; color:#000; }
   margin-top: 0;
 }
 
-/* Card individual */
 .fz-drill-card{
   background: var(--card);
   border: 1px solid var(--hairline-2);
@@ -1375,11 +1316,6 @@ html[data-theme='dark'] .btn-login { background:#fff; color:#000; }
   gap: 4px;
 }
 
-/* =====================================================================
-   ASSISTENTE IA — workspace (sidebar de projetos/histórico + chat)
-   Sempre dark, independente do tema global — dashboard de IA "estilo
-   ChatGPT/Claude/Perplexity".
-   ===================================================================== */
 #screen-assistente { padding: 0; }
 
 .fz-chat-workspace {
@@ -1391,7 +1327,7 @@ html[data-theme='dark'] .btn-login { background:#fff; color:#000; }
   --wstext-2: #a8a8a8;
   --wstext-3: #737373;
   display: flex;
-  height: 70vh;   /* ajustado com precisão via JS (assistente-screen.js) após montar */
+  height: 70vh;
   min-height: 460px;
   background: var(--wsbg);
   color: var(--wstext);
@@ -1400,7 +1336,6 @@ html[data-theme='dark'] .btn-login { background:#fff; color:#000; }
   overflow: hidden;
 }
 
-/* ----------  sidebar secundária (projetos + histórico)  ---------- */
 .fz-chat-sidebar {
   width: 268px;
   flex-shrink: 0;
@@ -1473,7 +1408,6 @@ html[data-theme='dark'] .btn-login { background:#fff; color:#000; }
 .fz-chat-hist-item:hover .fz-chat-hist-del { display: flex; }
 .fz-chat-hist-empty { font-size: 12px; color: var(--wstext-3); padding: 10px 8px; }
 
-/* ----------  coluna principal do chat  ---------- */
 .fz-chat-wrap {
   flex: 1;
   display: flex;
@@ -1495,7 +1429,7 @@ html[data-theme='dark'] .btn-login { background:#fff; color:#000; }
   background: linear-gradient(135deg, var(--teal), #5a8ab0);
   border-radius: 11px;
   display: flex; align-items: center; justify-content: center;
-  color: #0c1116;   /* --teal é branco no tema dark — ícone branco sumiria no gradiente */
+  color: #0c1116;
   flex-shrink: 0;
 }
 .fz-chat-avatar svg { width: 20px; height: 20px; }
@@ -1531,7 +1465,7 @@ html[data-theme='dark'] .btn-login { background:#fff; color:#000; }
   border-radius: 16px;
   display: flex; align-items: center; justify-content: center;
   margin: 0 auto 16px;
-  color: #0c1116;   /* --teal é branco no tema dark — ícone branco sumiria no gradiente */
+  color: #0c1116;
 }
 .fz-chat-welcome-icon svg { width: 26px; height: 26px; }
 .fz-chat-welcome-title { font-size: 21px; font-weight: 700; color: var(--wstext); margin-bottom: 8px; }
@@ -1685,24 +1619,16 @@ html[data-theme='dark'] .btn-login { background:#fff; color:#000; }
   .fz-chat-sidebar { display: none; }
 }
 
-
-/* =====================================================================
-   TEMA "BLACK PIANO" — fundo brilhoso + seções preto fosco (matte)
-   ===================================================================== */
-/* Fundo: black piano sólido (sem degradê) */
 html[data-theme='dark'] body {
   background: #050506;
 }
-/* Cards/seções em preto fosco: sombra discreta, borda mais seca */
+
 html[data-theme='dark'] .fz-card,
 html[data-theme='dark'] .card,
 html[data-theme='dark'] .panel {
   box-shadow: 0 10px 28px -22px rgba(0,0,0,.9);
 }
 
-/* =====================================================================
-   BREADCRUMB (sidebar enxuta — nav-v2.js)
-   ===================================================================== */
 .fz-breadcrumb {
   padding: 10px 4px 4px;
   font-size: 12.5px;
@@ -1711,7 +1637,6 @@ html[data-theme='dark'] .panel {
 }
 .fz-breadcrumb b { color: var(--text); font-weight: 600; }
 
-/* bolha de alerta automático (ISA-18.2 / IoT) — distinta da bolha do usuário */
 .fz-chat-alerta { align-self: stretch; max-width: 100%; }
 .fz-chat-alerta .fz-chat-bubble-inner {
   background: var(--wsfield);
@@ -1721,10 +1646,6 @@ html[data-theme='dark'] .panel {
   width: 100%;
 }
 
-/* =====================================================================
-   MODAL DE EIXO (forzy.js) — histórico, export CSV e chat com IA
-   por eixo, aberto ao clicar no card do motor.
-   ===================================================================== */
 .fz-card-clicavel { cursor: pointer; transition: transform .12s, box-shadow .12s; }
 .fz-card-clicavel:hover { transform: translateY(-2px); box-shadow: 0 10px 24px -14px rgba(0,0,0,.5); }
 
@@ -1791,7 +1712,6 @@ html[data-theme='dark'] .panel {
 .fz-modal-chart-row { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 14px; margin-bottom: 22px; }
 @media (max-width: 620px) { .fz-modal-chart-row { grid-template-columns: 1fr; } }
 
-/* ---- seção da IA dentro do modal ---- */
 .fz-modal-chat { background: var(--field); border: 1px solid var(--hairline-2); border-radius: 14px; padding: 14px 16px 16px; }
 .fz-modal-chat-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
 .fz-modal-chat-id { display: flex; align-items: center; gap: 10px; }
@@ -1799,7 +1719,7 @@ html[data-theme='dark'] .panel {
   width: 32px; height: 32px; border-radius: 9px; flex-shrink: 0;
   background: linear-gradient(135deg, var(--teal), #5a8ab0);
   display: flex; align-items: center; justify-content: center;
-  color: #0c1116;   /* --teal é branco no tema dark — ícone branco sumiria no gradiente */
+  color: #0c1116;
 }
 .fz-modal-chat-avatar svg { width: 16px; height: 16px; }
 .fz-modal-chat-name { font-size: 13px; font-weight: 700; color: var(--text); }
@@ -1837,14 +1757,11 @@ html[data-theme='dark'] .panel {
 .fz-modal-chat-input-row button {
   background: var(--teal); border: none; border-radius: 10px; width: 40px; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
-  color: #0c1116;                 /* --teal é claro: ícone precisa ser escuro pra aparecer */
+  color: #0c1116;
   flex-shrink: 0; transition: opacity .15s;
 }
 .fz-modal-chat-input-row button:hover { opacity: .85; }
 
-/* =====================================================================
-   OCR DE PLACA — pendências e campos com sugestão (cadastro.js)
-   ===================================================================== */
 .fz-ocr-pendencias {
   margin-top: 10px; padding: 10px 12px;
   background: var(--field); border: 1px solid var(--fz-warn);
@@ -1854,13 +1771,9 @@ html[data-theme='dark'] .panel {
 .fz-ocr-pendencias b { color: var(--text); }
 .fz-ocr-pendencias ul { margin: 6px 0 0; padding-left: 18px; line-height: 1.7; }
 
-/* input que a IA não conseguiu preencher — sugestão fica visível no placeholder */
 .fz-input-sugerido { border-color: var(--fz-warn) !important; }
 .fz-input-sugerido::placeholder { color: var(--fz-warn); opacity: .85; }
 
-/* =====================================================================
-   COPILOTO DE MANUTENÇÃO (copiloto.js) — diagnóstico + Ordem de Serviço
-   ===================================================================== */
 .fz-btn-primary{ background:var(--teal); color:var(--accent-ink); }
 .fz-btn-primary:hover{ filter:brightness(1.08); }
 .fz-btn:disabled{ opacity:.45; cursor:not-allowed; }
@@ -1922,12 +1835,6 @@ html[data-theme='dark'] .panel {
   transition:opacity .2s, transform .2s; z-index:9999; }
 .fz-cop-toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
 
-/* ===================================================================
-   PRIORIDADE ALTA — alerta "na cara", faixa P2, chavinha de perfil
-   (perfil.js · alerta-critico.js · topbar.js)
-   =================================================================== */
-
-/* ---- Modal crítico P1 (persistente, exige Reconhecer) ---- */
 #fz-alerta-critico{ position:fixed; inset:0; z-index:100000; display:flex;
   align-items:center; justify-content:center; background:rgba(0,0,0,.62);
   backdrop-filter:blur(2px); padding:24px; }
@@ -1960,7 +1867,6 @@ html[data-theme='dark'] .panel {
 .fz-ac-btn.ghost:hover{ border-color:var(--teal); }
 .fz-ac-btn.primary{ background:var(--fz-bad); color:#fff; border-color:var(--fz-bad); }
 
-/* ---- Faixa P2 (amarela, não bloqueante, topo) ---- */
 #fz-alerta-faixa{ position:fixed; top:0; left:0; right:0; z-index:99998;
   background:var(--fz-warn); color:#1a1200; display:flex; align-items:center; gap:10px;
   padding:9px 16px; font-size:13px; font-weight:600; box-shadow:0 4px 14px rgba(0,0,0,.28);
@@ -1972,16 +1878,11 @@ html[data-theme='dark'] .panel {
 .fz-af-mais{ background:rgba(0,0,0,.18); border-radius:999px; padding:2px 8px; font-size:11px; font-weight:800; }
 .fz-af-x{ background:transparent; border:0; color:#1a1200; font-size:15px; cursor:pointer; padding:2px 6px; }
 
-/* ---- Chavinha de perfil no menu da conta ---- */
 #topbar-perfil-toggle{ display:flex; align-items:center; justify-content:space-between; gap:10px; width:100%; }
 #topbar-perfil-toggle b{ color:var(--teal); }
 
-/* ---- Gating operador × admin ----
-   :not(.fz-visao) protege a própria chavinha: sem isso o botão de voltar
-   pra visão Analista some no modo Operador e o usuário fica preso. */
 body.perfil-operador [data-perfil="admin"]:not(.fz-visao){ display:none !important; }
 
-/* ---- Chavinha Operador ⇄ Analista (topbar, ao lado do avatar) ---- */
 .fz-visao{
   display:flex; align-items:center; gap:12px;
   padding:0 16px; border:0; cursor:pointer; text-align:left;
@@ -1997,25 +1898,20 @@ body.perfil-operador [data-perfil="admin"]:not(.fz-visao){ display:none !importa
   width:44px; height:24px; border-radius:999px; background:var(--teal);
   position:relative; flex:none; transition:background .2s ease;
 }
-/* Analista = chave "ligada": knob à direita. É o default do elemento —
-   nada de :not(), senão empata em especificidade com a regra do operador. */
+
 .fz-visao-knob{
   position:absolute; top:3px; left:3px; width:18px; height:18px; border-radius:50%;
   background:#0f1013; transform:translateX(20px); transition:transform .2s ease;
 }
-/* Operador = chave "desligada": knob à esquerda, trilho neutro */
+
 .fz-visao.is-operador .fz-visao-track{ background:var(--pill-track, #4a4a52); }
 .fz-visao.is-operador .fz-visao-knob{ transform:translateX(0); background:var(--text-2); }
 .fz-visao.is-operador .fz-visao-txt{ color:var(--text); }
 
-/* ===================================================================
-   VISÃO OPERADOR — layout mais simples e direto (menos analítico)
-   Só regras CSS: escondem blocos densos e ampliam o essencial.
-   =================================================================== */
 body.perfil-operador .fz-eyebrow,
-body.perfil-operador #screen-inicio .fz-row3,          /* "Módulos do Sistema" */
+body.perfil-operador #screen-inicio .fz-row3,
 body.perfil-operador #screen-inicio .fz-h + .fz-row3,
-body.perfil-operador #screen-inicio .fz-iso,           /* tabela de referência ISO */
+body.perfil-operador #screen-inicio .fz-iso,
 body.perfil-operador #screen-inicio #inicioExport,
 body.perfil-operador #screen-inicio #inicioSettingsBtn,
 body.perfil-operador #fzToolbar,
@@ -2024,28 +1920,18 @@ body.perfil-operador #inicioControlsDrop,
 body.perfil-operador .fz-cop-sub,
 body.perfil-operador .fz-chat-footnote{ display:none !important; }
 
-/* esconde o título "Módulos do Sistema" (h3 sem classe própria) no operador */
 body.perfil-operador #screen-inicio h3.fz-h:last-of-type{ display:none !important; }
 
-/* status maior e mais legível */
 body.perfil-operador #inicioStatus,
 body.perfil-operador .fz-badge{ font-size:14px; padding:6px 14px; }
 body.perfil-operador .fz-h{ font-size:17px; }
 body.perfil-operador #inicioKpis .kpi-val,
 body.perfil-operador #inicioKpis .fz-kpi-val{ font-size:26px; }
 
-/* cards de eixo com borda de status mais grossa (leitura rápida) */
 body.perfil-operador .fz-asset-ok,
 body.perfil-operador .fz-asset-warn,
 body.perfil-operador .fz-asset-bad{ border-width:2px; }
 
-/* ===================================================================
-   RAIL DE ALERTAS — coluna direita
-   Log vivo dos alarmes ISA-18.2. Cada item abre as ações que levam
-   direto pra tela que resolve (3D · Monitoramento · IA · OS).
-   =================================================================== */
-
-/* --- grade de 3 colunas (a 3ª é o rail) --- */
 .app{ grid-template-columns: var(--sidebar-w) minmax(0, 1fr) 320px; }
 .app.rail-collapsed{ grid-template-columns: var(--sidebar-w) minmax(0, 1fr) 34px; }
 .app{ max-width: 1780px; }
@@ -2071,7 +1957,6 @@ body.perfil-operador .fz-asset-bad{ border-width:2px; }
 }
 .app.rail-collapsed .fz-rail-body{ display:none; }
 
-/* --- cabeçalho --- */
 .fz-rail-head{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
 .fz-rail-tit{ display:flex; align-items:center; gap:8px; font-size:14px; }
 .fz-rail-ic{ width:9px; height:9px; border-radius:50%; flex:none; background:var(--fz-ok); }
@@ -2092,7 +1977,6 @@ body.perfil-operador .fz-asset-bad{ border-width:2px; }
 .fz-rail-sub-head{ font-size:11px; color:var(--text-2); margin:6px 0 12px; }
 .fz-rail-sub{ font-size:11px; color:var(--text-2); }
 
-/* --- estado vazio --- */
 .fz-rail-vazio{
   display:flex; flex-direction:column; align-items:center; gap:4px;
   padding:26px 10px; text-align:center; color:var(--text-2); font-size:11px;
@@ -2104,7 +1988,6 @@ body.perfil-operador .fz-asset-bad{ border-width:2px; }
   background:rgba(46,190,120,.14); color:var(--fz-ok); font-size:16px;
 }
 
-/* --- item de alerta --- */
 .fz-rail-list{ display:flex; flex-direction:column; gap:8px; }
 .fz-rail-item{
   border-radius:14px; overflow:hidden;
@@ -2129,7 +2012,6 @@ body.perfil-operador .fz-asset-bad{ border-width:2px; }
 .fz-rail-tit-2{ grid-column:1 / -1; font-size:12.5px; font-weight:700; line-height:1.3; }
 .fz-rail-msg{ grid-column:1 / -1; font-size:11px; color:var(--text-2); line-height:1.35; }
 
-/* --- painel de ações (abre embaixo do alerta) --- */
 .fz-rail-acoes{
   display:flex; flex-direction:column; gap:5px;
   padding:4px 10px 10px;
@@ -2152,7 +2034,6 @@ body.perfil-operador .fz-asset-bad{ border-width:2px; }
 .fz-rail-acao.ok{ margin-top:4px; background:transparent; border:1px solid rgba(255,255,255,.12); }
 .fz-rail-acao.ok:hover{ background:var(--fz-ok); color:#0b1f14; border-color:transparent; }
 
-/* --- histórico de eventos (só analista) --- */
 .fz-rail-hist{ margin-top:14px; border-top:1px solid rgba(255,255,255,.06); padding-top:10px; }
 .fz-rail-hist-h{
   display:flex; align-items:center; justify-content:space-between; width:100%;
@@ -2180,12 +2061,10 @@ body.perfil-operador .fz-asset-bad{ border-width:2px; }
 }
 .fz-rail-csv:hover{ color:var(--text); border-color:var(--teal); }
 
-/* --- visão operador: rail maior e sem ruído --- */
 body.perfil-operador .fz-rail-tit-2{ font-size:14px; }
 body.perfil-operador .fz-rail-acao b{ font-size:13px; }
 body.perfil-operador .fz-rail-item{ border-left-width:4px; }
 
-/* --- telas estreitas: o rail volta pro fluxo, abaixo do conteúdo --- */
 @media (max-width:1360px){
   .app, .app.rail-collapsed{ grid-template-columns: var(--sidebar-w) minmax(0, 1fr); }
   .fz-alert-rail{ grid-column:1 / -1; position:static; max-height:none; }
@@ -2194,11 +2073,6 @@ body.perfil-operador .fz-rail-item{ border-left-width:4px; }
   .app.rail-collapsed .fz-rail-body{ display:block; }
 }
 
-/* ============================================================
-   REDE NEURAL — cards da aba "Baseline ML" (forzy.js renderMl)
-   Card de especificações do modelo, notas de rodapé e o texto
-   de explicação do veredito. Tokens só, nada de cor fixa.
-   ============================================================ */
 .fz-ml-net{ display:flex; flex-direction:column; gap:10px; }
 
 .fz-ml-specs{
@@ -2223,13 +2097,11 @@ body.perfil-operador .fz-rail-item{ border-left-width:4px; }
   font-size:10px; color:var(--teal);
 }
 
-/* origem do veredito (rede / norma / ambos), embaixo do gauge */
 .fz-ml-fonte{
   margin-top:4px; font-size:11px; color:var(--text-3);
   text-transform:uppercase; letter-spacing:.4px;
 }
 
-/* frase que explica POR QUE a rede julgou assim */
 .fz-ml-explica{
   margin-top:8px; padding:8px 10px;
   background:var(--field);
@@ -2238,7 +2110,6 @@ body.perfil-operador .fz-rail-item{ border-left-width:4px; }
   font-size:12px; line-height:1.55; color:var(--text);
 }
 
-/* parecer da rede neural dentro do laudo do Copiloto (copiloto.js) */
 .fz-cop-rede{
   margin:10px 0 0; padding:8px 10px;
   background:var(--field);
@@ -2248,15 +2119,8 @@ body.perfil-operador .fz-rail-item{ border-left-width:4px; }
 }
 .fz-cop-rede > div{ margin-top:4px; color:var(--text-3); }
 
-/* seg de fonte: com o rótulo do modelo o rótulo ficou mais largo — em tela
-   estreita quebra a linha em vez de estourar a barra. */
 .fz-seg{ flex-wrap:wrap; }
 
-/* ===================================================================
-   ALERTA → IA SOB DEMANDA — card do alarme na conversa, markdown das
-   respostas, régua de severidade no modal P1
-   (assistente-screen.js · alerta-critico.js)
-   =================================================================== */
 .fz-chat-alerta-p1 .fz-chat-bubble-inner{ border-color:var(--fz-bad); border-left-color:var(--fz-bad); }
 .fz-chat-alerta-card{ display:flex; flex-direction:column; gap:10px; }
 .fz-chat-alerta-head{ display:flex; align-items:center; gap:10px; font-size:14px; }
@@ -2272,13 +2136,11 @@ body.perfil-operador .fz-rail-item{ border-left-width:4px; }
 .fz-chat-alerta-pedido{ font-size:12px; color:var(--wstext-3, var(--text-3));
   border-top:1px solid var(--wsline, var(--hairline)); padding-top:8px; }
 
-/* markdown mínimo das respostas da IA */
 .fz-chat-bubble-inner .fz-md-h{ font-weight:800; margin:6px 0 2px; }
 .fz-chat-bubble-inner ul, .fz-chat-bubble-inner ol{ margin:4px 0 6px; padding-left:20px; }
 .fz-chat-bubble-inner li{ margin:2px 0; }
 .fz-md-code{ background:var(--wsfield, var(--field)); padding:1px 5px; border-radius:4px; font-size:.93em; }
 
-/* régua de severidade do modal P1 */
 .fz-ac-escala{ margin:2px 0 12px; }
 .fz-ac-escala-bar{ position:relative; display:flex; height:10px; border-radius:999px; margin:24px 0 5px; }
 .fz-ac-escala-bar > span{ display:block; height:100%; }
@@ -2295,13 +2157,8 @@ body.perfil-operador .fz-rail-item{ border-left-width:4px; }
 .fz-ac-escala-mark.edge-r b{ left:auto; right:0; transform:none; }
 .fz-ac-escala-lbl{ display:flex; justify-content:space-between; font-size:10.5px; color:var(--text-2); }
 
-/* =====================================================================
-   LOGIN POR USUÁRIO (auth.js) — nome.sobrenome + senha, sem OAuth
-   ===================================================================== */
-/* sem sessão o app não pisca antes do gate do app.js (inline style dele vence depois) */
 html.fz-sem-sessao #app-shell{ display:none; }
 
-/* "Manter conectado" é um checkbox de verdade — a caixinha reflete o estado */
 .remember{ position:relative; cursor:pointer; user-select:none; }
 .remember input{ position:absolute; opacity:0; width:0; height:0; pointer-events:none; }
 .remember .box svg{ transition:opacity .15s; }
@@ -2312,12 +2169,10 @@ html.fz-sem-sessao #app-shell{ display:none; }
 .login-hint b{ color:var(--text); font-weight:700; }
 #login-error.is-info{ background:rgba(138,169,201,.12) !important; border-color:rgba(138,169,201,.4) !important; color:var(--teal) !important; }
 
-/* conta Operador não escolhe visão: chavinha, botão do menu e gestão de usuários somem */
 body.fz-conta-operador .fz-visao,
 body.fz-conta-operador #topbar-perfil-toggle,
 body.fz-conta-operador .fz-so-admin-conta{ display:none !important; }
 
-/* modais de conta — reaproveitam #fz-profile-modal / #fz-profile-box (CSS no topbar.js) */
 #fz-profile-box.fz-auth-wide{ width:560px; max-width:calc(100vw - 32px); }
 .fz-auth-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
 .fz-auth-head strong{ font-size:15px; }
@@ -2353,24 +2208,15 @@ body.fz-conta-operador .fz-so-admin-conta{ display:none !important; }
 .fz-auth-form{ display:grid; grid-template-columns:1fr 1fr; gap:0 12px; }
 @media (max-width:600px){ .fz-auth-form{ grid-template-columns:1fr; } }
 
-/* =====================================================================
-   FORZY - Diagnostico (Investigacao / Vista Explodida - Causa Raiz -
-   Projecao) + Governanca. Portado de forzy_th. Sub-abas de
-   #screen-diagnostico e #screen-governanca. Usa tokens existentes.
-   ===================================================================== */
-
-/* ---- barra de diagnostico resumida ---- */
 .fz-xv-diagbar{ display:flex; flex-wrap:wrap; gap:12px; align-items:center;
   background:var(--card); border:1px solid var(--hairline); border-radius:12px;
   padding:12px 16px; margin-top:14px; font-size:14px; color:var(--text); }
 .fz-xv-diagbar b{ font-size:15px; }
 
-/* ---- layout ---- */
 .fz-xv-grid{ display:grid; grid-template-columns:1.15fr 1fr; gap:18px; margin-top:16px; }
 @media (max-width:980px){ .fz-xv-grid{ grid-template-columns:1fr; } }
 .fz-xv-stage{ display:flex; flex-direction:column; gap:12px; }
 
-/* ---- SVG do corte ---- */
 .fz-xv-svg{ width:100%; height:auto; aspect-ratio:1/.72; background:var(--field);
   border:1px solid var(--hairline); border-radius:12px; }
 .fz-xv-ground{ stroke:var(--hairline-2); stroke-width:.6; stroke-dasharray:2 2; }
@@ -2385,7 +2231,6 @@ body.fz-conta-operador .fz-so-admin-conta{ display:none !important; }
 .fz-xv-sel .fz-xv-part, .fz-xv-part.fz-xv-sel{ stroke:var(--teal); stroke-width:1.8; }
 .fz-xv-g.fz-xv-sel .fz-xv-part{ stroke:var(--teal); stroke-width:1.8; }
 
-/* ---- legenda ---- */
 .fz-xv-legend{ display:flex; flex-wrap:wrap; gap:6px; }
 .fz-xv-legrow{ display:flex; align-items:center; gap:7px; background:var(--field);
   border:1px solid var(--hairline); border-radius:999px; padding:5px 11px;
@@ -2393,20 +2238,17 @@ body.fz-conta-operador .fz-so-admin-conta{ display:none !important; }
 .fz-xv-legrow:hover{ border-color:var(--teal); color:var(--text); }
 .fz-xv-dot{ width:9px; height:9px; border-radius:2px; background:var(--text-3); flex:none; }
 
-/* ---- painel do componente ---- */
 .fz-xv-panel-head{ display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:6px; }
 .fz-xv-panel-nome{ font-size:17px; font-weight:800; color:var(--text); }
 .fz-xv-estado{ font-size:13px; color:var(--text); margin:4px 0 12px; line-height:1.55; }
 .fz-xv-acoes{ margin:6px 0 4px; padding-left:18px; line-height:1.75; font-size:13px; color:var(--text); }
 .fz-xv-panel-cta{ display:flex; flex-wrap:wrap; gap:9px; margin-top:14px; }
 
-/* ---- sparkline do componente ---- */
 .fz-xv-spark{ width:100%; height:54px; margin:4px 0 10px; overflow:visible; }
 .fz-xv-spark-line{ fill:none; stroke:var(--teal); stroke-width:1.5; }
 .fz-xv-lim-a{ stroke:var(--fz-warn); stroke-width:1; stroke-dasharray:3 3; opacity:.7; }
 .fz-xv-lim-al{ stroke:var(--fz-bad); stroke-width:1; stroke-dasharray:3 3; opacity:.7; }
 
-/* ---- RCA / Causa Raiz ---- */
 .fz-rc-report{ border:1px solid var(--teal); }
 .fz-rc-timeline{ list-style:none; margin:8px 0 0; padding:0;
   border-left:2px solid var(--hairline-2); }
@@ -2418,7 +2260,6 @@ body.fz-conta-operador .fz-so-admin-conta{ display:none !important; }
   font-family:var(--font-num, inherit); color:var(--text-2); margin-right:8px; }
 .fz-rc-manual{ margin-top:16px; padding-top:14px; border-top:1px solid var(--hairline); }
 
-/* ---- Projecao de degradacao ---- */
 .fz-pr-card{ display:flex; flex-direction:column; gap:10px; }
 .fz-pr-head{ display:flex; justify-content:space-between; align-items:center; }
 .fz-pr-kpis{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
@@ -2436,7 +2277,6 @@ body.fz-conta-operador .fz-so-admin-conta{ display:none !important; }
 .fz-pr-lim-a{ stroke:var(--fz-warn); stroke-width:1; stroke-dasharray:3 3; opacity:.7; }
 .fz-pr-lim-al{ stroke:var(--fz-bad); stroke-width:1; stroke-dasharray:3 3; opacity:.7; }
 
-/* ---- Governanca ---- */
 .fz-gov-body{ margin-top:16px; }
 .fz-gov-stack{ display:flex; flex-direction:column; gap:14px; }
 .fz-gov-kpi-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:14px; }

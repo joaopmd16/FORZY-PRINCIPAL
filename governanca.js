@@ -1,11 +1,18 @@
 /* ===================================================================
-   FORZY · Governança  —  tela #screen-governanca
-   Sub-abas: KPIs Estratégicos · Metric Contract + Circuit Breaker ·
-   Auditoria / Trilha · Fairness. Gating por perfil (window.FZPerfil):
-   Operador vê só KPIs; Analista vê tudo. Números vêm do window.FZBI
-   e do window.FZGovDados — nada solto. Circuit Breaker portado da
-   Sprint 3 GBA.
+   PROJETO FORZY - Sistema de Monitoramento Industrial
+   Trabalho academico FIAP + Forzy-Promon
+
+   Integrantes:
+   - Arthur Baptista dos Santos       (RM 565346)
+   - Joao Pedro de Moura Dutra Franco (RM 561738)
+   - Nelson Felix Neto                (RM 565603)
+   - Pietro Boroto Rodrigues          (RM 562407)
+   - Vitor Soares Goncalves           (RM 566181)
+
+   Arquivo: governanca.js
+   O que faz: tela de Governanca (KPIs, auditoria, fairness)
    =================================================================== */
+
 (function () {
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -25,7 +32,6 @@
     return op ? ABAS.filter(a => a.id === 'kpi') : ABAS.slice();
   }
 
-  /* ==========  KPIs  ========== */
   function kpiPanel(titulo, rows) {
     return `<div class="fz-card fz-gov-kpi">
       <div class="fz-card-title">${esc(titulo)}</div>
@@ -72,7 +78,6 @@
     </div>`;
   }
 
-  /* ==========  Metric Contract + Circuit Breaker  ========== */
   function metricContract() {
     const LIM = (window.FZCopiloto && window.FZCopiloto.LIM) || { vel: { a: 1.8, al: 4.5 }, acel: { a: 0.25, al: 0.45 }, temp: { a: 35, al: 42 } };
     const bl = (window.FORZY && window.FORZY.baseline) || {};
@@ -140,7 +145,6 @@
     </div>`;
   }
 
-  /* ==========  Auditoria  ========== */
   function renderAudit() {
     const l = (window.FZAudit && window.FZAudit.list()) || [];
     const filt = _auditFiltro ? l.filter(e => (e.tipo + e.ator + e.detalhe).toLowerCase().includes(_auditFiltro.toLowerCase())) : l;
@@ -169,7 +173,6 @@
     </div>`;
   }
 
-  /* ==========  Fairness  ========== */
   function renderFair() {
     const F = (window.FZGovDados && window.FZGovDados.fairness && window.FZGovDados.fairness()) || [];
     return `<div class="fz-gov-fair-grid">
@@ -184,7 +187,6 @@
     </div>`;
   }
 
-  /* ==========  shell  ========== */
   function render() {
     if (!_root) return;
     const abas = abasPermitidas();

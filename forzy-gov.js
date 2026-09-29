@@ -1,14 +1,20 @@
 /* ===================================================================
-   FORZY · GOV DADOS — métricas de modelo e fairness (valores fixos)
-   Substitui o antigo window.FZRBAC.getMetrics()/getFairness() do
-   projeto de origem. Aqui não há backend de avaliação: os números
-   são configurados em código, escolhidos coerentes com o autoencoder
-   treinado (6-8-2-8-6, 152 parâmetros, MSE treino 0,000330 / val
-   0,000351 — ver treinar_modelo.py / CLAUDE.md).
-   Editável à mão. Exposto: window.FZGovDados.
+   PROJETO FORZY - Sistema de Monitoramento Industrial
+   Trabalho academico FIAP + Forzy-Promon
+
+   Integrantes:
+   - Arthur Baptista dos Santos       (RM 565346)
+   - Joao Pedro de Moura Dutra Franco (RM 561738)
+   - Nelson Felix Neto                (RM 565603)
+   - Pietro Boroto Rodrigues          (RM 562407)
+   - Vitor Soares Goncalves           (RM 566181)
+
+   Arquivo: forzy-gov.js
+   O que faz: numeros de governanca do modelo de IA
    =================================================================== */
+
 (function () {
-  // desempenho do modelo — valores de referência da última avaliação offline
+
   const METRICS = {
     custo_evitado_mes: 42000,
     precisao: 92.4,
@@ -21,7 +27,6 @@
     deploy: 'autoencoder v1 · 152 par. · treino offline (NumPy)',
   };
 
-  // riscos de viés conhecidos do pipeline atual + mitigação prevista
   const FAIRNESS = [
     {
       nome: 'Cobertura desigual de ativos',

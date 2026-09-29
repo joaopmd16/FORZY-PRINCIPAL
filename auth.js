@@ -1,24 +1,18 @@
 /* ===================================================================
-   FORZY · Login por usuário — nome.sobrenome + senha. Sem Google/OAuth:
-   é sistema interno de fábrica, o acesso é dado pelo analista.
+   PROJETO FORZY - Sistema de Monitoramento Industrial
+   Trabalho academico FIAP + Forzy-Promon
 
-   Os usuários vivem no navegador (localStorage) — não há backend. A senha
-   nunca fica em texto puro: guarda-se SHA-256 salgado (WebCrypto), com
-   fallback FNV quando o contexto não tem crypto.subtle.
+   Integrantes:
+   - Arthur Baptista dos Santos       (RM 565346)
+   - Joao Pedro de Moura Dutra Franco (RM 561738)
+   - Nelson Felix Neto                (RM 565603)
+   - Pietro Boroto Rodrigues          (RM 562407)
+   - Vitor Soares Goncalves           (RM 566181)
 
-     window.FZAuth = {
-       logado, usuarioAtual, usuarios, entrar, sair,
-       criarUsuario, removerUsuario, redefinirSenha, alterarPropria,
-       abrirEditarPerfil, abrirUsuarios, normalizar, sugerir, seedIntacto, esc
-     }
-
-   Chaves: 'fz-usuarios-v1' (tabela) · 'fz-sessao' (localStorage se
-   "Manter conectado", senão sessionStorage) · 'fz-usuarios-seed' (existe
-   enquanto ninguém mexeu na tabela — mostra a dica de primeiro acesso).
-
-   Carregado DEPOIS de perfil.js e ANTES de topbar.js/app.js: o app.js
-   decide na abertura se mostra o login com FZAuth.logado().
+   Arquivo: auth.js
+   O que faz: login de usuario, criar conta e perfis de acesso
    =================================================================== */
+
 (function () {
   const KEY_USUARIOS  = 'fz-usuarios-v1';
   const KEY_SESSAO    = 'fz-sessao';
@@ -26,7 +20,6 @@
   const DIAS_SESSAO   = 30;
   const SENHA_INICIAL = 'forzy123';
 
-  // primeiro acesso — um analista (cria os demais) e um operador de exemplo
   const SEED = [
     { usuario: 'joao.franco', nome: 'João Franco',       perfil: 'admin' },
     { usuario: 'operador',    nome: 'Operador de turno', perfil: 'operador' },
@@ -38,9 +31,6 @@
   const ROTULO = { admin: 'Analista', operador: 'Operador' };
   const rotuloPerfil = p => ROTULO[p] || ROTULO.admin;
 
-  /* ------------------------------------------------------------------ */
-  /* Usuário: "João Franco" → "joao.franco"                              */
-  /* ------------------------------------------------------------------ */
   function normalizar(s) {
     return String(s || '')
       .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -51,7 +41,6 @@
       .replace(/^[._-]+|[._-]+$/g, '');
   }
 
-  // sugestão a partir do nome: primeiro + último ("Maria da Silva" → "maria.silva")
   function sugerir(nome) {
     const partes = normalizar(nome).split('.').filter(Boolean);
     if (!partes.length) return '';
@@ -64,9 +53,6 @@
     return ((p[0][0] || '') + (p.length > 1 ? p[p.length - 1][0] : '')).toUpperCase();
   }
 
-  /* ------------------------------------------------------------------ */
-  /* Senha: SHA-256 salgado (fallback FNV-1a dupla sem WebCrypto)         */
-  /* ------------------------------------------------------------------ */
   function salt() {
     const a = new Uint8Array(12);
     if (window.crypto && crypto.getRandomValues) crypto.getRandomValues(a);
@@ -84,7 +70,6 @@
     return 'fnv:' + h1.toString(16).padStart(8, '0') + h2.toString(16).padStart(8, '0');
   }
 
-  // algo: 'sha256' | 'fnv' — na verificação usa-se o mesmo algoritmo do hash guardado
   async function hash(senha, sal, algo) {
     const txt = sal + ':' + senha;
     if (algo !== 'fnv') {
@@ -93,14 +78,11 @@
           const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(txt));
           return 'sha256:' + Array.from(new Uint8Array(buf), b => b.toString(16).padStart(2, '0')).join('');
         }
-      } catch (_) { /* cai no fallback */ }
+      } catch (_) {  }
     }
     return fnv(txt);
   }
 
-  /* ------------------------------------------------------------------ */
-  /* Tabela de usuários                                                  */
-  /* ------------------------------------------------------------------ */
   function ler() {
     try {
       const a = JSON.parse(localStorage.getItem(KEY_USUARIOS) || '[]');
@@ -121,8 +103,6 @@
     };
   }
 
-  // roda uma vez por navegador. Migra o usuário único da versão antiga
-  // (e-mail + senha em texto puro em 'fz-user') se ele tinha sido personalizado.
   async function garantirSeed() {
     let existe = false;
     try { existe = !!localStorage.getItem(KEY_USUARIOS); } catch (_) { return; }
@@ -143,9 +123,6 @@
     try { localStorage.setItem(KEY_SEED, '1'); } catch (_) {}
   }
 
-  /* ------------------------------------------------------------------ */
-  /* Sessão                                                              */
-  /* ------------------------------------------------------------------ */
   function lerSessao() {
     for (const st of [localStorage, sessionStorage]) {
       try {
@@ -174,9 +151,6 @@
   const logado   = () => !!usuarioAtual();
   const souAdmin = () => { const u = usuarioAtual(); return !!u && u.perfil === 'admin'; };
 
-  // conta Operador não escolhe visão: força o perfil e esconde a chavinha (CSS
-  // em body.fz-conta-operador). Conta Analista mantém a visão que escolheu,
-  // exceto no login (forcar=true), quando volta pra visão da própria conta.
   function aplicarConta(forcar) {
     const u = usuarioAtual();
     const op = !!u && u.perfil === 'operador';
@@ -188,14 +162,11 @@
     document.dispatchEvent(new CustomEvent('fz-auth-change', { detail: { usuario: usuarioAtual() } }));
   }
 
-  /* ------------------------------------------------------------------ */
-  /* Entrar / sair                                                       */
-  /* ------------------------------------------------------------------ */
   async function entrar(usuario, senha, manter) {
     await pronto;
     usuario = normalizar(usuario);
     const u = ler().find(x => x.usuario === usuario);
-    // compara mesmo sem usuário e não diz qual dos dois errou
+
     const alvo = u || { salt: 'x', hash: 'sha256:' };
     const h = await hash(String(senha || ''), alvo.salt, alvo.hash.split(':')[0]);
     if (!u || h !== u.hash) return { ok: false, erro: 'Usuário ou senha incorretos.' };
@@ -215,14 +186,11 @@
     notificar();
   }
 
-  /* ------------------------------------------------------------------ */
-  /* Gestão (só Analista) e perfil próprio                               */
-  /* ------------------------------------------------------------------ */
   const SO_ADMIN = { ok: false, erro: 'Só um analista pode gerenciar usuários.' };
 
   async function criarUsuario({ usuario, nome, perfil, senha }) {
     if (!souAdmin()) return SO_ADMIN;
-    usuario = normalizar(usuario) || sugerir(nome);   // campo vazio → deriva do nome
+    usuario = normalizar(usuario) || sugerir(nome);
     if (usuario.length < 3) return { ok: false, erro: 'Usuário precisa de pelo menos 3 caracteres (ex.: joao.franco).' };
     if (!senha || senha.length < 4) return { ok: false, erro: 'Senha precisa de pelo menos 4 caracteres.' };
     const lista = ler();
@@ -272,9 +240,6 @@
     return { ok: true };
   }
 
-  /* ------------------------------------------------------------------ */
-  /* Modais (reaproveitam #fz-profile-modal / #fz-profile-box do topbar) */
-  /* ------------------------------------------------------------------ */
   function modal(html, largo) {
     const velho = document.getElementById('fz-profile-modal');
     if (velho) velho.remove();
@@ -344,7 +309,6 @@
     const nome = m.querySelector('#fz-au-nome');
     const usu  = m.querySelector('#fz-au-usuario');
 
-    // o campo Usuário se preenche sozinho a partir do nome até a pessoa mexer nele
     let usuarioEditado = false;
     usu.addEventListener('input', () => { usuarioEditado = !!usu.value; });
     usu.addEventListener('blur',  () => { usu.value = normalizar(usu.value); });
@@ -412,9 +376,6 @@
     render();
   }
 
-  /* ------------------------------------------------------------------ */
-  /* Tela de login                                                       */
-  /* ------------------------------------------------------------------ */
   function wireLogin() {
     const btn = document.getElementById('doLogin');
     if (!btn) return;
@@ -430,7 +391,6 @@
       erro.classList.toggle('is-info', tipo === 'info');
     };
 
-    // dica de primeiro acesso: só enquanto a tabela de usuários é a de fábrica
     function atualizarHint() { if (hint) hint.hidden = !seedIntacto(); }
     pronto.then(atualizarHint);
     document.addEventListener('fz-auth-change', atualizarHint);
@@ -453,7 +413,7 @@
       msg('');
       if (inSenha) inSenha.value = '';
       if (window.showScreen) window.showScreen('inicio');
-      notificar();   // depois da troca de tela: o modal P1 pendente volta a aparecer
+      notificar();
     }
 
     btn.addEventListener('click', tentar);
@@ -470,9 +430,6 @@
     if (inUser && loginAtivo && loginAtivo.classList.contains('active')) setTimeout(() => inUser.focus(), 80);
   }
 
-  /* ------------------------------------------------------------------ */
-  /* Boot                                                                */
-  /* ------------------------------------------------------------------ */
   const pronto = garantirSeed();
 
   window.FZAuth = {

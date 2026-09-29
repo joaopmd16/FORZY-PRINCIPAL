@@ -1,11 +1,18 @@
 /* ===================================================================
-   FORZY · BI — inteligência de negócio derivada do que já existe
-   Calcula disponibilidade, MTBF/MTTR estimados, contagem de alertas,
-   saúde da frota e projeção de degradação a partir de window.FORZY,
-   FZStore, forzy-os-log, forzy-audit e do histórico de alarmes
-   (window.FZAlertas). Nada é inventado: cada número diz de onde vem.
-   Exposto: window.FZBI.
+   PROJETO FORZY - Sistema de Monitoramento Industrial
+   Trabalho academico FIAP + Forzy-Promon
+
+   Integrantes:
+   - Arthur Baptista dos Santos       (RM 565346)
+   - Joao Pedro de Moura Dutra Franco (RM 561738)
+   - Nelson Felix Neto                (RM 565603)
+   - Pietro Boroto Rodrigues          (RM 562407)
+   - Vitor Soares Goncalves           (RM 566181)
+
+   Arquivo: forzy-bi.js
+   O que faz: calcula os indicadores usados na tela de Governanca
    =================================================================== */
+
 (function () {
   const LIM = { vel: { a: 1.8, al: 4.5 }, acel: { a: 0.25, al: 0.45 }, temp: { a: 35, al: 42 } };
 
@@ -15,7 +22,6 @@
     return { vel: F[eixo].vel, acel: F[eixo].acel, temp: F[eixo].temp, t: F.t, t0: F.meta && F.meta.t0 };
   }
 
-  // % de amostras dentro do "normal" ISO 10816 (vibração < alarme) na série
   function disponibilidade(eixo) {
     const s = serie(eixo); if (!s) return null;
     let ok = 0;
@@ -23,7 +29,6 @@
     return +(ok / s.vel.length * 100).toFixed(1);
   }
 
-  // MTBF estimado: tempo médio (h) entre subidas ao nível de alarme na série
   function mtbf(eixo) {
     const s = serie(eixo); if (!s || !s.t) return null;
     const cruz = [];
@@ -35,7 +40,6 @@
     return +(acc / (cruz.length - 1) / 3600).toFixed(1);
   }
 
-  // MTTR estimado: duração média (h) de "acima do alarme -> volta ao normal"
   function mttr(eixo) {
     const s = serie(eixo); if (!s || !s.t) return null;
     const durs = []; let ini = null;
@@ -48,7 +52,6 @@
     return +(durs.reduce((a, b) => a + b, 0) / durs.length / 3600).toFixed(2);
   }
 
-  // saúde/risco por ativo — reusa o motor de regras do Copiloto
   function frota() {
     const ativos = (window.FZStore && window.FZStore.getAtivosIndustrial && window.FZStore.getAtivosIndustrial()) || [];
     const cop = window.FZCopiloto;
@@ -80,7 +83,6 @@
     return { eixos: out, ativos: ativos.map(a => ({ codigo: a.codigo, descricao: a.descricao || '', worst })), worst };
   }
 
-  // contagem de alertas — do histórico de alarmes da topbar (FZAlertas) + trilha
   function alertas() {
     const fa = window.FZAlertas;
     const log = fa && typeof fa.historico === 'function' ? (fa.historico() || [])
@@ -94,7 +96,6 @@
     return { total: ativados.length, p1, p2, validados: valid, rejeitados: rej };
   }
 
-  // OS geradas — do log do Copiloto
   function ordensServico() {
     try {
       const l = JSON.parse(localStorage.getItem('forzy-os-log') || '[]');

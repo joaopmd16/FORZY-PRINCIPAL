@@ -1,15 +1,28 @@
 <!DOCTYPE html>
+<!-- ===================================================================
+   PROJETO FORZY - Sistema de Monitoramento Industrial
+   Trabalho academico FIAP + Forzy-Promon
+
+   Integrantes:
+   - Arthur Baptista dos Santos       (RM 565346)
+   - Joao Pedro de Moura Dutra Franco (RM 561738)
+   - Nelson Felix Neto                (RM 565603)
+   - Pietro Boroto Rodrigues          (RM 562407)
+   - Vitor Soares Goncalves           (RM 566181)
+
+   Arquivo: vision.html
+   O que faz: pagina unica com todas as telas do site
+   =================================================================== -->
 <html lang="pt-BR" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>IMS · Forzy</title>
 <link rel="stylesheet" href="styles.css?v=32">
-<script>/* sem sessão → esconde o app já no primeiro paint (auth.js/app.js decidem o resto) */
+<script>
 try{if(!localStorage.getItem('fz-sessao')&&!sessionStorage.getItem('fz-sessao'))document.documentElement.classList.add('fz-sem-sessao')}catch(e){}</script>
 <style>
-/* v2 — Início simplificado: some com a barra de KPIs técnicos e os
-   cards de Sensor/Dataset, deixando só o status dos motores em destaque. */
+
 #inicioKpis{ display:none; }
 #inicioAssets{ grid-template-columns:repeat(2,1fr); }
 #inicioAssets .fz-info-card{ display:none; }
@@ -17,11 +30,8 @@ try{if(!localStorage.getItem('fz-sessao')&&!sessionStorage.getItem('fz-sessao'))
 </head>
 <body>
 
-<!-- ============ APP (Dashboard + Analytics share the shell) ============ -->
 <div class="app" id="app-shell">
 
-
-  <!-- ----------  SIDEBAR  ---------- -->
   <aside class="sidebar">
     <div class="brand">
       <svg class="logo-mark" viewBox="0 0 40 40" aria-hidden="true"><rect class="sq" x="15" y="6" width="21" height="27" rx="9" transform="rotate(11 25.5 19.5)"></rect><rect class="mn" x="4" y="5" width="24" height="30" rx="12"></rect></svg>
@@ -65,9 +75,8 @@ try{if(!localStorage.getItem('fz-sessao')&&!sessionStorage.getItem('fz-sessao'))
     </div>
   </aside>
 
-  <!-- ----------  MAIN  ---------- -->
   <main class="main">
-    <!-- topbar -->
+
     <div class="topbar">
       <div class="search" style="position:relative">
         <input type="text" id="topbar-search" placeholder="Buscar tela, ativo, motor..." autocomplete="off">
@@ -104,7 +113,6 @@ try{if(!localStorage.getItem('fz-sessao')&&!sessionStorage.getItem('fz-sessao'))
       </div>
     </div>
 
-    <!-- ===================  DASHBOARD (Forzy — motor) =================== -->
     <section class="screen" id="screen-dashboard">
       <div class="fz-dash">
         <div class="page-head">
@@ -130,7 +138,6 @@ try{if(!localStorage.getItem('fz-sessao')&&!sessionStorage.getItem('fz-sessao'))
 
     </section>
 
-    <!-- ===================  INÍCIO (Hub)  =================== -->
     <section class="screen active" id="screen-inicio">
       <div class="fz-dash">
 
@@ -206,7 +213,6 @@ try{if(!localStorage.getItem('fz-sessao')&&!sessionStorage.getItem('fz-sessao'))
       </div>
     </section>
 
-    <!-- ===================  NAVEGAÇÃO  =================== -->
     <section class="screen" id="screen-navegacao">
       <div class="fz-dash">
         <div class="fz-tabs fz-group-tabs" data-group="ativos">
@@ -225,7 +231,6 @@ try{if(!localStorage.getItem('fz-sessao')&&!sessionStorage.getItem('fz-sessao'))
       </div>
     </section>
 
-    <!-- ===================  CADASTRO  =================== -->
     <section class="screen" id="screen-cadastro">
       <div class="fz-dash">
         <div class="fz-tabs fz-group-tabs" data-group="ativos">
@@ -254,7 +259,6 @@ try{if(!localStorage.getItem('fz-sessao')&&!sessionStorage.getItem('fz-sessao'))
       </div>
     </section>
 
-    <!-- ===================  RPA  =================== -->
     <section class="screen" id="screen-rpa">
       <div class="fz-dash">
         <div class="fz-tabs fz-group-tabs" data-group="sensores">
@@ -281,7 +285,6 @@ try{if(!localStorage.getItem('fz-sessao')&&!sessionStorage.getItem('fz-sessao'))
       </div>
     </section>
 
-    <!-- ===================  PIPELINE  =================== -->
     <section class="screen" id="screen-pipeline">
       <div class="fz-dash">
         <div class="fz-tabs fz-group-tabs" data-group="sensores">
@@ -306,7 +309,6 @@ try{if(!localStorage.getItem('fz-sessao')&&!sessionStorage.getItem('fz-sessao'))
       </div>
     </section>
 
-    <!-- ===================  SCADA  =================== -->
     <section class="screen" id="screen-scada">
       <div class="fz-dash">
         <div class="page-head">
@@ -328,7 +330,6 @@ try{if(!localStorage.getItem('fz-sessao')&&!sessionStorage.getItem('fz-sessao'))
       </div>
     </section>
 
-    <!-- ===================  IoT ESP32  =================== -->
     <section class="screen" id="screen-iot">
       <div class="fz-dash">
         <div class="fz-tabs fz-group-tabs" data-group="sensores">
@@ -355,13 +356,13 @@ try{if(!localStorage.getItem('fz-sessao')&&!sessionStorage.getItem('fz-sessao'))
         <details class="fz-details" id="iotHelp"></details>
       </div>
     </section>
-    <!-- ===================  ASSISTENTE IA  =================== -->
+
     <section class="screen" id="screen-assistente">
       <div class="fz-dash">
         <div id="fz-chat-screen"></div>
       </div>
     </section>
-    <!-- ===================  DIAGNÓSTICO  =================== -->
+
     <section class="screen" id="screen-diagnostico">
       <div class="page-head">
         <div>
@@ -381,7 +382,7 @@ try{if(!localStorage.getItem('fz-sessao')&&!sessionStorage.getItem('fz-sessao'))
       <div class="fz-panel" data-dpanel="preditivo"><div id="preditivoRoot"></div></div>
       <div class="fz-panel" data-dpanel="os"><div id="copilotoRoot"></div></div>
     </section>
-    <!-- ===================  GOVERNANÇA  =================== -->
+
     <section class="screen" id="screen-governanca">
       <div class="page-head">
         <div>
@@ -394,14 +395,12 @@ try{if(!localStorage.getItem('fz-sessao')&&!sessionStorage.getItem('fz-sessao'))
     </section>
   </main>
 
-  <!-- ----------  RAIL DE ALERTAS (coluna direita)  ---------- -->
   <aside class="fz-alert-rail" id="fzAlertRail" aria-label="Log de alertas">
     <button class="fz-rail-toggle" id="fzRailToggle" type="button" title="Recolher painel de alertas">›</button>
     <div class="fz-rail-body" id="fzAlertRailBody"></div>
   </aside>
 </div>
 
-<!-- ===================  LOGIN  =================== -->
 <div class="screen login-wrap" id="screen-login">
   <div class="login">
     <div class="login-form">

@@ -1,12 +1,23 @@
 /* ===================================================================
-   Vision Dashboard — interactions
+   PROJETO FORZY - Sistema de Monitoramento Industrial
+   Trabalho academico FIAP + Forzy-Promon
+
+   Integrantes:
+   - Arthur Baptista dos Santos       (RM 565346)
+   - Joao Pedro de Moura Dutra Franco (RM 561738)
+   - Nelson Felix Neto                (RM 565603)
+   - Pietro Boroto Rodrigues          (RM 562407)
+   - Vitor Soares Goncalves           (RM 566181)
+
+   Arquivo: app.js
+   O que faz: troca de tela (mostra so uma secao por vez) e login
    =================================================================== */
+
 (function () {
   const root = document.documentElement;
   const appShell = document.getElementById('app-shell');
   const loginScreen = document.getElementById('screen-login');
 
-  /* ----------  THEME  ---------- */
   const saved = localStorage.getItem('vision-theme');
   if (saved) root.setAttribute('data-theme', saved);
   document.getElementById('themeToggle').addEventListener('click', () => {
@@ -15,7 +26,6 @@
     localStorage.setItem('vision-theme', next);
   });
 
-  /* ----------  SCREEN NAV  ---------- */
   const sections = {
     inicio: document.getElementById('screen-inicio'),
     navegacao: document.getElementById('screen-navegacao'),
@@ -31,8 +41,6 @@
   };
   const navItems = document.querySelectorAll('.nav-item[data-screen]');
 
-  /* ----------  PERFIL (operador × admin)  ---------- */
-  // telas/itens marcados data-perfil="admin" somem no modo operador.
   const ADMIN_ONLY = new Set();
   document.querySelectorAll('.nav-item[data-perfil="admin"]').forEach(b => ADMIN_ONLY.add(b.dataset.screen));
 
@@ -44,7 +52,7 @@
       elm.hidden = op;
       elm.style.display = op ? 'none' : '';
     });
-    // se o operador está numa tela restrita, joga pro Início
+
     if (op) {
       const atual = document.querySelector('.nav-item.active');
       if (atual && ADMIN_ONLY.has(atual.dataset.screen)) showScreen('inicio');
@@ -53,11 +61,11 @@
   document.addEventListener('fz-perfil-change', aplicarPerfilNav);
 
   function showScreen(name) {
-    // aceita tanto 'inicio' quanto 'screen-inicio'
+
     const key = name.replace('screen-', '');
     if (key === 'login') { showLogin(); return; }
     if (!sections[key]) return;
-    // operador não acessa telas só-admin
+
     if (ehOperador() && ADMIN_ONLY.has(key)) return;
     appShell.style.display = 'grid';
     loginScreen.classList.remove('active');
@@ -76,11 +84,10 @@
     }
     if (key === 'governanca') window.FZGovernanca?.init();
   }
-  window.showScreen = showScreen;   // expõe globalmente para topbar.js e assistant.js
+  window.showScreen = showScreen;
 
   navItems.forEach(b => b.addEventListener('click', () => showScreen(b.dataset.screen)));
 
-  /* sidebar sub-items (Dashboard → tab) */
   document.querySelectorAll('.nav-subitem[data-screen]').forEach(b => {
     b.addEventListener('click', () => {
       showScreen(b.dataset.screen);
@@ -92,11 +99,9 @@
     });
   });
 
-  /* in-page navigation buttons (e.g. Início quick actions) */
   document.querySelectorAll('[data-goto]').forEach(b =>
     b.addEventListener('click', () => showScreen(b.dataset.goto)));
 
-  /* Assistente IA sidebar button */
   const navAssistente = document.getElementById('navAssistente');
   if (navAssistente) navAssistente.addEventListener('click', () => window.FZAssistant?.togglePanel());
 
@@ -108,9 +113,6 @@
 
   window.showLogin = showLogin;
 
-  /* Diagnóstico — sub-abas internas (Investigação / Causa Raiz / Projeção / OS) */
-  // consulta o DOM a cada chamada em vez de fechar sobre um NodeList: showScreen()
-  // usa esta funcao e pode rodar antes desta linha ser executada.
   function ativarAbaDiag(alvo) {
     const abas = document.querySelectorAll('#fzDiagTabs .fz-tab[data-dtab]');
     if (!abas.length) return;
@@ -126,8 +128,6 @@
   document.querySelectorAll('#fzDiagTabs .fz-tab[data-dtab]').forEach(b =>
     b.addEventListener('click', () => ativarAbaDiag(b.dataset.dtab)));
 
-  /* coligação entre as áreas: mudança de alarme ou de perfil re-renderiza a
-     sub-aba de Diagnóstico aberta, para ela refletir o estado atual do sistema */
   function reagirDiag() {
     const tela = document.getElementById('screen-diagnostico');
     if (!tela || !tela.classList.contains('active')) return;
@@ -140,12 +140,9 @@
   }
   document.addEventListener('fz-perfil-change', reagirDiag);
 
-  /* ----------  ESTADO INICIAL  ---------- */
-  // sessão válida (auth.js) → entra direto; sem sessão → tela de login
   if (window.FZAuth && !window.FZAuth.logado()) showLogin();
   else appShell.style.display = 'grid';
   aplicarPerfilNav();
 
-  /* ----------  ICONS  ---------- */
   if (window.lucide) lucide.createIcons();
 })();

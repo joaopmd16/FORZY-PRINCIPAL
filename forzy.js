@@ -1,15 +1,24 @@
 /* ===================================================================
-   FORZY — Dashboard do Motor (porte estático do app Streamlit)
-   Consome window.FORZY (data/forzy-data.js). Sem build, sem libs.
-   Gráficos SVG feitos à mão (gauge, linha, área/FFT, heatmap, boxplot).
+   PROJETO FORZY - Sistema de Monitoramento Industrial
+   Trabalho academico FIAP + Forzy-Promon
+
+   Integrantes:
+   - Arthur Baptista dos Santos       (RM 565346)
+   - Joao Pedro de Moura Dutra Franco (RM 561738)
+   - Nelson Felix Neto                (RM 565603)
+   - Pietro Boroto Rodrigues          (RM 562407)
+   - Vitor Soares Goncalves           (RM 566181)
+
+   Arquivo: forzy.js
+   O que faz: tela de Monitoramento (graficos do motor)
    =================================================================== */
+
 (function () {
   const F = window.FORZY;
   if (!F) { console.error('forzy-data.js não carregou'); return; }
 
-  /* ----------  CONSTANTES / CORES  ---------- */
   const NS = 'http://www.w3.org/2000/svg';
-  const COLS = F.meta.cols;                 // ['m1_vel','m1_acel','m1_temp','m2_vel','m2_acel','m2_temp']
+  const COLS = F.meta.cols;
   const BL = F.baseline;
   const C = { ok:'#2ecc71', warn:'#f39c12', bad:'#e74c3c', m1:'#3498db', m2:'#9b59b6' };
   const FLAG_COL = [C.ok, C.warn, C.bad];
@@ -21,14 +30,13 @@
   };
   const ACEL_A=0.25, ACEL_AL=0.45, TEMP_A=35.0, TEMP_AL=42.0;
 
-  /* ----------  HELPERS GERAIS  ---------- */
   const clamp = (v,a,b)=> Math.max(a, Math.min(b, v));
   const fmt = (v,d=2)=> (v==null||v!==v) ? '—' : Number(v).toFixed(d);
   function cssVar(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
   function el(tag, cls, html){ const e=document.createElement(tag); if(cls)e.className=cls; if(html!=null)e.innerHTML=html; return e; }
   function S(tag, attrs){ const e=document.createElementNS(NS,tag); for(const k in attrs) e.setAttribute(k, attrs[k]); return e; }
 
-  function series(col){ return F[col.slice(0,2)][col.slice(3)]; }       // 'm1_vel' -> F.m1.vel
+  function series(col){ return F[col.slice(0,2)][col.slice(3)]; }
   function readingAt(i){ const o={}; for(const c of COLS) o[c]=series(c)[i]; return o; }
   function flag(v,a,al){ v=+v||0; return v>=al?2 : v>=a?1 : 0; }
   function median(arr){ const a=arr.slice().sort((x,y)=>x-y); const m=a.length>>1; return a.length%2 ? a[m] : (a[m-1]+a[m])/2; }
@@ -36,22 +44,16 @@
   function std(a,mu){ mu=mu==null?mean(a):mu; let s=0; for(const x of a)s+=(x-mu)*(x-mu); return Math.sqrt(s/(a.length-1)); }
   function quantile(sorted,q){ const p=(sorted.length-1)*q, lo=Math.floor(p), hi=Math.ceil(p); return sorted[lo]+(sorted[hi]-sorted[lo])*(p-lo); }
 
-  // tempo (segundos desde t0) -> HH:MM:SS
   const T0 = new Date(F.meta.t0).getTime();
   function tlabel(i){ const d=new Date(T0 + F.t[i]*1000); return d.toLocaleTimeString('pt-BR',{hour12:false}); }
 
-  // Z-score do modelo estatístico antigo. Mantido só como termo de COMPARAÇÃO
-  // na aba Baseline ML — a classificação de verdade agora vem da rede (modelo.js).
   function zscore(reading){ const z={}; for(const c of COLS){ const b=BL[c]; z[c]= b.std? Math.abs(reading[c]-b.mean)/b.std : 0; } return z; }
   function classify(score){ if(score<2) return ['Normal',C.ok]; if(score<3) return ['Alerta',C.warn]; return ['Anomalia',C.bad]; }
   function maxZ(z){ let m=0; for(const k in z) if(z[k]>m)m=z[k]; return m; }
 
-  /* ----------  REDE NEURAL (modelo.js + data/forzy-model.js)  ---------- */
-  // A rede é a fonte de verdade da classificação. Se o arquivo de pesos não
-  // carregar, tudo aqui cai de volta no Z-score sem quebrar a tela.
   const rede = () => (window.FZModelo && window.FZModelo.pronto()) ? window.FZModelo : null;
   function avaliarRede(reading){ const m = rede(); return m ? m.avaliar(reading) : null; }
-  // veredito unificado: [rótulo, cor, índice] — rede quando disponível, Z-score senão
+
   function veredito(reading){
     const r = avaliarRede(reading);
     if (r && r.ok) return [r.rotulo, r.cor, r.indice, r];
@@ -59,22 +61,14 @@
     return [cl, co, s, null];
   }
 
-  // índices uniformemente espaçados (downsample)
   function idxLinspace(n, k){ if(n<=k) return Array.from({length:n},(_,i)=>i); const out=[]; for(let i=0;i<k;i++) out.push(Math.round(i*(n-1)/(k-1))); return out; }
 
-  // RNG determinístico (mulberry32) + gaussiana
   function rng(seed){ let s=seed>>>0; return ()=>{ s|=0; s=s+0x6D2B79F5|0; let t=Math.imul(s^s>>>15,1|s); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
   function gauss(r){ let u=0,v=0; while(!u)u=r(); while(!v)v=r(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); }
 
-  // rFFT (DFT real) -> magnitudes [0..N/2], escala *2/N
   function rfftMag(sig){ const N=sig.length, half=N>>1, out=new Array(half+1); for(let k=0;k<=half;k++){ let re=0,im=0; for(let n=0;n<N;n++){ const a=-2*Math.PI*k*n/N; re+=sig[n]*Math.cos(a); im+=sig[n]*Math.sin(a);} out[k]=Math.sqrt(re*re+im*im)*2/N; } return out; }
   function hanning(N){ const w=new Array(N); for(let n=0;n<N;n++) w[n]=0.5-0.5*Math.cos(2*Math.PI*n/(N-1)); return w; }
 
-  /* ===================================================================
-     PRIMITIVAS DE GRÁFICO (SVG)
-     =================================================================== */
-
-  // ---- GAUGE (semicírculo) ----
   function polar(cx,cy,r,deg){ const a=deg*Math.PI/180; return [cx+r*Math.cos(a), cy-r*Math.sin(a)]; }
   function arcD(cx,cy,r,d0,d1){ const p0=polar(cx,cy,r,d0),p1=polar(cx,cy,r,d1); const large=Math.abs(d1-d0)>180?1:0; const sweep=d0>d1?1:0; return `M ${p0[0].toFixed(2)} ${p0[1].toFixed(2)} A ${r} ${r} 0 ${large} ${sweep} ${p1[0].toFixed(2)} ${p1[1].toFixed(2)}`; }
   function gaugeSVG(v, max, a, al, unit, dec){
@@ -95,7 +89,6 @@
     </svg>`;
   }
 
-  // ---- LINE CHART (multi-série, limiares, bandas, hover) ----
   function lineChart(host, opt){
     host.innerHTML=''; host.classList.add('fz-chart');
     const W=720, H=opt.height||260, padL=opt.padL||50, padR=14, padT=16, padB=30;
@@ -108,24 +101,24 @@
     const y = v => padT + (1-(v-ymin)/(ymax-ymin))*plotH;
 
     const svg=S('svg',{viewBox:`0 0 ${W} ${H}`});
-    // bandas horizontais (zonas)
+
     (opt.bands||[]).forEach(b=>{ const y0=y(Math.min(b.y1,ymax)), y1=y(Math.max(b.y0,ymin)); svg.appendChild(S('rect',{x:padL,y:y0,width:plotW,height:Math.max(0,y1-y0),fill:b.color})); });
-    // grid + labels Y
+
     const gl=cssVar('--hairline')||'#eee';
     for(let g=0;g<=4;g++){ const v=ymin+(ymax-ymin)*g/4, yy=y(v);
       svg.appendChild(S('line',{x1:padL,x2:W-padR,y1:yy,y2:yy,stroke:gl,'stroke-width':1}));
       const tx=S('text',{x:padL-8,y:yy+4,'text-anchor':'end',class:'fz-axis-label'}); tx.textContent=(+v.toFixed(v<10?2:0)); svg.appendChild(tx);
     }
-    // labels X (até ~6)
+
     const nx=Math.min(opt.xTicks||6,n); const xfn=opt.xLabel||(i=>i);
     for(let k=0;k<nx;k++){ const i=Math.round(k*(n-1)/(nx-1||1)); const tx=S('text',{x:xi(i),y:H-8,'text-anchor':'middle',class:'fz-axis-label'}); tx.textContent=xfn(i); svg.appendChild(tx); }
-    // limiares
+
     (opt.thresholds||[]).forEach(t=>{ const yy=y(clamp(t.y,ymin,ymax)); svg.appendChild(S('line',{x1:padL,x2:W-padR,y1:yy,y2:yy,class:'fz-thr',stroke:t.color})); });
-    // séries (linha)
+
     ser.forEach(s=>{ if(!s.data.length) return; let d='M '+xi(0)+' '+y(s.data[0]); for(let i=1;i<n;i++) d+=' L '+xi(i)+' '+y(s.data[i]); const p=S('path',{d,class:'fz-area-line',stroke:s.color}); svg.appendChild(p); });
-    // marcadores opcionais (alarmes)
+
     (opt.markers||[]).forEach(m=>{ m.idx.forEach(i=>{ svg.appendChild(S('circle',{cx:xi(i),cy:y(m.data[i]),r:3,fill:m.color})); }); });
-    // hover
+
     const hl=S('line',{y1:padT,y2:padT+plotH,class:'fz-hover-line'}); svg.appendChild(hl);
     const dots=ser.map(s=>{ const c=S('circle',{r:4,class:'fz-dot',fill:s.color,stroke:'#fff','stroke-width':1.5}); svg.appendChild(c); return c; });
     host.appendChild(svg);
@@ -139,7 +132,6 @@
     svg.addEventListener('mouseleave',()=>{ hl.style.opacity=0; dots.forEach(d=>d.style.opacity=0); tip.style.opacity=0; });
   }
 
-  // ---- ÁREA / ESPECTRO FFT (vlines de pico/harmônicas) ----
   function spectrumChart(host, opt){
     host.innerHTML=''; host.classList.add('fz-chart');
     const W=720,H=opt.height||360,padL=54,padR=16,padT=18,padB=40, plotW=W-padL-padR, plotH=H-padT-padB;
@@ -149,20 +141,19 @@
     const svg=S('svg',{viewBox:`0 0 ${W} ${H}`}); const gl=cssVar('--hairline')||'#eee';
     for(let g=0;g<=4;g++){ const yy=padT+plotH*g/4; svg.appendChild(S('line',{x1:padL,x2:W-padR,y1:yy,y2:yy,stroke:gl,'stroke-width':1})); const tx=S('text',{x:padL-8,y:yy+4,'text-anchor':'end',class:'fz-axis-label'}); tx.textContent=(ymax*(1-g/4)).toExponential(1); svg.appendChild(tx); }
     for(let k=0;k<=5;k++){ const f=fmax*k/5; const tx=S('text',{x:x(f),y:H-8,'text-anchor':'middle',class:'fz-axis-label'}); tx.textContent=Math.round(f); svg.appendChild(tx); }
-    // bandas verticais
+
     (opt.bands||[]).forEach(b=>{ svg.appendChild(S('rect',{x:x(b.x0),y:padT,width:Math.max(1,x(b.x1)-x(b.x0)),height:plotH,fill:b.color})); });
-    // área
+
     let d='M '+x(0)+' '+y(0); for(let i=0;i<n;i++) d+=' L '+x(fx[i])+' '+y(mag[i]); const dl=d; d+=' L '+x(fmax)+' '+y(0)+' Z';
     svg.appendChild(S('path',{d,fill:'rgba(155,89,182,0.14)'}));
     svg.appendChild(S('path',{d:dl,fill:'none',stroke:C.m2,'stroke-width':1.6}));
-    // vlines
+
     (opt.vlines||[]).forEach(vl=>{ if(vl.x>fmax) return; svg.appendChild(S('line',{x1:x(vl.x),x2:x(vl.x),y1:padT,y2:padT+plotH,stroke:vl.color,'stroke-width':vl.w||1,'stroke-dasharray':vl.dash||'4 3'})); const tx=S('text',{x:x(vl.x)+3,y:padT+12,class:'fz-axis-label',fill:vl.color,'font-size':10}); tx.textContent=vl.label||''; svg.appendChild(tx); });
-    // axis titles
+
     const axx=S('text',{x:padL+plotW/2,y:H-2,'text-anchor':'middle',class:'fz-axis-label'}); axx.textContent='Frequência (Hz)'; svg.appendChild(axx);
     host.appendChild(svg);
   }
 
-  // ---- HEATMAP (espectrograma / correlação) ----
   function heatmap(host, opt){
     host.innerHTML=''; host.classList.add('fz-chart');
     const rows=opt.z.length, cols=opt.z[0].length;
@@ -177,15 +168,14 @@
     const svg=S('svg',{viewBox:`0 0 ${Math.max(W,padL+plotW+10)} ${H}`});
     for(let r=0;r<rows;r++) for(let c=0;c<cols;c++){ const v=opt.z[r][c]; const t=(v-zmin)/((zmax-zmin)||1); const rect=S('rect',{x:padL+c*cell,y:padT+r*rh,width:cell+0.5,height:rh+0.5,fill:color(t)}); svg.appendChild(rect);
       if(opt.text){ const tx=S('text',{x:padL+c*cell+cell/2,y:padT+r*rh+rh/2+3,'text-anchor':'middle',class:'fz-axis-label',fill: t>0.55?'#0a1628':'#e8f0fe','font-size':9}); tx.textContent=(+v.toFixed(2)); svg.appendChild(tx); } }
-    // y labels
+
     (opt.y||[]).forEach((lab,r)=>{ if(rows>14 && r%Math.ceil(rows/14)) return; const tx=S('text',{x:padL-6,y:padT+r*rh+rh/2+3,'text-anchor':'end',class:'fz-axis-label'}); tx.textContent=lab; svg.appendChild(tx); });
-    // x labels
+
     (opt.x||[]).forEach((lab,c)=>{ if(cols>10 && c%Math.ceil(cols/10)) return; const tx=S('text',{x:padL+c*cell+cell/2,y:H-12,'text-anchor':'middle',class:'fz-axis-label'}); tx.textContent=lab; svg.appendChild(tx); });
     host.appendChild(svg);
   }
 
-  // ---- BOXPLOT ----
-  function boxplot(host, groups){ // groups: [{title, boxes:[{name,color,data}]}]
+  function boxplot(host, groups){
     host.innerHTML=''; host.classList.add('fz-chart');
     const W=720, H=300, padT=24, padB=24, sub=groups.length, subW=W/sub;
     const svg=S('svg',{viewBox:`0 0 ${W} ${H}`});
@@ -205,7 +195,6 @@
     host.appendChild(svg);
   }
 
-  /* ----------  COMPONENTES HTML  ---------- */
   function legend(items){ return `<div class="fz-legend">${items.map(i=>`<span><i style="background:${i.color}"></i>${i.name}</span>`).join('')}</div>`; }
   function badge(fl){ const col=FLAG_COL[fl]; return `<span class="fz-badge" style="background:${col}22;color:${col};border:1px solid ${col}">${FLAG_LBL[fl]}</span>`; }
   function metric(lbl,val){ return `<div class="fz-metric"><div class="m-lbl">${lbl}</div><div class="m-val">${val}</div></div>`; }
@@ -238,14 +227,8 @@
     return card;
   }
 
-  /* ===================================================================
-     MODAL DE EIXO — clique no card do motor abre histórico + export +
-     chat com IA. O chat usa a MESMA conversa (por "origem") que o
-     Assistente IA usa pros alertas automáticos — nunca duplica sessão.
-     =================================================================== */
   const escHtml = s => (s==null?'':String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
-  // chave estável da fonte atual — espelha exatamente o que topbar.js usa pros alertas
   function origemFonte(){
     if(state.fonte==='esp32') return 'esp32';
     if(state.fonte==='ativo') return state.ativoCod ? ('ativo:'+state.ativoCod) : null;
@@ -254,8 +237,7 @@
     if(state.fonte==='cloud') return 'forzy-cloud';
     return null;
   }
-  // eixo único (ESP32/Ativo) cai na MESMA conversa do alerta automático daquela fonte;
-  // fontes com 2 eixos (Dataset/Simulado/Cloud) ganham uma conversa por eixo.
+
   function origemEixo(prefix){
     const base = origemFonte();
     if(!base) return null;
@@ -263,8 +245,7 @@
     return base + ':' + prefix;
   }
 
-  // modal aberto no momento — usado por atualizarModalEixo() pra manter os dados ao vivo
-  let modalEixo = null;   // { prefix, nome, origem, ultimoHist }
+  let modalEixo = null;
 
   const CHIPS_EIXO = [
     'Esse nível de vibração é normal?',
@@ -337,7 +318,6 @@
     modalEixo = { prefix, nome, origem, hist:null };
     atualizarModalEixo(r, iso, getWin, xlab);
 
-    // desinscrever é atribuído mais abaixo; fechar() só roda em interação do usuário
     const fechar = () => { desinscrever?.(); overlay.remove(); modalEixo = null; };
     overlay.querySelector('#fzEixoClose').addEventListener('click', fechar);
     overlay.addEventListener('click', e => { if(e.target===overlay) fechar(); });
@@ -351,8 +331,6 @@
       const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`${nome.replace(/\s+/g,'_')}.csv`; a.click(); URL.revokeObjectURL(a.href);
     });
 
-    // alerta que atingiu os DOIS eixos vai pra conversa da fonte (não a do eixo);
-    // guardamos aqui pra espelhar no chat do card enquanto o modal está aberto.
     let alertasEspelhados = [];
 
     function redesenharChat(pensando){
@@ -372,11 +350,10 @@
     }
     redesenharChat();
 
-    // alerta disparado enquanto o card está aberto aparece no chat dele na hora
     const desinscrever = window.FZChatScreen?.onAlerta?.((orig, sessao) => {
       if(!document.getElementById('fzEixoModal')) return;
-      if(orig === origem){ redesenharChat(); return; }        // já é a conversa deste eixo
-      if(orig && orig === origemFonte()){                      // alerta combinado da fonte
+      if(orig === origem){ redesenharChat(); return; }
+      if(orig && orig === origemFonte()){
         alertasEspelhados = sessao.bubbles.slice(-2);
         redesenharChat();
       }
@@ -407,15 +384,13 @@
     });
   }
 
-  // mantém KPIs/health/gráficos do modal em sincronia com o dashboard (chamado a cada tick).
-  // NÃO toca no chat nem no input — senão apagaria o que o usuário está digitando.
   function atualizarModalEixo(r, iso, getWin, xlab){
     if(!modalEixo) return;
     const overlay = document.getElementById('fzEixoModal');
     if(!overlay){ modalEixo=null; return; }
     const { prefix } = modalEixo;
     const vel=r[prefix+'_vel'], acel=r[prefix+'_acel'], temp=r[prefix+'_temp'];
-    if(vel!==vel) return;   // NaN — eixo não existe nesta fonte
+    if(vel!==vel) return;
 
     const histVel=getWin(prefix+'_vel'), histAcel=getWin(prefix+'_acel'), histTemp=getWin(prefix+'_temp');
     modalEixo.hist = { vel:histVel, acel:histAcel, temp:histTemp, xlab };
@@ -453,16 +428,13 @@
     });
   }
 
-  /* ===================================================================
-     ESTADO GLOBAL DO DASHBOARD
-     =================================================================== */
   const state = {
     tab:'mon', rendered:{},
     fonte:'forzy', norma:'ISO 10816 (< 15 kW)', ativoCod:null,
     fidx:0, step:5, interval:2000, auto:true, simMode:'normal',
     monTimer:null,
   };
-  // Fonte "Ativo": lê as leituras reais do ESP do store (NÃO toca no Dataset Forzy).
+
   const ZERO_R = { m1_vel:0, m1_acel:0, m1_temp:0, m2_vel:NaN, m2_acel:NaN, m2_temp:NaN };
   function ativoLeituras(){
     if(!window.FZStore || !state.ativoCod) return [];
@@ -472,7 +444,7 @@
     return { m1_vel:+l.vibracao_mm_s||0, m1_acel:+l.mag_rms||+l.apeak_g||0, m1_temp:+l.temperatura_c||0,
              m2_vel:NaN, m2_acel:NaN, m2_temp:NaN };
   }
-  // Fonte "ESP32": lê ao vivo do IoT (window.FZIoT)
+
   function esp32ReadingFrom(h){
     return { m1_vel:+h.vel||0, m1_acel:+h.apeak||0, m1_temp:+h.temp||0,
              m2_vel:NaN, m2_acel:NaN, m2_temp:NaN };
@@ -481,7 +453,7 @@
     if(!window.FZIoT) return [];
     return window.FZIoT.getHist();
   }
-  // Fonte "Forzy Cloud": S1/S2 via daily_bridge.py (window.FZCloud, exposto por iot.js)
+
   function cloudWindow(){
     if(!window.FZCloud) return [];
     const s1=window.FZCloud.getRows('s1'), s2=window.FZCloud.getRows('s2');
@@ -512,9 +484,6 @@
     if(!state.simHist) state.simHist=[]; state.simHist.push(state.simReading); if(state.simHist.length>120) state.simHist.shift();
   }
 
-  /* ===================================================================
-     TAB 1 — MONITORAMENTO
-     =================================================================== */
   function renderMon(){
     const p=document.getElementById('fzPanel-mon'); const iso=curIso();
     const isAtivo  = state.fonte==='ativo';
@@ -540,7 +509,7 @@
       r=state.simReading||(simStep(),state.simReading);
       objWin=state.simHist||[state.simReading]; tx=objWin.map((_,i)=>'-'+(objWin.length-1-i)+'s');
     } else { r=readingAt(state.fidx); }
-    // janela 120 frames
+
     let win;
     if(isObj){ win=objWin; }
     else { const i0=Math.max(0,state.fidx-119), i1=state.fidx+1; win=[]; for(let i=i0;i<i1;i++) win.push(i); }
@@ -548,7 +517,6 @@
     const nWin = win.length;
     const xlab = isObj ? (i=>tx[i]||'') : (k=>tlabel(win[k]));
 
-    // modal de eixo aberto acompanha o mesmo tick do dashboard
     atualizarModalEixo(r, iso, getWin, xlab);
 
     const prog = isObj ? 100 : Math.round(state.fidx/(F.meta.n-1)*100);
@@ -559,7 +527,7 @@
 
     const scrollY=window.scrollY;
     p.innerHTML='';
-    // progress / player
+
     const head=el('div','fz-card');
     head.innerHTML=`<div class="fz-controls" style="margin-bottom:12px">
         <label class="fz-toggle ${state.auto?'on':''}" data-act="auto"><span class="sw"></span>Auto-refresh</label>
@@ -570,10 +538,9 @@
       <div class="fz-progress"><span>${isEsp32?'ESP32 ao vivo':isAtivo?('Ativo '+(state.ativoCod||'')):isCloud?'Forzy Cloud (S1/S2)':state.fonte==='sim'?'Simulado':'Dataset'} ${isObj?'':'frame '+(state.fidx+1)+'/'+F.meta.n}</span><div class="track"><div class="fill" style="width:${prog}%"></div></div><span>${tsLabel}</span></div>`;
     p.appendChild(head);
 
-    // cards motores — clicáveis: abrem o modal de histórico + export + chat da IA
     if(isEsp32 || isAtivo){
       const label = isEsp32 ? ('ESP32 ao vivo' + (window.FZIoT&&window.FZIoT.isConnected()?' · <span style="color:var(--fz-ok)">⬤ ONLINE</span>':' · <span style="color:var(--fz-bad)">⬤ OFF</span>')) : ('Sensor do Ativo · '+(state.ativoCod||''));
-      // nome limpo p/ o modal (o label do card carrega o badge ONLINE/OFF junto)
+
       const nomeModal = isEsp32 ? 'ESP32 ao vivo' : ('Ativo '+(state.ativoCod||''));
       const card1=motorCard(label, r, iso, 'm1'); card1.classList.add('fz-card-clicavel');
       card1.addEventListener('click', ()=>abrirModalEixo('m1', nomeModal, r, iso, getWin, xlab));
@@ -589,7 +556,6 @@
       const row=el('div','fz-row2'); row.appendChild(card1); row.appendChild(card2); p.appendChild(row);
     }
 
-    // histórico recente
     const singleSensor = isAtivo || isEsp32;
     const hc=el('div','fz-card'); hc.innerHTML='<div class="fz-card-title">Histórico Recente</div><div class="fz-card-sub">Janela deslizante — últimos 120 pontos</div>'+legend(singleSensor?[{name:'ESP32',color:C.m1}]:[{name:'Eixo 1',color:C.m1},{name:'Eixo 2',color:C.m2}]);
     const charts=el('div','fz-row3');
@@ -617,9 +583,6 @@
     if(state.auto && active){ state.monTimer=setInterval(()=>{ if(state.fonte==='sim'){ simStep(); } else if(state.fonte==='forzy'){ state.fidx=(state.fidx+state.step)%F.meta.n; } renderMon(); updateEsp32Btn(); }, state.interval); }
   }
 
-  /* ===================================================================
-     TAB 2 — ESPECTRAL
-     =================================================================== */
   const esp = { motor:'m1', rpm:1780, janela:256, harm:true, bandas:true };
   function renderEsp(){
     const p=document.getElementById('fzPanel-esp');
@@ -629,7 +592,7 @@
     for(let i=0;i<N;i++){ const t=i/fs; sig[i]=gauss(r)*acelRms*0.05 + amp1*Math.sin(2*Math.PI*frot*t) + amp2*Math.sin(2*Math.PI*2*frot*t); }
     const mu=mean(sig); for(let i=0;i<N;i++) sig[i]-=mu; const w=hanning(N); const sw=sig.map((v,i)=>v*w[i]);
     const mag=rfftMag(sw); const freqs=mag.map((_,k)=>k*fs/N);
-    // pico
+
     let pi=1; for(let k=2;k<mag.length;k++) if(mag[k]>mag[pi])pi=k; const fpeak=freqs[pi], apeak=mag[pi];
     const harmCols=[[1,C.m1,'1x'],[2,C.ok,'2x'],[3,C.warn,'3x'],[4,'#e67e22','4x']];
     const vlines=[{x:fpeak,color:C.bad,label:'Pico '+fmt(fpeak,1)+'Hz',w:1.4,dash:'5 3'}];
@@ -657,7 +620,6 @@
     mr.innerHTML = metric('Pico dominante', fmt(fpeak,2)+' Hz')+metric('Amplitude do pico', fmt(apeak,4)+' g')+metric('Freq. rotação (1x)', fmt(frot,2)+' Hz')+metric('Relação pico/1x', frot?fmt(fpeak/frot,2)+'x':'—');
     const mrc=el('div','fz-card'); mrc.appendChild(mr); p.appendChild(mrc);
 
-    // espectrograma
     const nFrames=Math.min(40, Math.floor(F.meta.n/N)); const Z=[], ylab=[];
     for(let f=0; f<nFrames; f++){ const start=f*N; const seg=series(col).slice(start,start+N); if(seg.length<N)break; const m2=mean(seg); for(let i=0;i<N;i++) seg[i]=(seg[i]-m2)*w[i]; Z.push(rfftMag(seg)); ylab.push(tlabel(start)); }
     const sc=el('div','fz-card'); sc.innerHTML='<div class="fz-card-title">Espectrograma — Evolução Temporal</div>';
@@ -665,7 +627,6 @@
     if(Z.length){ const xl=freqs.map(f=>Math.round(f)); heatmap(schart,{ z:Z, x:xl, y:ylab, rowH:Math.max(10,Math.min(20,340/Z.length)) }); }
     else schart.innerHTML='<div class="fz-card-sub">Dados insuficientes para o espectrograma nesta janela.</div>';
 
-    // top 10 picos
     const order=mag.map((m,i)=>[m,i]).slice(1).sort((a,b)=>b[0]-a[0]).slice(0,10);
     const tc=el('div','fz-card'); tc.innerHTML='<div class="fz-card-title">Top 10 picos espectrais</div>'+
       `<table class="fz-table"><thead><tr><th>Frequência (Hz)</th><th>Amplitude (g)</th><th>Relação 1x RPM</th></tr></thead><tbody>${order.map(([m,i])=>`<tr><td>${fmt(freqs[i],3)}</td><td>${fmt(m,6)}</td><td>${frot?fmt(freqs[i]/frot,2):'—'}</td></tr>`).join('')}</tbody></table>`;
@@ -678,9 +639,6 @@
     });
   }
 
-  /* ===================================================================
-     TAB 3 — OPERACIONAL
-     =================================================================== */
   const oper = { motor:'both', sub:'timeline', va:1.8, val:4.5, aa:0.25, aal:0.45, ta:35, tal:42 };
   let _operCache=null;
   function loadOper(){
@@ -711,7 +669,6 @@
       </div>`;
     p.appendChild(ctl);
 
-    // cards
     const cards=el('div','fz-row2');
     [['m1','Eixo 1',v1,a1,t1,f1,showM1],['m2','Eixo 2',v2,a2,t2,f2,showM2]].forEach(([pre,nome,vv,aa,tt,ff])=>{
       const nAl=o[pre+'_vel'].filter(x=>x>=oper.val).length;
@@ -721,7 +678,6 @@
     });
     p.appendChild(cards);
 
-    // sub-tabs
     const st=el('div','fz-card');
     st.innerHTML=`<div class="fz-subtabs" data-act="sub">${[['timeline','Timeline'],['analise','Análise'],['comp','Comparação'],['eventos','Eventos'],['stats','Estatísticas']].map(([v,l])=>`<button data-v="${v}" class="fz-subtab ${v==oper.sub?'active':''}">${l}</button>`).join('')}</div><div class="fz-subpanel active" id="operSub"></div>`;
     p.appendChild(st);
@@ -744,7 +700,7 @@
         <div class="fz-gauge">${gaugeSVG(aa,1,oper.aa,oper.aal,'g',3)}<div class="g-cap">Aceleração</div></div>
         <div class="fz-gauge">${gaugeSVG(tt,85,oper.ta,oper.tal,'°C',1)}<div class="g-cap">Temperatura</div></div></div>`; g.appendChild(card); });
       sub.appendChild(g);
-      // tendência preditiva
+
       const tcard=el('div','fz-card'); tcard.innerHTML='<div class="fz-card-title">Tendência Preditiva — próximos 30 passos</div>'; const tch=el('div','fz-chart'); tcard.appendChild(tch); sub.appendChild(tcard);
       const ser=[]; const EXT=30;
       mkSeries('vel').forEach(s=>{ const yv=s.data, m=yv.length; let sx=0,sy=0,sxx=0,sxy=0; for(let i=0;i<m;i++){sx+=i;sy+=yv[i];sxx+=i*i;sxy+=i*yv[i];} const b=(m*sxy-sx*sy)/(m*sxx-sx*sx), a=(sy-b*sx)/m; const ext=yv.concat(Array.from({length:EXT},(_,k)=>Math.max(0,a+b*(m+k)))); ser.push({name:s.name,color:s.color,data:ext}); });
@@ -756,7 +712,7 @@
       boxplot(bpc,[ {title:'Velocidade',boxes:[{name:'M1',color:C.m1,data:o.m1_vel},{name:'M2',color:C.m2,data:o.m2_vel}]},
         {title:'Aceleração',boxes:[{name:'M1',color:C.m1,data:o.m1_acel},{name:'M2',color:C.m2,data:o.m2_acel}]},
         {title:'Temperatura',boxes:[{name:'M1',color:C.m1,data:o.m1_temp},{name:'M2',color:C.m2,data:o.m2_temp}]} ]);
-      // correlação
+
       const cc=el('div','fz-card'); cc.innerHTML='<div class="fz-card-title">Matriz de Correlação</div>'; const cch=el('div','fz-chart'); cc.appendChild(cch); row.appendChild(cc);
       const labels=['M1 Vel','M1 Acel','M1 Temp','M2 Vel','M2 Acel','M2 Temp']; const cols=['m1_vel','m1_acel','m1_temp','m2_vel','m2_acel','m2_temp'];
       const Z=cols.map(a=>cols.map(b=>pearson(o[a],o[b])));
@@ -788,18 +744,14 @@
   function pearson(a,b){ const ma=mean(a),mb=mean(b); let n=0,da=0,db=0; for(let i=0;i<a.length;i++){const x=a[i]-ma,y=b[i]-mb; n+=x*y; da+=x*x; db+=y*y;} return (da&&db)? n/Math.sqrt(da*db):0; }
   function dl(content,name,mime){ const blob=new Blob([content],{type:mime}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; a.click(); URL.revokeObjectURL(a.href); }
 
-  /* ===================================================================
-     TAB 4 — HISTÓRICO (player animado)
-     =================================================================== */
   const hist = { variavel:'vel', speed:150, frame:0, playing:false, timer:null, motores:{m1:true,m2:true} };
   const HVAR={ vel:{u:'mm/s',la:1.8,lal:4.5,lbl:'Velocidade',dec:3}, acel:{u:'g',la:0.25,lal:0.45,lbl:'Aceleração',dec:3}, temp:{u:'°C',la:35,lal:42,lbl:'Temperatura',dec:1} };
   let _histData=null, _histFonte=null;
-  // O Histórico segue a fonte selecionada: no Forzy Cloud reproduz as coletas do
-  // daily_bridge.py; nas demais, o dataset estático. Cache invalidado ao trocar de fonte.
+
   function loadHist(){
     if(_histData && _histFonte===state.fonte) return _histData;
     _histFonte = state.fonte;
-    hist.frame = 0;   // fontes têm tamanhos diferentes — recomeça o player ao trocar
+    hist.frame = 0;
     if(state.fonte==='cloud'){
       const rows = cloudWindow();
       _histData = { idx: rows.map((_,i)=>i), xlabel: i => rows[i] ? new Date(rows[i].ts).toLocaleString('pt-BR',{hour12:false}) : '' };
@@ -846,14 +798,12 @@
       bands:[{y0:0,y1:cfg.la,color:'rgba(46,204,113,.07)'},{y0:cfg.la,y1:cfg.lal,color:'rgba(243,156,18,.07)'},{y0:cfg.lal,y1:ymax,color:'rgba(231,76,60,.07)'}],
       thresholds:[{y:cfg.la,color:C.warn},{y:cfg.lal,color:C.bad}], markers });
 
-    // stats
     const sc=el('div','fz-card'); const m1=d['m1_'+hist.variavel],m2=d['m2_'+hist.variavel];
     sc.innerHTML='<div class="fz-card-title">Estatísticas — '+cfg.lbl+'</div><div class="fz-metrics fz-m6">'+
       metric('M1 Máx',fmt(Math.max(...m1),cfg.dec))+metric('M1 Média',fmt(mean(m1),cfg.dec))+metric('M1 Desvio',fmt(std(m1),cfg.dec))+
       metric('M2 Máx',fmt(Math.max(...m2),cfg.dec))+metric('M2 Média',fmt(mean(m2),cfg.dec))+metric('M2 Desvio',fmt(std(m2),cfg.dec))+'</div>';
     p.appendChild(sc);
 
-    // listeners
     ctl.querySelector('[data-act="var"]').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{ hist.variavel=b.dataset.v; renderHist(); }));
     ctl.querySelector('[data-act="speed"]').addEventListener('input',e=>{ hist.speed=+e.target.value; if(hist.playing) histPlay(true); renderHistControlsOnly(ctl,d,N); });
     ['m1','m2'].forEach(m=>ctl.querySelector(`[data-act="${m}"]`).addEventListener('click',()=>{ hist.motores[m]=!hist.motores[m]; renderHist(); }));
@@ -861,7 +811,7 @@
     ctl.querySelector('[data-act="reset"]').addEventListener('click',()=>{ hist.frame=1; hist.playing=false; histPlay(false); renderHist(); });
     ctl.querySelector('[data-act="scrub"]').addEventListener('input',e=>{ hist.frame=+e.target.value; hist.playing=false; histPlay(false); renderHist(); });
   }
-  function renderHistControlsOnly(){ /* placeholder: full re-render is cheap enough */ }
+  function renderHistControlsOnly(){  }
   function histPlay(on){
     if(hist.timer){ clearInterval(hist.timer); hist.timer=null; }
     if(!on) return;
@@ -869,13 +819,9 @@
     hist.timer=setInterval(()=>{ const active = state.tab==='hist' && document.getElementById('screen-dashboard').classList.contains('active'); if(!active){ return; } hist.frame++; if(hist.frame>=N){ hist.frame=N; hist.playing=false; histPlay(false); } renderHist(); }, hist.speed);
   }
 
-  /* ===================================================================
-     TAB 5 — BASELINE ML
-     =================================================================== */
   const ml = { vars:['m1_vel','m2_vel'] };
   let _mlSerie=null;
-  // Série do histórico avaliada pela rede. Guarda também o Z-score do modelo
-  // antigo pra aba conseguir mostrar os dois lado a lado.
+
   function mlSerie(){
     if(_mlSerie) return _mlSerie;
     const idx=idxLinspace(F.meta.n,400);
@@ -906,7 +852,6 @@
       p.appendChild(w);
     }
 
-    /* ---- 1. A rede: o que é, como foi treinada ---- */
     const net=el('div','fz-card fz-ml-net');
     net.innerHTML=`
       <div class="fz-card-title">Detector de Anomalia — Rede Neural (Autoencoder)</div>
@@ -928,7 +873,6 @@
       inferência no browser em <code>modelo.js</code> · versão ${escHtml(meta.versao)}, gerada em ${escHtml(meta.gerado)}</div>`:''}`;
     p.appendChild(net);
 
-    /* ---- 2. Como o índice vira prioridade ISA-18.2 ---- */
     const limCrit=r&&r.ok?r.limCritico:2.56;
     const isaCard=el('div','fz-card fz-isa-ref-card');
     isaCard.innerHTML=`
@@ -945,7 +889,6 @@
       </div>`;
     p.appendChild(isaCard);
 
-    /* ---- 3. Leitura atual: gauge + veredito ---- */
     const score=r&&r.ok?r.indice:zs;
     const cor=r&&r.ok?r.cor:classify(zs)[1];
     const classe=r&&r.ok?r.rotulo:classify(zs)[0];
@@ -991,7 +934,6 @@
 
     const s=mlSerie();
 
-    /* ---- 4. Evolução do índice sobre o histórico ---- */
     const ec=el('div','fz-card'); ec.innerHTML='<div class="fz-section-label">Índice de Anomalia da Rede — Dataset Histórico</div>';
     const ech=el('div','fz-chart'); ec.appendChild(ech); p.appendChild(ec);
     let smax=0; s.rows.forEach(x=>{ if(x.score>smax) smax=x.score; });
@@ -1001,7 +943,6 @@
       bands:[{y0:0,y1:1,color:'rgba(46,204,113,.06)'},{y0:1,y1:limCrit,color:'rgba(243,156,18,.08)'},{y0:limCrit,y1:smax,color:'rgba(231,76,60,.08)'}],
       thresholds:[{y:1,color:C.warn},{y:limCrit,color:C.bad}] });
 
-    /* ---- 5. Rede × Z-score: por que trocamos ---- */
     if(m){
       const pior=F.m1.vel.indexOf(Math.max.apply(null,F.m1.vel));
       const lPior=readingAt(pior>=0?pior:0);
@@ -1038,7 +979,6 @@
         combinação não existe.</div>`;
       p.appendChild(cmp);
 
-      // as duas séries no mesmo gráfico, cada uma na sua escala de limiar
       const cmpCh=el('div','fz-card');
       cmpCh.innerHTML='<div class="fz-section-label">As duas curvas sobre o mesmo histórico (1,00 = limiar de atenção de cada modelo)</div>';
       const cch=el('div','fz-chart'); cmpCh.appendChild(cch); p.appendChild(cmpCh);
@@ -1050,7 +990,6 @@
         thresholds:[{y:1,color:C.warn}] });
     }
 
-    /* ---- 6. Erro de reconstrução por variável ---- */
     if(m){
       const zc2=el('div','fz-card');
       zc2.innerHTML='<div class="fz-section-label">Erro de Reconstrução por Variável — onde a rede erra mais</div>'
@@ -1066,15 +1005,11 @@
         series:zser.length?zser:[{name:'—',color:C.m1,data:s.rows.map(()=>0)}]});
     }
 
-    /* ---- 7. Estatísticas do baseline (referência) ---- */
     const tc=el('div','fz-card'); tc.innerHTML='<div class="fz-section-label">Estatísticas do Baseline (Dataset Completo)</div>'+
       `<table class="fz-table"><thead><tr><th>Variável</th><th>Unidade</th><th>Média</th><th>Desvio</th><th>P5</th><th>P95</th><th>N</th></tr></thead><tbody>${COLS.map(c=>{const b=BL[c];return `<tr><td>${b.label}</td><td>${b.unit==='C'?'°C':b.unit}</td><td>${fmt(b.mean,3)}</td><td>${fmt(b.std,3)}</td><td>${fmt(b.p5,3)}</td><td>${fmt(b.p95,3)}</td><td>${b.n}</td></tr>`;}).join('')}</tbody></table>`;
     p.appendChild(tc);
   }
 
-  /* ===================================================================
-     TOOLBAR (Modo TV + Exportar) e SOURCE BAR (Fonte + Norma)
-     =================================================================== */
   function ativosReais(){
     if(!window.FZStore) return [];
     return window.FZStore.getAtivosIndustrial().filter(a=> a.origem!=='forzy' && !['FZ-M1','FZ-M2','FZ-M3'].includes(a.tag));
@@ -1091,11 +1026,11 @@
     if(state.fonte==='ativo' && !state.ativoCod && ativos.length) state.ativoCod=ativos[0].codigo;
     const esp32Connected = window.FZIoT && window.FZIoT.isConnected();
     const cloudLoaded = window.FZCloud && window.FZCloud.isLoaded();
-    // seletor colapsável é exclusivo da sidebar nova (.nav-group-flat, ver nav-v2.js)
+
     const isV2 = !!document.querySelector('.nav-group-flat');
 
     if(!isV2){
-      // ---- vision.html (produção): barra original, sem colapsar ----
+
       sb.innerHTML=`
         <div class="fz-field"><span>Fonte de dados</span><div class="fz-seg" data-act="fonte">
           ${[['forzy','Dataset Forzy (rede neural)'],['ativo','Ativo Cadastrado'],['sim','Simulado']].map(([v,l])=>`<button data-v="${v}" class="${v==state.fonte?'active':''}">${l}</button>`).join('')}
@@ -1116,7 +1051,6 @@
       return;
     }
 
-    // ---- sidebar nova: seletor colapsável + Norma ISO atrás de engrenagem ----
     const FONTES=[
       ['forzy','Dataset Forzy (rede neural)', true],
       ['ativo','Ativo Cadastrado', true],
@@ -1190,14 +1124,12 @@
     if(window.lucide) lucide.createIcons();
   }
   function exportReport(){
-    // CSV resumo operacional (faithful ao Resumo Operacional)
+
     let csv='Variavel;Media;Desvio;P5;P95;Min;Max;N\n';
     COLS.forEach(c=>{const b=BL[c]; csv+=`${b.label};${fmt(b.mean,4)};${fmt(b.std,4)};${fmt(b.p5,4)};${fmt(b.p95,4)};${fmt(b.min,4)};${fmt(b.max,4)};${b.n}\n`;});
     dl('﻿'+csv,'forzy_relatorio_'+new Date().toISOString().slice(0,10)+'.csv','text/csv');
   }
 
-  /* Relatório PDF — paridade com utils/relatorio.py (Streamlit / ReportLab).
-     Usa jsPDF + autotable (CDN). Fallback para window.print() se o CDN não carregar. */
   function exportReportPDF(){
     const JsPDF = window.jspdf && window.jspdf.jsPDF;
     if(!JsPDF){ exportReportPrintFallback(); return; }
@@ -1207,7 +1139,6 @@
     const stamp = now.toLocaleString('pt-BR',{hour12:false});
     const fonteLbl = state.fonte==='sim' ? 'Simulado' : 'Dataset Forzy';
 
-    // Cabeçalho
     doc.setFillColor(6,13,24); doc.rect(0,0,W,56,'F');
     doc.setTextColor(126,200,227); doc.setFont('helvetica','bold'); doc.setFontSize(16);
     doc.text('IMS · Forzy — Relatório de Monitoramento', 40, 32);
@@ -1217,7 +1148,6 @@
     let y = 80;
     const sectionTitle = (t)=>{ doc.setTextColor(30,61,92); doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.text(t, 40, y); y += 8; };
 
-    // 1. Resumo Operacional / Estatísticas do Baseline
     sectionTitle('Resumo Operacional — Estatísticas do Baseline (Dataset Completo)');
     doc.autoTable({
       startY: y,
@@ -1228,7 +1158,6 @@
     });
     y = doc.lastAutoTable.finalY + 26;
 
-    // 2. Leitura atual avaliada pela rede neural
     const live = curReading(); const [classe,,score,rr] = veredito(live);
     const mInfo = rede() ? rede().info() : null;
     sectionTitle(mInfo
@@ -1251,7 +1180,6 @@
     });
     y = doc.lastAutoTable.finalY + 26;
 
-    // 3. Anomalias detectadas (score > limiar de alerta) sobre a série histórica
     const s = mlSerie();
     const limAn = mInfo ? 1 : 2;
     const anomalias = s.rows.filter(r=>r.score>=limAn).sort((a,b)=>b.score-a.score).slice(0,25);
@@ -1282,7 +1210,6 @@
       doc.text('Nenhuma anomalia detectada — operação dentro do baseline.', 40, y+14);
     }
 
-    // Rodapé em todas as páginas
     const total = doc.internal.getNumberOfPages();
     for(let i=1;i<=total;i++){ doc.setPage(i); doc.setTextColor(120,140,160); doc.setFontSize(8);
       doc.text('IMS · Forzy — Industrial Monitoring System', 40, doc.internal.pageSize.getHeight()-18);
@@ -1318,9 +1245,6 @@
     w.document.close();
   }
 
-  /* ===================================================================
-     NAVEGAÇÃO ENTRE TABS + TEMA
-     =================================================================== */
   const RENDER={ mon:renderMon, esp:renderEsp, oper:renderOper, hist:renderHist, ml:renderMl };
   function showTab(name){
     state.tab=name;
@@ -1337,18 +1261,15 @@
     renderToolbar(); renderSourceBar();
     document.querySelectorAll('#fzTabs .fz-tab').forEach(b=>b.addEventListener('click',()=>showTab(b.dataset.tab)));
     showTab('mon');
-    // re-render ao trocar tema
+
     new MutationObserver(()=>{ RENDER[state.tab](); }).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
-    // pausar timers quando sair do dashboard / re-render ao voltar
+
     const dash=document.getElementById('screen-dashboard');
     new MutationObserver(()=>{ const active=dash.classList.contains('active'); if(!active){ if(state.monTimer){clearInterval(state.monTimer);state.monTimer=null;} histPlay(false); } else { if(state.tab==='mon') manageMonTimer(); } }).observe(dash,{attributes:true,attributeFilter:['class']});
   }
 
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init); else init();
 
-  // Expõe a leitura atual do Dashboard pro sininho (topbar.js) conseguir monitorar
-  // as fontes que ele não cobre sozinho (Dataset Forzy, Simulado, Forzy Cloud).
-  // 'ativo' e 'esp32' o sininho já cobre por conta própria via FZStore/FZIoT.
   window.FZDashboard = {
     getCurrentReading: () => curReading(),
     getFonte: () => state.fonte,

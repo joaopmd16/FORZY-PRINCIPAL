@@ -1,23 +1,26 @@
 /* ===================================================================
-   FORZY · Alerta "na cara" — modal crítico persistente + faixa de alerta
-   Disparado por topbar.js quando o modelo aponta P1 (vermelho) ou P2 (amarelo).
+   PROJETO FORZY - Sistema de Monitoramento Industrial
+   Trabalho academico FIAP + Forzy-Promon
 
-   ISA-18.2: só o alarme crítico (P1) exige RECONHECIMENTO do operador →
-   modal full-viewport que NÃO some sozinho (mesmo que o dataset volte ao
-   normal no frame seguinte). P2 (amarelo) → faixa fixa no topo, não bloqueante.
+   Integrantes:
+   - Arthur Baptista dos Santos       (RM 565346)
+   - Joao Pedro de Moura Dutra Franco (RM 561738)
+   - Nelson Felix Neto                (RM 565603)
+   - Pietro Boroto Rodrigues          (RM 562407)
+   - Vitor Soares Goncalves           (RM 566181)
 
-     window.FZAlertaCritico = { disparar(payload), faixa(payload), limpar(chave?) }
-     payload = { prioridade, titulo, msg, nivel, valor, unidade, origem, eixo, variavel }
+   Arquivo: alerta-critico.js
+   O que faz: aviso grande na tela quando da alarme critico
    =================================================================== */
+
 (function () {
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => (
     { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   const perfilOperador = () => !!(window.FZPerfil && window.FZPerfil.isOperador());
-  // sem sessão o alarme fica na fila e só aparece depois do login (fz-auth-change)
+
   const loginAtivo = () => { const l = document.getElementById('screen-login'); return !!(l && l.classList.contains('active')); };
 
-  // eixo 'm1'/'m2' (ou texto) → índice 1/2 e código do ativo do seed
   function eixoInfo(eixo) {
     const s = String(eixo || '').toLowerCase();
     if (s.includes('m2') || s.includes('2') || s.includes('eixo 2')) return { idx: 2, nome: 'Eixo 2', cod: 'BBA-002' };
@@ -25,7 +28,6 @@
     return { idx: 1, nome: 'Eixo', cod: null };
   }
 
-  // fallback textual (não é RAG — a versão em camadas é item de média prioridade)
   const CONHECIMENTO = {
     vel: {
       norma: 'ISO 10816: até 1,8 mm/s = normal · 1,8–4,5 mm/s = alerta · acima de 4,5 mm/s = dano iminente.',
@@ -45,9 +47,6 @@
     return 'vel';
   }
 
-  // Régua de severidade: onde o valor medido cai na faixa da norma. Faz o número
-  // "falar" pra quem não decora limite — vale pros dois perfis. Alarme da rede
-  // neural (unidade 'índice') não entra: a escala é outra.
   const ESCALA = {
     vel:  { min: 0,  max: 6,  a: 1.8, al: 4.5, un: 'mm/s', dec: 2, ref: 'ISO 10816' },
     temp: { min: 20, max: 50, a: 35,  al: 42,  un: '°C',   dec: 1, ref: 'ISA-18.2' },
@@ -70,7 +69,6 @@
       </div>`;
   }
 
-  // frase curta pro operador
   function veredito(p) {
     const e = eixoInfo(p.eixo);
     const val = (p.valor != null && !isNaN(p.valor))
@@ -82,14 +80,12 @@
     return `${e.nome}: vibração alta${val ? ' (' + val + ')' : ''}. O motor está vibrando fora do normal — pare a bomba e chame a manutenção.`;
   }
 
-  /* -------------------- estado -------------------- */
-  const pendentes = [];        // fila de alertas P1 não reconhecidos
+  const pendentes = [];
   const reconhecidas = new Set();
   let idxAtual = 0;
 
   function chaveDe(p) { return (p.prioridade || '') + '|' + (p.msg || ''); }
 
-  /* -------------------- MODAL P1 -------------------- */
   function disparar(payload) {
     if (!payload) return;
     const chave = chaveDe(payload);
@@ -107,9 +103,6 @@
     render();
   }
 
-  // As duas saídas fecham o modal (Reconhecer implícito) e levam pra tela que resolve.
-  // "Analisar com IA" é o ÚNICO ponto em que um alarme P1 vira pergunta pra IA — o
-  // payload leva a leitura do momento do alarme (topbar.js) pra rede avaliar ela.
   function irPara(scada) {
     const p = pendentes[idxAtual];
     fecharAtual();
@@ -194,8 +187,7 @@
     if (next) next.onclick = () => { idxAtual = Math.min(pendentes.length - 1, idxAtual + 1); render(); };
   }
 
-  /* -------------------- FAIXA P2 -------------------- */
-  const faixas = [];   // { chave, texto }
+  const faixas = [];
   function faixa(payload) {
     if (!payload) return;
     const chave = chaveDe(payload);

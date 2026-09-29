@@ -1,7 +1,18 @@
 /* ===================================================================
-   FORZY · INÍCIO — hub central funcional
-   Player ao vivo sobre window.FORZY, KPIs, sparklines, log de eventos.
+   PROJETO FORZY - Sistema de Monitoramento Industrial
+   Trabalho academico FIAP + Forzy-Promon
+
+   Integrantes:
+   - Arthur Baptista dos Santos       (RM 565346)
+   - Joao Pedro de Moura Dutra Franco (RM 561738)
+   - Nelson Felix Neto                (RM 565603)
+   - Pietro Boroto Rodrigues          (RM 562407)
+   - Vitor Soares Goncalves           (RM 566181)
+
+   Arquivo: inicio.js
+   O que faz: tela Inicio com KPIs e alertas recentes
    =================================================================== */
+
 (function () {
   const F = window.FORZY;
   if (!F) { console.error('inicio.js: FORZY ausente'); return; }
@@ -20,10 +31,8 @@
   function timeLabel(i) { const d = new Date(T0 + F.t[i] * 1000); return d.toLocaleTimeString('pt-BR', { hour12: false }); }
   function hm(i) { const d = new Date(T0 + F.t[i] * 1000); return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); }
 
-  /* ----------  estado  ---------- */
   const state = { fonte: 'forzy', auto: true, intervalo: 5000, idx: 0, t: 0, simHist: { v1: [], v2: [] }, timer: null };
 
-  /* ----------  KPIs (calculados uma vez)  ---------- */
   const KPI = (function () {
     const m1 = F.m1.vel, m2 = F.m2.vel;
     let al = 0, up = 0;
@@ -36,7 +45,6 @@
     return { uptime: (up / N * 100).toFixed(1), alarmes: al, horas: h, tend, total: N };
   })();
 
-  /* ----------  log de eventos (calculado uma vez)  ---------- */
   const EVENTS = (function () {
     const m1 = F.m1.vel, m2 = F.m2.vel;
     const st = v => (v >= VEL_ALM ? 2 : v >= VEL_AL ? 1 : 0);
@@ -51,7 +59,6 @@
     return ev.slice(0, 12);
   })();
 
-  /* ----------  sparkline  ---------- */
   function sparkPath(arr, threshold) {
     const W = 200, H = 48, n = arr.length;
     if (n < 2) return { line: '', area: '', threshY: null };
@@ -67,27 +74,25 @@
     return { line: d, area: `${d} L${W},${H} L0,${H} Z`, threshY };
   }
 
-  /* ----------  geração simulada (simples)  ---------- */
   function rng() { return Math.random(); }
   function gauss(mu, sd) { let u = 0, v = 0; while (!u) u = rng(); while (!v) v = rng(); return mu + sd * Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
   const SIM = { normal: 1, desbalanco: 1.9, cavitacao: 2.6, desalinhamento: 2.2 };
   let simModo = 'normal';
 
-  /* ----------  leitura atual  ---------- */
   function currentReading() {
     if (state.fonte === 'forzy') {
       const i = state.idx;
       return { v1: F.m1.vel[i], t1: F.m1.temp[i], v2: F.m2.vel[i], t2: F.m2.temp[i],
                win1: window120(F.m1.vel, i), win2: window120(F.m2.vel, i) };
     }
-    // ESP32 ao vivo — 1 sensor só, mapeado no Eixo 1 (Eixo 2 fica sem leitura)
+
     if (state.fonte === 'esp32') {
       const h = (window.FZIoT && window.FZIoT.getHist()) || [];
       const last = h.length ? h[h.length - 1] : null;
       return { v1: last ? last.vel : 0, t1: last ? last.temp : 0, v2: NaN, t2: NaN,
                win1: h.slice(-120).map(r => r.vel), win2: [] };
     }
-    // Forzy Cloud — S1 no Eixo 1, S2 no Eixo 2 (coletas do daily_bridge.py)
+
     if (state.fonte === 'cloud') {
       const s1 = (window.FZCloud && window.FZCloud.getRows('s1')) || [];
       const s2 = (window.FZCloud && window.FZCloud.getRows('s2')) || [];
@@ -106,7 +111,6 @@
   }
   function window120(arr, i) { const a = Math.max(0, i - 120); return arr.slice(a, i + 1); }
 
-  /* ----------  controles  ---------- */
   const esp32Online = () => !!(window.FZIoT && window.FZIoT.isConnected());
   const cloudCarregado = () => !!(window.FZCloud && window.FZCloud.isLoaded());
 
@@ -152,7 +156,6 @@
     if (modo) { modo.value = simModo; modo.addEventListener('change', e => { simModo = e.target.value; render(); }); }
   }
 
-  /* ----------  render principal  ---------- */
   function render() {
     const [cOk, cWarn, cBad] = COR();
     const cols = [cOk, cWarn, cBad];
@@ -162,7 +165,6 @@
     const f2 = Math.max(flag(r.v2, VEL_AL, VEL_ALM), flag(r.t2, TEMP_AL, TEMP_ALM));
     const pior = Math.max(f1, f2);
 
-    // header
     const badge = el('inicioStatus');
     if (badge) {
       badge.textContent = NOME[pior];
@@ -175,7 +177,6 @@
         : new Date().toLocaleTimeString('pt-BR', { hour12: false });
     }
 
-    // progress
     const prog = el('inicioProgress');
     if (prog) {
       if (state.fonte === 'forzy') {
@@ -194,7 +195,6 @@
       } else { prog.hidden = true; }
     }
 
-    // KPIs
     const kbar = el('inicioKpis');
     if (kbar) {
       const ti = KPI.tend > 0.05 ? '↑' : KPI.tend < -0.05 ? '↓' : '→';
@@ -210,12 +210,10 @@
         `<div class="fz-kpi-cell"><div class="k-lbl">${l}</div><div class="k-val" style="color:${c}">${v}</div></div>`).join('');
     }
 
-    // assets
     const assets = el('inicioAssets');
     if (assets) {
       const motor = (nome, vel, temp, f, win) => {
-        // sem leitura (ex: ESP32 tem 1 sensor só) — não pode exibir NORMAL verde,
-        // que daria a entender que o eixo está sendo monitorado e está OK
+
         if (vel == null || vel !== vel) {
           return `<div class="fz-asset">
             <div class="a-name">${nome}</div>
@@ -248,7 +246,6 @@
            <div class="i-body">${N.toLocaleString('pt-BR')} amostras<br>${hm(0)} → ${hm(N - 1)}<br>Duração: ${dh}h ${String(dm).padStart(2, '0')}min<br><b>forzy.csv</b></div></div>`;
     }
 
-    // log
     const log = el('inicioLog');
     if (log) {
       const ACAO = ['Nenhuma ação necessária.', 'Recomenda-se verificação na próxima ronda.', 'Intervenção imediata recomendada.'];
@@ -281,7 +278,6 @@
     }
   }
 
-  /* ----------  player  ---------- */
   function tick() {
     const active = document.getElementById('screen-inicio').classList.contains('active');
     if (!active || !state.auto) return;
@@ -290,7 +286,6 @@
   }
   function startTimer() { if (state.timer) clearInterval(state.timer); state.timer = setInterval(tick, state.intervalo); }
 
-  /* ----------  CSV export  ---------- */
   function exportCSV() {
     const cols = ['timestamp', 'm1_vel', 'm1_acel', 'm1_temp', 'm2_vel', 'm2_acel', 'm2_temp'];
     let csv = cols.join(';') + '\n';
@@ -305,7 +300,6 @@
     URL.revokeObjectURL(a.href);
   }
 
-  /* ----------  init  ---------- */
   function init() {
     if (!el('inicioControls')) return;
     renderControls();

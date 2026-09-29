@@ -1,11 +1,18 @@
 /* ===================================================================
-   FORZY · Perfil de acesso — chavinha Operador ⇄ Admin
-   Sem autenticação real: é modo de apresentação. Troca o layout,
-   os textos e quais telas aparecem.
-     window.FZPerfil = { get, set, isAdmin, isOperador, onChange, toggle }
-   Grava em localStorage 'fz-perfil' ('operador' | 'admin', default 'admin').
-   Carregado ANTES de app.js.
+   PROJETO FORZY - Sistema de Monitoramento Industrial
+   Trabalho academico FIAP + Forzy-Promon
+
+   Integrantes:
+   - Arthur Baptista dos Santos       (RM 565346)
+   - Joao Pedro de Moura Dutra Franco (RM 561738)
+   - Nelson Felix Neto                (RM 565603)
+   - Pietro Boroto Rodrigues          (RM 562407)
+   - Vitor Soares Goncalves           (RM 566181)
+
+   Arquivo: perfil.js
+   O que faz: troca entre o modo Operador e o modo Admin
    =================================================================== */
+
 (function () {
   const KEY = 'fz-perfil';
   const VALIDOS = ['operador', 'admin'];
@@ -47,7 +54,6 @@
 
   const ROTULO = { operador: 'Operador', admin: 'Analista' };
 
-  // reflete o estado atual na chavinha da topbar (knob + rótulo)
   function sincronizarSwitch() {
     const atual = get();
     const sw = document.getElementById('fzVisaoToggle');
@@ -58,8 +64,6 @@
     if (txt) txt.textContent = ROTULO[atual];
   }
 
-  // chavinha Operador ⇄ Analista sempre visível na topbar.
-  // Nunca é escondida pelo gating de perfil — senão o operador ficaria preso no modo.
   function wireSwitch() {
     const sw = document.getElementById('fzVisaoToggle');
     if (sw) sw.addEventListener('click', toggle);
@@ -67,7 +71,6 @@
     document.addEventListener('fz-perfil-change', sincronizarSwitch);
   }
 
-  // fixa a classe inicial assim que o body existir
   function boot() { aplicarClasse(get()); wireSwitch(); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();

@@ -1,14 +1,21 @@
 /* ===================================================================
-   FORZY · Copiloto de Manutenção
-   Diagnóstico automático de modo de falha (baseado em regras, sem FFT)
-   + geração de Ordem de Serviço (OS) exportável em PDF e refinável por IA.
-   Tela dedicada #screen-copiloto. Consome window.FORZY / window.FZDashboard.
-   Sem build, sem libs (jsPDF já vem no vision.html).
+   PROJETO FORZY - Sistema de Monitoramento Industrial
+   Trabalho academico FIAP + Forzy-Promon
+
+   Integrantes:
+   - Arthur Baptista dos Santos       (RM 565346)
+   - Joao Pedro de Moura Dutra Franco (RM 561738)
+   - Nelson Felix Neto                (RM 565603)
+   - Pietro Boroto Rodrigues          (RM 562407)
+   - Vitor Soares Goncalves           (RM 566181)
+
+   Arquivo: copiloto.js
+   O que faz: tela do Copiloto de Manutencao (diagnostico e Ordem de Servico)
    =================================================================== */
+
 (function () {
   const F = window.FORZY;
 
-  /* ----------  limiares (espelham forzy.js / CLAUDE.md)  ---------- */
   const LIM = {
     vel:  { a: 1.8,  al: 4.5,  unit: 'mm/s' },
     acel: { a: 0.25, al: 0.45, unit: 'g'    },
@@ -17,17 +24,15 @@
   const OS_SEQ_KEY = 'forzy-os-seq';
   const OS_LOG_KEY = 'forzy-os-log';
 
-  /* ----------  helpers  ---------- */
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const fmt = (v, d = 2) => (v == null || v !== v) ? '—' : Number(v).toFixed(d);
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   function el(tag, cls, html) { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
 
-  // leitura atual: usa o Dashboard se disponível, senão o último frame do dataset
   function leituraAtual() {
     let r = null;
-    try { r = window.FZDashboard && window.FZDashboard.getCurrentReading(); } catch (e) { /* noop */ }
+    try { r = window.FZDashboard && window.FZDashboard.getCurrentReading(); } catch (e) {  }
     if (r && r.m1_vel != null) return r;
     if (!F) return null;
     const i = F.meta.n - 1;
@@ -41,7 +46,7 @@
     if (!b || !b.std) return 0;
     return Math.abs(val - b.mean) / b.std;
   }
-  // tendência de vel: inclinação normalizada dos últimos ~180 frames
+
   function tendenciaVel(eixo) {
     if (!F) return 0;
     const arr = F[eixo].vel, n = arr.length, w = Math.min(180, n);
@@ -49,14 +54,11 @@
     let sx = 0, sy = 0, sxy = 0, sxx = 0;
     for (let k = 0; k < w; k++) { sx += k; sy += seg[k]; sxy += k * seg[k]; sxx += k * k; }
     const denom = (w * sxx - sx * sx) || 1;
-    const slope = (w * sxy - sx * sy) / denom;         // mm/s por frame
+    const slope = (w * sxy - sx * sy) / denom;
     const med = sy / w || 1;
-    return slope * w / med;                            // variação relativa na janela
+    return slope * w / med;
   }
 
-  /* ===================================================================
-     MOTOR DE DIAGNÓSTICO — regras sobre a leitura do eixo
-     =================================================================== */
   const MODOS = {
     balanceamento: {
       modo: 'Desbalanceamento / desalinhamento',
@@ -140,7 +142,6 @@
       { k: 'Temperatura',    v: temp, unit: LIM.temp.unit, z: zt, lim: LIM.temp },
     ];
 
-    // ordem das regras: da mais crítica/específica para a mais branda
     let key, conf;
     if (vel >= LIM.vel.al || temp >= LIM.temp.al) {
       key = 'severa';
@@ -165,35 +166,23 @@
       conf = 0.85;
     }
 
-    // ajuste de confiança pela tendência de piora
     if (key !== 'normal' && trend > 0.15) conf = clamp(conf + 0.08, 0, 0.97);
 
-    // prioridade ISA-18.2 / ISO 10816
     let prio, prioLbl;
     if (vel >= LIM.vel.al || temp >= LIM.temp.al) { prio = 'P1'; prioLbl = 'Crítica — intervenção imediata'; }
     else if (vel >= LIM.vel.a || temp >= LIM.temp.a || acel >= LIM.acel.al) { prio = 'P2'; prioLbl = 'Alta — verificar / planejar'; }
     else { prio = 'P3'; prioLbl = 'Planejada — rotina'; }
 
-    /*
-     * REDE NEURAL — entra depois das regras, nunca no lugar delas.
-     * As regras acima decidem QUAL é o modo de falha (elas conhecem a física:
-     * aceleração alta com velocidade baixa = rolamento, etc.). A rede não sabe
-     * nomear modo de falha nenhum — ela só sabe dizer o quanto a combinação das
-     * seis variáveis foge do que ela viu no dataset. Então o papel dela aqui é
-     * de ESCALADA: se ela acusa anomalia que os limites fixos não pegaram, a
-     * prioridade sobe um degrau e a confiança aumenta. Ela nunca rebaixa nada.
-     */
     let rede = null;
     try {
       const M = window.FZModelo;
       if (M && M.pronto()) { const r = M.avaliar(reading); if (r && r.ok) rede = r; }
-    } catch (e) { /* noop */ }
+    } catch (e) {  }
 
     if (rede && rede.nivelRede >= 1) {
       if (rede.nivelRede === 2 && prio !== 'P1') { prio = 'P1'; prioLbl = 'Crítica — intervenção imediata'; }
       else if (prio === 'P3')                    { prio = 'P2'; prioLbl = 'Alta — verificar / planejar'; }
-      // "normal" + rede acusando = as duas leituras se contradizem; a confiança no
-      // laudo cai, é exatamente o caso que o técnico precisa olhar com o olho dele.
+
       conf = key === 'normal' ? clamp(conf - 0.25, 0.1, 0.97) : clamp(conf + 0.05, 0, 0.97);
     }
 
@@ -201,14 +190,11 @@
              evidencias: ev, tendencia: trend, eixo: pfx, rede };
   }
 
-  /* ===================================================================
-     ORDEM DE SERVIÇO
-     =================================================================== */
   function proximoNumero() {
     let n = 0;
-    try { n = parseInt(localStorage.getItem(OS_SEQ_KEY) || '0', 10) || 0; } catch (e) { /* noop */ }
+    try { n = parseInt(localStorage.getItem(OS_SEQ_KEY) || '0', 10) || 0; } catch (e) {  }
     n += 1;
-    try { localStorage.setItem(OS_SEQ_KEY, String(n)); } catch (e) { /* noop */ }
+    try { localStorage.setItem(OS_SEQ_KEY, String(n)); } catch (e) {  }
     const yy = new Date().getFullYear();
     return `OS-${yy}-${String(n).padStart(4, '0')}`;
   }
@@ -218,7 +204,7 @@
   function gravarLog(os) {
     const log = lerLog();
     log.unshift(os);
-    try { localStorage.setItem(OS_LOG_KEY, JSON.stringify(log.slice(0, 100))); } catch (e) { /* noop */ }
+    try { localStorage.setItem(OS_LOG_KEY, JSON.stringify(log.slice(0, 100))); } catch (e) {  }
   }
 
   function montarOS(diag, ativoCod) {
@@ -239,8 +225,7 @@
       acoes: diag.acoes.slice(),
       pecas: diag.pecas.slice(),
       norma: 'ISO 10816 (motores < 15 kW) · ISA-18.2:2016 (gestão de alarmes)',
-      // parecer da rede neural — fica gravado na OS pra a auditoria saber que
-      // a prioridade pode ter sido escalada pelo modelo, não só pelos limites
+
       rede: diag.rede ? {
         indice: +fmt(diag.rede.indice, 2),
         nivel: diag.rede.rotulo,
@@ -254,9 +239,6 @@
     };
   }
 
-  /* ===================================================================
-     RENDER
-     =================================================================== */
   let _root = null, _diag = null, _os = null, _eixo = 'm1', _ativo = null;
 
   function ativosDisponiveis() {
@@ -286,7 +268,6 @@
 
     const trendTxt = _diag.tendencia > 0.15 ? '↑ piorando' : _diag.tendencia < -0.15 ? '↓ melhorando' : '→ estável';
 
-    // parecer da rede neural — só pro analista; o operador vê o veredito curto
     const _r = _diag.rede;
     const redeBloco = !_r ? '' : `
       <div class="fz-cop-rede">
@@ -405,7 +386,7 @@
     _root.querySelector('#copRefresh').addEventListener('click', render);
     _root.querySelector('#copGerar').addEventListener('click', gerarOS);
     renderHist();
-    if (_os) renderOS();  // mantém a OS aberta em re-render por troca de eixo
+    if (_os) renderOS();
   }
 
   function renderHist() {
@@ -479,7 +460,6 @@
     if (_os.refino_ia) mostrarRefino(_os.refino_ia);
   }
 
-  /* ----------  texto plano da OS (copiar / prompt IA)  ---------- */
   function osTexto() {
     const L = [];
     L.push(`ORDEM DE SERVIÇO ${_os.numero}`);
@@ -510,7 +490,6 @@
       () => toast('Não foi possível copiar'));
   }
 
-  /* ----------  PDF (jsPDF UMD já carregado no vision.html)  ---------- */
   function exportarPDF() {
     const jsPDFctor = window.jspdf && window.jspdf.jsPDF;
     if (!jsPDFctor) { toast('jsPDF não carregou'); return; }
@@ -570,7 +549,6 @@
     doc.save(`${_os.numero}.pdf`);
   }
 
-  /* ----------  Refino por IA (OpenAI gpt-4o-mini)  ---------- */
   async function refinarComIA() {
     const btn = _root.querySelector('#copIA');
     const key = window.FORZY_OPENAI_KEY;
@@ -598,10 +576,10 @@
       const data = await res.json();
       const txt = (data.choices && data.choices[0] && data.choices[0].message.content || '').trim();
       _os.refino_ia = txt;
-      // atualiza no log
+
       const log = lerLog();
       const idx = log.findIndex(o => o.numero === _os.numero);
-      if (idx >= 0) { log[idx].refino_ia = txt; try { localStorage.setItem(OS_LOG_KEY, JSON.stringify(log)); } catch (e) { /* noop */ } }
+      if (idx >= 0) { log[idx].refino_ia = txt; try { localStorage.setItem(OS_LOG_KEY, JSON.stringify(log)); } catch (e) {  } }
       mostrarRefino(txt);
     } catch (e) {
       toast('Falha ao consultar a IA: ' + e.message);
@@ -616,7 +594,6 @@
     box.innerHTML = `<div class="fz-card-title">Complemento técnico (IA)</div><p>${esc(txt)}</p>`;
   }
 
-  /* ----------  toast simples  ---------- */
   function toast(msg) {
     let t = document.getElementById('copToast');
     if (!t) { t = el('div', 'fz-cop-toast'); t.id = 'copToast'; document.body.appendChild(t); }
@@ -624,9 +601,6 @@
     clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), 2600);
   }
 
-  /* ===================================================================
-     INIT
-     =================================================================== */
   function init() {
     _root = document.getElementById('copilotoRoot');
     if (!_root) return;
@@ -634,8 +608,6 @@
     if (window.lucide) lucide.createIcons();
   }
 
-  // deep-link do rail de alertas: abre a tela Diagnóstico na sub-aba "Ordem de Serviço"
-  // já com o eixo/ativo do alarme selecionado e o diagnóstico recalculado.
   function abrirPara(eixo, ativoCod) {
     if (eixo === 'm1' || eixo === 'm2') _eixo = eixo;
     if (ativoCod) _ativo = ativoCod;
@@ -647,9 +619,6 @@
     render();
   }
 
-  // pior leitura da série para um eixo — o frame que mais estoura os limites
-  // combinados (vel/acel/temp normalizados pelo nível de alarme). Usado pelas
-  // sub-abas Investigação / Causa Raiz / Projeção.
   function piorLeitura(eixo) {
     if (!F) return null;
     const pfx = eixo === 'm2' ? 'm2' : 'm1';

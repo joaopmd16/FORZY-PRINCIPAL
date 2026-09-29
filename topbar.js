@@ -1,11 +1,20 @@
 /* ===================================================================
-   FORZY · Topbar — Relógio, Busca, Alertas, Conta
+   PROJETO FORZY - Sistema de Monitoramento Industrial
+   Trabalho academico FIAP + Forzy-Promon
+
+   Integrantes:
+   - Arthur Baptista dos Santos       (RM 565346)
+   - Joao Pedro de Moura Dutra Franco (RM 561738)
+   - Nelson Felix Neto                (RM 565603)
+   - Pietro Boroto Rodrigues          (RM 562407)
+   - Vitor Soares Goncalves           (RM 566181)
+
+   Arquivo: topbar.js
+   O que faz: barra de cima (relogio, busca, sininho de alertas, conta)
    =================================================================== */
+
 (function () {
 
-  /* ------------------------------------------------------------------ */
-  /* 1. RELÓGIO AO VIVO                                                  */
-  /* ------------------------------------------------------------------ */
   function iniciarRelogio() {
     const el = document.getElementById('topbar-clock');
     if (!el) return;
@@ -19,9 +28,6 @@
     setInterval(atualizar, 1000);
   }
 
-  /* ------------------------------------------------------------------ */
-  /* 2. BUSCA                                                            */
-  /* ------------------------------------------------------------------ */
   const TELAS = [
     { label: 'Início',           id: 'screen-inicio',    icon: '·', keywords: ['inicio','home','kpi','ao vivo'] },
     { label: 'Dashboard',        id: 'screen-dashboard', icon: '·', keywords: ['dashboard','motor','monitoramento','vibração','espectral','operacional','historico','baseline','ml'] },
@@ -36,14 +42,12 @@
     if (!q) return [];
     const resultados = [];
 
-    // telas
     TELAS.forEach(t => {
       if (t.label.toLowerCase().includes(q) || t.keywords.some(k => k.includes(q))) {
         resultados.push({ tipo: 'tela', label: t.label, id: t.id, icon: t.icon });
       }
     });
 
-    // ativos do store
     try {
       if (window.FZStore) {
         const ativos = window.FZStore.getAtivosIndustrial ? window.FZStore.getAtivosIndustrial() : [];
@@ -100,24 +104,11 @@
     });
   }
 
-  /* ------------------------------------------------------------------ */
-  /* 3. SININHO — ALERTAS DE MOTOR (ISA-18.2 com histerese e log)       */
-  /* ------------------------------------------------------------------ */
+  const alertas   = [];
+  const logAlarmes = [];
 
-  /*
-   * ISA-18.2:2016 — Management of Alarm Systems for the Process Industries
-   * Prioridades: P1 Crítico (requer intervenção imediata) / P2 Alto (verificar)
-   * Histerese (deadband): alarme só limpa quando valor cai abaixo de 90% do threshold
-   * Isso evita flickering (proibido pela norma ISA-18.2).
-   */
-
-  const alertas   = [];   // alertas ativos (para exibição no sininho)
-  const logAlarmes = [];  // log persistente de eventos (ATIVADO / NORMALIZADO)
-
-  // Map de estado de histerese: chave → { nivel, valor, threshold, ativo }
   const estadoAlarme = new Map();
 
-  // Definições de limites ISA-18.2
   const LIMITES_ISA = [
     { variavel: 'vel',     threshold: 4.5, deadband: 4.5 * 0.90, prioridade: 'P1 - Crítico', nivel: 'bad',  unidade: 'mm/s', titulo: 'Vibração Crítica' },
     { variavel: 'vel',     threshold: 1.8, deadband: 1.8 * 0.90, prioridade: 'P2 - Alto',    nivel: 'warn', unidade: 'mm/s', titulo: 'Vibração Alta'    },
@@ -134,26 +125,23 @@
     notificarAlertas();
   }
 
-  // atualiza o estado de histerese; devolve true só no instante em que ACABA de cruzar
-  // pra cima (edge de ativação) — usado pra decidir se dispara notificação agora.
   function cruzouAgora(chave, ativo, variavel, valor, limite) {
     const estado = estadoAlarme.get(chave) || { ativo: false };
     if (!estado.ativo) {
-      // ISA-18.2: dispara alarme somente quando cruza threshold para CIMA
+
       if (valor >= limite.threshold) {
         estadoAlarme.set(chave, { ativo: true });
         registrarLogEvento(limite.prioridade, ativo, variavel, valor, limite.unidade, 'ATIVADO');
         return true;
       }
     } else {
-      // ISA-18.2: limpa somente quando cai abaixo do deadband (90% do threshold)
+
       if (valor < limite.deadband) {
         estadoAlarme.set(chave, { ativo: false });
         registrarLogEvento(limite.prioridade, ativo, variavel, valor, limite.unidade, 'NORMALIZADO');
         const idx = alertas.findIndex(a => a.chave === chave);
         if (idx !== -1) { alertas.splice(idx, 1); renderSininho(); }
-        // tira a faixa amarela (P2) da tela ao normalizar. O modal vermelho (P1)
-        // continua até o operador Reconhecer — de propósito (ISA-18.2).
+
         if (window.FZAlertaCritico) window.FZAlertaCritico.limpar();
       }
     }
@@ -166,9 +154,6 @@
     }
   }
 
-  // variante pra fontes com múltiplos eixos do MESMO equipamento (Dataset Forzy/Simulado/
-  // Forzy Cloud) — se mais de um eixo cruzar o limite junto, manda um único alerta
-  // combinado em vez de um por eixo.
   function processarLimiteMultiEixo(rotulo, origem, eixos, campo, limite, sufixo) {
     const cruzaram = [];
     eixos.forEach(e => {
@@ -177,28 +162,12 @@
     });
     if (!cruzaram.length) return;
     const partes = cruzaram.map(e => `${e.nome}: ${campo === 'vel' ? 'Vibração' : 'Temperatura'} ${e.valor.toFixed(campo === 'vel' ? 2 : 1)} ${limite.unidade}`).join(' · ');
-    // Um eixo só → vai direto pra conversa daquele eixo (a mesma que o modal do card
-    // mostra). Os dois juntos → um único alerta na conversa da fonte, que o modal
-    // aberto espelha via FZChatScreen.onAlerta.
+
     const destino = cruzaram.length === 1 ? `${origem}:${cruzaram[0].id}` : origem;
     const eixoAlvo = cruzaram.length === 1 ? cruzaram[0].id : null;
     adicionarAlerta(limite.prioridade, limite.titulo, `${rotulo} — ${partes}`, limite.nivel, cruzaram[0].valor, limite.unidade, destino, eixoAlvo, campo);
   }
 
-  /*
-   * Alarme vindo da REDE NEURAL (modelo.js). É um caminho separado dos limites
-   * acima de propósito: os limites olham cada variável isolada, a rede olha a
-   * COMBINAÇÃO das seis. Ela pega o que nenhum limite pega — por exemplo o eixo 1
-   * a 7 mm/s com o eixo 2 parado, onde cada valor sozinho passa em qualquer regra.
-   *
-   * Só entra em fontes com os dois eixos (Dataset Forzy / Simulado / Forzy Cloud).
-   * ESP32 e ativo cadastrado mandam um eixo só, com NaN no outro — nesse caso
-   * FZModelo.avaliar() devolve ok:false e nada dispara, que é o correto: a rede
-   * foi treinada no conjunto de dois eixos e não tem como julgar meia leitura.
-   *
-   * Limiar: usa nivelAlarmeRede (p99,9 e máximo do histórico), não o limiar de
-   * análise da aba ML. Assim o replay do dataset não vira uma metralhadora de alarmes.
-   */
   const LIMITE_REDE = {
     2: { threshold: 1, deadband: 0.9, prioridade: 'P1 - Crítico', nivel: 'bad',  titulo: 'Anomalia Crítica (rede neural)' },
     1: { threshold: 1, deadband: 0.9, prioridade: 'P2 - Alto',    nivel: 'warn', titulo: 'Anomalia Detectada (rede neural)' },
@@ -209,22 +178,19 @@
     if (!M || !M.pronto() || !leitura) return;
 
     const r = M.avaliar(leitura);
-    // ok:false = leitura incompleta (fonte de um eixo só). Não alarma nem normaliza.
+
     if (!r || !r.ok) return;
 
     const n = r.nivelAlarmeRede;
     const f = r.fora[0];
-    // eixos que sempre andaram juntos e divergiram: é a história que o operador entende
-    // na hora — vale mais que "aceleração 0,4 g, a rede esperava 0,1"
+
     const as = r.assimetria;
     const eixo = as ? as.eixoMaior : (f ? f.eixo : null);
 
-    // Uma chave por prioridade, pra P1 e P2 terem histerese independente — mesmo
-    // padrão dos limites ISA. O "valor" que entra na histerese é o próprio índice.
     [2, 1].forEach(prio => {
       const lim = LIMITE_REDE[prio];
       const chave = 'rede_' + origem + '_p' + (prio === 2 ? '1' : '2');
-      const valor = n >= prio ? 1 : 0;   // 1 = acima do limiar daquela prioridade
+      const valor = n >= prio ? 1 : 0;
       if (cruzouAgora(chave, `${rotulo} · rede neural`, 'anomalia',
                       valor, { ...lim, unidade: 'índice' })) {
         const detalhe = as
@@ -241,12 +207,12 @@
 
   function checarAlertas() {
     try {
-      // ESP32 ao vivo
+
       if (window.FZIoT && window.FZIoT.isConnected()) {
         const last = window.FZIoT.getLast();
         if (last) {
           _leituraEmCheque = { m1_vel: last.vel, m1_acel: last.arms, m1_temp: last.temp };
-          // P1 Crítico tem precedência: verificar P1 antes de P2 para a mesma variável
+
           processarLimite('esp32_vel_p1',  'ESP32', 'vel',  last.vel  || 0, LIMITES_ISA[0], 'esp32');
           processarLimite('esp32_vel_p2',  'ESP32', 'vel',  last.vel  || 0, LIMITES_ISA[1], 'esp32');
           processarLimite('esp32_temp_p1', 'ESP32', 'temp', last.temp || 0, LIMITES_ISA[2], 'esp32');
@@ -254,7 +220,6 @@
         }
       }
 
-      // ativos do store
       if (window.FZStore) {
         const ativos = window.FZStore.getAtivosIndustrial ? window.FZStore.getAtivosIndustrial() : [];
         ativos.forEach(a => {
@@ -269,11 +234,6 @@
         });
       }
 
-      // Dashboard (Monitoramento) — cobre as fontes que os blocos acima não veem
-      // (Dataset Forzy / Simulado / Forzy Cloud). 'ativo' e 'esp32' já estão cobertos
-      // acima via FZStore/FZIoT, então ficam de fora aqui pra não duplicar o alerta.
-      // Motor 1 e Motor 2 são os 2 eixos do MESMO equipamento — se cruzarem juntos,
-      // processarLimiteMultiEixo manda um único alerta combinado.
       if (window.FZDashboard) {
         const fonte = window.FZDashboard.getFonte();
         if (fonte !== 'ativo' && fonte !== 'esp32') {
@@ -286,13 +246,13 @@
             if (r.m1_vel === r.m1_vel) eixos.push({ nome: 'Eixo 1', id: 'm1', pfx: 'dash_m1', vel: r.m1_vel || 0, temp: r.m1_temp || 0 });
             if (r.m2_vel === r.m2_vel) eixos.push({ nome: 'Eixo 2', id: 'm2', pfx: 'dash_m2', vel: r.m2_vel || 0, temp: r.m2_temp || 0 });
             if (eixos.length) {
-              // P1 antes de P2 pra mesma variável (precedência)
+
               processarLimiteMultiEixo(rotulo, origem, eixos.map(e => ({ ...e, valor: e.vel  })), 'vel',  LIMITES_ISA[0], 'p1');
               processarLimiteMultiEixo(rotulo, origem, eixos.map(e => ({ ...e, valor: e.vel  })), 'vel',  LIMITES_ISA[1], 'p2');
               processarLimiteMultiEixo(rotulo, origem, eixos.map(e => ({ ...e, valor: e.temp })), 'temp', LIMITES_ISA[2], 'p1');
               processarLimiteMultiEixo(rotulo, origem, eixos.map(e => ({ ...e, valor: e.temp })), 'temp', LIMITES_ISA[3], 'p2');
             }
-            // depois dos limites: a rede neural, que olha as 6 variáveis juntas
+
             processarRede(rotulo, origem, r);
           }
         }
@@ -300,21 +260,17 @@
     } catch(_) {}
   }
 
-  let _topbarInicializado = false; // flag pra não disparar IA na 1ª checagem (baseline)
+  let _topbarInicializado = false;
 
-  // Leitura completa da fonte que está sendo checada neste instante. Vai grudada no
-  // alerta (campo `leitura`) pra IA analisar os valores DO MOMENTO DO ALARME quando o
-  // operador pedir — e não o frame que estiver na tela quando ele clicar.
   let _leituraEmCheque = null;
 
   function adicionarAlerta(prioridade, titulo, msg, nivel, valor, unidade, origem, eixo, variavel) {
-    // chave baseada em msg para deduplicação estável
+
     const chave = prioridade + '|' + msg;
     if (alertas.some(a => a.chave === chave)) return;
 
     const hora = new Date().toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' });
-    // origem/eixo/variavel viajam junto: são o que permite o rail de alertas fazer
-    // deep-link pra Vista 3D, Assistente e OS sem recalcular nada.
+
     const alerta = { prioridade, titulo, msg, nivel, hora, chave, valor, unidade,
                      origem, eixo, variavel, ts: new Date().toISOString(),
                      leitura: _leituraEmCheque ? { ..._leituraEmCheque } : null };
@@ -322,11 +278,6 @@
     if (alertas.length > 20) alertas.pop();
     renderSininho();
 
-    // A IA NÃO é acionada aqui. O alarme chega ao operador "na cara" (modal P1 / faixa
-    // P2), no sininho e no rail; a análise da IA só acontece quando ELE pede — botão
-    // "Analisar com IA" do modal ou "Perguntar ao Assistente" do rail
-    // (FZAssistente.abrirComContexto). Antes cada alarme virava uma pergunta automática
-    // e o replay do dataset enchia o chat sem ninguém ter perguntado nada.
     if (_topbarInicializado && window.FZAlertaCritico) {
       if (String(prioridade).indexOf('P1') === 0) window.FZAlertaCritico.disparar(alerta);
       else                                        window.FZAlertaCritico.faixa(alerta);
@@ -385,15 +336,13 @@
     notificarAlertas();
   }
 
-  /* ---- API pública dos alertas (consumida pelo rail lateral) ---- */
   const _obsAlertas = [];
   function notificarAlertas() {
     _obsAlertas.forEach(fn => { try { fn(alertas, logAlarmes); } catch (_) {} });
   }
   window.FZAlertas = {
     ativos:    () => alertas.slice(),
-    // botão de teste da tela IoT: injeta um alarme pelo MESMO caminho de um real — log,
-    // sininho, rail e alerta "na cara". Não passa pela histerese: só sai ao Reconhecer.
+
     simular(p) {
       if (!p) return;
       _leituraEmCheque = p.leitura || null;
@@ -432,16 +381,11 @@
         document.getElementById('topbar-bell-panel')?.classList.remove('visible');
     });
 
-    // checa alertas a cada 5s
-    // 1ª checagem: só estabelece baseline (sem disparar IA)
     checarAlertas();
     _topbarInicializado = true;
-    setInterval(checarAlertas, 2000); // 2s: detecta transição rapidamente
+    setInterval(checarAlertas, 2000);
   }
 
-  /* ------------------------------------------------------------------ */
-  /* 4. MENU DE CONTA                                                    */
-  /* ------------------------------------------------------------------ */
   function iniciarConta() {
     const btn  = document.getElementById('topbar-account');
     const menu = document.getElementById('topbar-account-menu');
@@ -507,20 +451,12 @@
       window.FZAuth?.abrirEditarPerfil();
     });
 
-    // só conta Analista (o botão some via body.fz-conta-operador)
     document.getElementById('topbar-users')?.addEventListener('click', () => {
       menu.classList.remove('visible');
       window.FZAuth?.abrirUsuarios();
     });
   }
 
-  /* ------------------------------------------------------------------ */
-  /* 5. LOGIN / PERFIL — vivem em auth.js (FZAuth). O topbar só chama.     */
-  /* ------------------------------------------------------------------ */
-
-  /* ------------------------------------------------------------------ */
-  /* CSS                                                                 */
-  /* ------------------------------------------------------------------ */
   function injectCSS() {
     const s = document.createElement('style');
     s.textContent = `
@@ -629,9 +565,6 @@
     document.head.appendChild(s);
   }
 
-  /* ------------------------------------------------------------------ */
-  /* INIT                                                                */
-  /* ------------------------------------------------------------------ */
   function init() {
     injectCSS();
     iniciarRelogio();

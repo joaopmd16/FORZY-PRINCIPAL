@@ -1,24 +1,29 @@
 /* ===================================================================
-   FORZY · Rail de Alertas (coluna direita)
-   Log vivo dos alarmes ISA-18.2. Clicar num alerta abre as AÇÕES
-   daquele alerta — cada ação leva direto pra tela que resolve o
-   problema (Vista 3D · Monitoramento · Assistente · Ordem de Serviço),
-   já com o eixo/ativo daquele alarme selecionado.
+   PROJETO FORZY - Sistema de Monitoramento Industrial
+   Trabalho academico FIAP + Forzy-Promon
 
-   Consome window.FZAlertas (exposto por topbar.js).
+   Integrantes:
+   - Arthur Baptista dos Santos       (RM 565346)
+   - Joao Pedro de Moura Dutra Franco (RM 561738)
+   - Nelson Felix Neto                (RM 565603)
+   - Pietro Boroto Rodrigues          (RM 562407)
+   - Vitor Soares Goncalves           (RM 566181)
+
+   Arquivo: alert-rail.js
+   O que faz: coluna de alertas do lado direito da tela
    =================================================================== */
+
 (function () {
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => (
     { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   const COLLAPSE_KEY = 'fz-rail-collapsed';
   let host = null;
-  let abertoChave = null;     // alerta expandido
+  let abertoChave = null;
   let verHistorico = false;
 
   const ehOperador = () => !!(window.FZPerfil && window.FZPerfil.isOperador());
 
-  /* ---- eixo do alerta → ativo do seed ---- */
   function eixoInfo(a) {
     const s = String(a.eixo || a.msg || '').toLowerCase();
     if (s.includes('m2') || s.includes('eixo 2')) return { id: 'm2', nome: 'Eixo 2', cod: 'BBA-002' };
@@ -26,7 +31,6 @@
     return { id: 'm1', nome: 'Eixo 1', cod: 'BBA-001' };
   }
 
-  // frase curta pro operador — sem norma, sem número solto
   function resumo(a) {
     const e = eixoInfo(a);
     const temp = String(a.variavel || a.titulo || '').toLowerCase().includes('temp');
@@ -35,7 +39,6 @@
     return `${e.nome} vibrando${critico ? ' muito' : ' acima do normal'}`;
   }
 
-  /* ================= AÇÕES — a ponte entre as telas ================= */
   const ACOES = [
     {
       id: 'scada', icone: 'box', rotulo: 'Ver na Vista 3D',
@@ -75,7 +78,6 @@
     },
   ];
 
-  /* ========================= RENDER ========================= */
   function render(alertas, historico) {
     if (!host) return;
     alertas = alertas || [];
@@ -85,7 +87,6 @@
     const ehP1 = a => String(a.prioridade).indexOf('P1') === 0;
     const criticos = alertas.filter(ehP1).length;
 
-    // vermelho sempre no topo — é o que o operador tem que ver primeiro
     const ordenados = alertas.slice().sort((a, b) => (ehP1(b) ? 1 : 0) - (ehP1(a) ? 1 : 0));
 
     const itens = ordenados.length ? ordenados.map(a => item(a, op)).join('') : `
@@ -186,7 +187,6 @@
     render(window.FZAlertas?.ativos() || [], window.FZAlertas?.historico() || []);
   }
 
-  /* ========================= INIT ========================= */
   function init() {
     host = document.getElementById('fzAlertRailBody');
     if (!host) return;

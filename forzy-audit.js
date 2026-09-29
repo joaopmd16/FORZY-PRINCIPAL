@@ -1,16 +1,24 @@
 /* ===================================================================
-   FORZY · AUDIT — trilha de auditoria append-only
-   localStorage['forzy-audit'] (cap 500). Exposto: window.FZAudit.
-   Portado de forzy-notify.js (só a metade da trilha; a parte de
-   pop-up/toast do original ficou de fora — o CLONE já tem
-   alerta-critico.js / alert-rail.js pra isso). Sem libs.
+   PROJETO FORZY - Sistema de Monitoramento Industrial
+   Trabalho academico FIAP + Forzy-Promon
+
+   Integrantes:
+   - Arthur Baptista dos Santos       (RM 565346)
+   - Joao Pedro de Moura Dutra Franco (RM 561738)
+   - Nelson Felix Neto                (RM 565603)
+   - Pietro Boroto Rodrigues          (RM 562407)
+   - Vitor Soares Goncalves           (RM 566181)
+
+   Arquivo: forzy-audit.js
+   O que faz: guarda o historico (log) de tudo que acontece no sistema
    =================================================================== */
+
 (function () {
   const K = 'forzy-audit';
   const CAP = 500;
 
   function load() { try { return JSON.parse(localStorage.getItem(K) || '[]'); } catch (e) { return []; } }
-  function persist(l) { try { localStorage.setItem(K, JSON.stringify(l.slice(0, CAP))); } catch (e) { /* noop */ } }
+  function persist(l) { try { localStorage.setItem(K, JSON.stringify(l.slice(0, CAP))); } catch (e) {  } }
 
   function sessao() {
     try {
@@ -36,7 +44,7 @@
       resultado: entry.resultado || '',
     };
     const l = load(); l.unshift(rec); persist(l);
-    _subs.forEach(cb => { try { cb(rec); } catch (e) { /* noop */ } });
+    _subs.forEach(cb => { try { cb(rec); } catch (e) {  } });
     return rec;
   }
 

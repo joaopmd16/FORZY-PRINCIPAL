@@ -1,4 +1,18 @@
-/* assistente-screen.js — workspace do Assistente IA (sidebar de projetos/histórico + chat) */
+/* ===================================================================
+   PROJETO FORZY - Sistema de Monitoramento Industrial
+   Trabalho academico FIAP + Forzy-Promon
+
+   Integrantes:
+   - Arthur Baptista dos Santos       (RM 565346)
+   - Joao Pedro de Moura Dutra Franco (RM 561738)
+   - Nelson Felix Neto                (RM 565603)
+   - Pietro Boroto Rodrigues          (RM 562407)
+   - Vitor Soares Goncalves           (RM 566181)
+
+   Arquivo: assistente-screen.js
+   O que faz: tela do Assistente de IA (conversa com a OpenAI)
+   =================================================================== */
+
 (function () {
   let iniciado = false;
 
@@ -20,23 +34,20 @@
 
   let sessions = [];
   let currentId = null;
-  let projetoAtivo = null;    // filtro do histórico
-  let anexoPendente = null;   // { nome, conteudo }
+  let projetoAtivo = null;
+  let anexoPendente = null;
 
   function esc(s) {
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
-  // markdown mínimo: negrito/itálico/código + títulos, listas e parágrafos. Recebe
-  // texto JÁ escapado (esc) — só transforma marcação, nunca abre HTML. A IA responde
-  // quase sempre em "1. Causa / 2. Risco / 3. Ação" com sub-itens; sem lista de
-  // verdade isso virava um bloco de <br> difícil de ler.
+
   function renderMd(text) {
     const inline = t => t
       .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
       .replace(/(^|[^*])\*([^*\n]+?)\*(?!\*)/g, '$1<em>$2</em>')
       .replace(/`([^`]+?)`/g, '<code class="fz-md-code">$1</code>');
     const out = [];
-    let lista = null;   // 'ul' | 'ol' aberta no momento
+    let lista = null;
     const fechar = () => { if (lista) { out.push(`</${lista}>`); lista = null; } };
     String(text).split('\n').forEach(raw => {
       const l = raw.trim();
@@ -53,12 +64,11 @@
     });
     fechar();
     return out.join('')
-      .replace(/<br>(<\/?(?:ul|ol|div)[^>]*>)/g, '$1')   // quebra antes de lista/título só abre buraco
+      .replace(/<br>(<\/?(?:ul|ol|div)[^>]*>)/g, '$1')
       .replace(/(<br>){3,}/g, '<br><br>')
       .replace(/<br>$/, '');
   }
 
-  /* ----------  persistência  ---------- */
   function carregar() {
     try {
       const d = JSON.parse(localStorage.getItem(STORAGE_KEY));
@@ -74,8 +84,6 @@
   function sessaoAtual() { return sessions.find(s => s.id === currentId); }
   function sessaoPorOrigem(origem) { return sessions.find(s => s.origem === origem); }
 
-  // origem = chave estável da fonte do alerta ('esp32', 'dataset-forzy', 'ativo:BBA-001', ...).
-  // Conversas criadas manualmente (Novo Chat) não têm origem — nunca colidem com as de alerta.
   function novaSessao(projectId, origem) {
     const s = {
       id: 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
@@ -108,7 +116,6 @@
     return 'Mais antigo';
   }
 
-  /* ----------  sidebar secundária  ---------- */
   function renderSidebar() {
     const el = document.getElementById('fzChatSidebar');
     if (!el) return;
@@ -167,7 +174,6 @@
     salvar(); renderTudo();
   }
 
-  /* ----------  área de mensagens  ---------- */
   function welcomeHtml() {
     return `
       <div class="fz-chat-welcome">
@@ -222,9 +228,6 @@
     renderSidebar();
   }
 
-  // a altura fixa via CSS não sabe quanto espaço a topbar/breadcrumb ocupam acima —
-  // calcula com precisão o que sobra de viewport. Some/aparece com display:none,
-  // então só recalcula quando a tela está realmente visível (top > 0).
   function ajustarAltura() {
     const ws = document.querySelector('.fz-chat-workspace');
     if (!ws) return;
@@ -233,7 +236,6 @@
     ws.style.height = Math.max(460, window.innerHeight - top - 24) + 'px';
   }
 
-  /* ----------  montagem inicial  ---------- */
   function init() {
     if (iniciado) return;
     iniciado = true;
@@ -318,7 +320,6 @@
     document.getElementById('fzChatAttachRm').addEventListener('click', () => { anexoPendente = null; mostrarAnexo(); });
   }
 
-  /* ----------  bolhas  ---------- */
   function addBubble(role, html, id, cls) {
     const s = sessaoAtual();
     s.bubbles.push({ role, html, id, cls: cls || undefined });
@@ -341,7 +342,6 @@
     if (el) el.querySelector('.fz-chat-bubble-inner').innerHTML = html;
   }
 
-  // contexto técnico dos ativos cadastrados (fabricante/potência/placa) + última leitura de cada
   function contextoAtivos() {
     if (!window.FZStore) return '';
     const ativos = window.FZStore.getAtivosIndustrial?.() || [];
@@ -369,19 +369,11 @@
     return `\n\n[ATIVOS CADASTRADOS — dados de placa]\n${linhas.join('\n')}`;
   }
 
-  /*
-   * Veredito da REDE NEURAL sobre a leitura que está na tela agora.
-   * Sem isso a IA responderia só com o que ela mesma sabe de bomba — e não com o
-   * que o modelo treinado no dataset da Forzy achou desta leitura específica.
-   * Manda o índice, o nível e qual variável puxou o erro de reconstrução, pra
-   * resposta citar o mesmo número que o operador está vendo na aba Baseline ML.
-   */
   function contextoRede(leituraFixa) {
     try {
       const M = window.FZModelo;
       if (!M || !M.pronto()) return '';
-      // leituraFixa = a leitura gravada no alarme (a que disparou), quando a pergunta
-      // vem de um alerta; senão, o que está na tela agora.
+
       const leitura = leituraFixa || window.FZDashboard?.getCurrentReading?.();
       if (!leitura) return '';
       const r = M.avaliar(leitura);
@@ -401,11 +393,6 @@
     } catch (_) { return ''; }
   }
 
-  // opts: { isAlerta, html, prompt, leitura, critico }
-  //   html    — o que a bolha mostra (default: o texto escapado). Alerta manda um card.
-  //   prompt  — o que vai pra API (default: o próprio texto). Deixa a conversa só com
-  //             os fatos e manda a instrução completa pra IA sem poluir a tela.
-  //   leitura — leitura gravada no alarme, pra rede neural avaliar ELA, não a da tela.
   async function enviar(texto, opts) {
     opts = opts || {};
     const isAlerta = !!opts.isAlerta;
@@ -413,8 +400,6 @@
     const msg = (texto || input?.value || '').trim();
     if (!msg) return;
 
-    // só limpa o campo quando a mensagem saiu dele — um alerta chegando não pode
-    // apagar o que o usuário está digitando
     if (input && !texto) { input.value = ''; input.style.height = 'auto'; document.getElementById('fzChatSend')?.classList.remove('active'); }
 
     let bolhaTexto = opts.html || (isAlerta ? renderMd(esc(msg)) : esc(msg).replace(/\n/g, '<br>'));
@@ -480,11 +465,6 @@ Seja direto: máximo 3-4 parágrafos por resposta. Use **negrito** para destacar
     if (msgs) msgs.scrollTop = 99999;
   }
 
-  // Primitiva programática: empurra um texto como bolha de alerta na conversa da
-  // origem e pede a análise. NADA chama isto automaticamente — o caminho normal de
-  // um alarme é abrirComContexto(), acionado pelo operador no modal/rail. Cada FONTE
-  // (origem) tem uma única conversa; só troca de tela se o usuário já estiver no
-  // Assistente, senão processa em segundo plano e acende a bolinha no menu.
   function enviarAlerta(msgIA, tituloSugerido, origem) {
     init();
     const jaEstaAberto = document.getElementById('screen-assistente')?.classList.contains('active');
@@ -498,14 +478,12 @@ Seja direto: máximo 3-4 parágrafos por resposta. Use **negrito** para destacar
     else s = novaSessao(null, origem);
     if (tituloSugerido) s.title = tituloSugerido.slice(0, 60);
     salvar(); renderTudo();
-    // notifica 2x: assim que a bolha do alerta entra, e de novo quando a IA responde —
-    // widgets embutidos (modal de eixo) acompanham sem precisar de polling.
+
     const p = enviar(msgIA, { isAlerta: true });
     notificarAlerta(origem, s);
     p.then(() => notificarAlerta(origem, s)).catch(() => {});
   }
 
-  /* ----------  assinatura de alertas (pra widgets embutidos)  ---------- */
   const listenersAlerta = [];
   function onAlerta(cb) {
     listenersAlerta.push(cb);
@@ -515,13 +493,8 @@ Seja direto: máximo 3-4 parágrafos por resposta. Use **negrito** para destacar
     listenersAlerta.forEach(cb => { try { cb(origem, sessao); } catch (_) {} });
   }
 
-  // ---- API usada por widgets embutidos fora desta tela (ex: modal de eixo em forzy.js) ----
-
-  // leitura só-consulta da conversa "dona" de uma origem — pra widgets mostrarem um preview
   function getSessao(origem) { return origem ? sessaoPorOrigem(origem) : null; }
 
-  // pergunta do usuário endereçada à conversa de uma origem específica (cria se não existir).
-  // Mesma sessão que o Assistente IA usa — widget embutido e tela cheia sempre em sincronia.
   async function perguntar(origem, tituloSugerido, texto) {
     init();
     let s = origem ? sessaoPorOrigem(origem) : null;
@@ -532,8 +505,6 @@ Seja direto: máximo 3-4 parágrafos por resposta. Use **negrito** para destacar
     await enviar(texto, {});
   }
 
-  // troca a conversa ativa pra de uma origem (cria se não existir) sem enviar nada —
-  // usado pelo botão "Abrir conversa completa" do modal de eixo antes de navegar pra tela.
   function abrirConversa(origem, tituloSugerido) {
     init();
     let s = origem ? sessaoPorOrigem(origem) : null;
@@ -544,12 +515,6 @@ Seja direto: máximo 3-4 parágrafos por resposta. Use **negrito** para destacar
 
   window.FZChatScreen = { init, enviarAlerta, ajustarAltura, getSessao, perguntar, abrirConversa, onAlerta };
 
-  // ---- deep-link do modal P1 (alerta-critico.js) e do rail (alert-rail.js) ----
-  // É AQUI, e só aqui, que um alarme vira pergunta pra IA — quando o operador clicou
-  // "Analisar com IA" / "Perguntar ao Assistente". Abre a tela unificada na aba
-  // "Conversa", na conversa da origem do alarme, com um card dos fatos e a análise.
-  // O mesmo alarme pedido duas vezes (modal e depois rail) não gera segunda análise:
-  // só reabre a conversa onde ela já está.
   const alertasAnalisados = new Set();
 
   function rotuloOrigem(origem) {
@@ -587,7 +552,6 @@ Seja direto: máximo 3-4 parágrafos por resposta. Use **negrito** para destacar
     const fonte = rotuloOrigem(origem);
     const operador = !!(window.FZPerfil && window.FZPerfil.isOperador && window.FZPerfil.isOperador());
 
-    // o card que fica na conversa: só os fatos do alarme
     const html = `
       <div class="fz-chat-alerta-card">
         <div class="fz-chat-alerta-head">
@@ -607,8 +571,6 @@ Seja direto: máximo 3-4 parágrafos por resposta. Use **negrito** para destacar
           : 'Pedido à IA: causa provável · risco · ação corretiva (imediata e preventiva).'}</div>
       </div>`;
 
-    // o que a IA recebe: os mesmos fatos + a instrução. O veredito da rede neural
-    // (sobre a leitura gravada no alarme) e os dados de placa entram em enviar().
     const fatos = [
       `[ALARME ${payload.prioridade || ''}] ${payload.titulo || 'Alerta'}`,
       fonte ? `Fonte: ${fonte}` : '',
@@ -625,7 +587,7 @@ Seja direto: máximo 3-4 parágrafos por resposta. Use **negrito** para destacar
     const s = sessaoAtual();
     const p = enviar(`${payload.prioridade || 'Alerta'} — ${payload.titulo || ''} ${eixoNome || ''}`.trim(),
                      { isAlerta: true, html, prompt, leitura: payload.leitura || null, critico });
-    // widgets embutidos (modal de eixo em forzy.js) acompanham sem polling
+
     notificarAlerta(origem, s);
     p.then(() => notificarAlerta(origem, s)).catch(() => {});
   }

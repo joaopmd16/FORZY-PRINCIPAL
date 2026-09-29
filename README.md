@@ -6,6 +6,20 @@ Sistema de monitoramento industrial de bombas centrífugas. Dashboard **HTML + C
 
 ---
 
+## Integrantes
+
+Projeto acadêmico FIAP × Forzy-Promon.
+
+| Nome | RM |
+|---|---|
+| Arthur Baptista dos Santos | 565346 |
+| João Pedro de Moura Dutra Franco | 561738 |
+| Nelson Félix Neto | 565603 |
+| Pietro Boroto Rodrigues | 562407 |
+| Vitor Soares Gonçalves | 566181 |
+
+---
+
 ## Stack
 
 | Camada | Tecnologia |

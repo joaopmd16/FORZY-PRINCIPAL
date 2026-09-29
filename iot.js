@@ -1,7 +1,18 @@
 /* ===================================================================
-   FORZY · IoT ESP32 — leituras ao vivo
-   Simulação (sintética) ou ESP32 Real via Web Serial API (best-effort).
+   PROJETO FORZY - Sistema de Monitoramento Industrial
+   Trabalho academico FIAP + Forzy-Promon
+
+   Integrantes:
+   - Arthur Baptista dos Santos       (RM 565346)
+   - Joao Pedro de Moura Dutra Franco (RM 561738)
+   - Nelson Felix Neto                (RM 565603)
+   - Pietro Boroto Rodrigues          (RM 562407)
+   - Vitor Soares Goncalves           (RM 566181)
+
+   Arquivo: iot.js
+   O que faz: tela de Sensores (conexao com o ESP32)
    =================================================================== */
+
 (function () {
   const S = window.FZStore;
   const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -11,12 +22,12 @@
   const NOME = ['NORMAL', 'ALERTA', 'ALARME'];
   const flagV = v => (v >= 4.5 ? 2 : v >= 1.8 ? 1 : 0);
   function gauss(mu, sd) { let u = 0, v = 0; while (!u) u = Math.random(); while (!v) v = Math.random(); return mu + sd * Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
-  // Ativos do Dataset Forzy (M1/M2/M3) são histórico — NUNCA podem receber gravação do ESP.
+
   const isForzyAsset = a => !!a && (a.origem === 'forzy' || ['FZ-M1', 'FZ-M2', 'FZ-M3'].includes(a.tag));
   const ativoGravavel = cod => { if (!cod || !S) return false; return !isForzyAsset(S.getAtivoPorCodigo(cod)); };
 
-  const BRIDGE_URL = 'http://localhost:8766/data';   // serial_bridge.py
-  const CLOUD_LOG_URL = 'dados/forzy_cloud_log.csv';  // daily_bridge.py (Forzy Cloud S1/S2)
+  const BRIDGE_URL = 'http://localhost:8766/data';
+  const CLOUD_LOG_URL = 'dados/forzy_cloud_log.csv';
   const st = { modo: 'sim', porta: 'COM5', baud: 115200, hist: [], simT: 0, timer: null,
     serial: { supported: ('serial' in navigator), port: null, reader: null, connected: false, buf: [], status: 'idle' },
     bridge: { timer: null, connected: false, lastTs: 0 },
@@ -24,7 +35,6 @@
     ativo: null };
   const last = () => st.hist.length ? st.hist[st.hist.length - 1] : { vel: 0, apeak: 0, arms: 0, temp: 0, flag: 0 };
 
-  /* ----------  config bar  ---------- */
   function renderConfig() {
     const c = el('iotConfig'); if (!c) return;
     const ativos = S ? S.getAtivosIndustrial() : [];
@@ -63,9 +73,9 @@
     const bd = c.querySelector('[data-act="baud"]'); if (bd) bd.addEventListener('change', e => st.baud = +e.target.value);
     const at = c.querySelector('[data-act="ativo"]'); if (at) {
       const gravaveis = ativos.filter(a => !isForzyAsset(a));
-      // null = nunca escolhido → pré-seleciona 1º gravável; '' = "não gravar" explícito (respeitado)
+
       if (st.ativo === null) st.ativo = gravaveis.length ? gravaveis[0].codigo : '';
-      else if (st.ativo && !gravaveis.some(a => a.codigo === st.ativo)) st.ativo = '';  // ativo sumiu → não gravar
+      else if (st.ativo && !gravaveis.some(a => a.codigo === st.ativo)) st.ativo = '';
       at.value = st.ativo;
       at.addEventListener('change', e => { st.ativo = e.target.value; renderCards(); });
     }
@@ -74,7 +84,6 @@
     const cr = c.querySelector('[data-act="cloud-refresh"]'); if (cr) cr.addEventListener('click', loadCloudLog);
   }
 
-  /* ----------  cards (status / protocolo / hardware)  ---------- */
   function renderCards() {
     const c = el('iotCards'); if (!c) return;
     let dot, txt, cor, sub;
@@ -105,9 +114,7 @@
           <button id="iot-test-p2" style="font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid var(--fz-warn);color:var(--fz-warn);background:transparent;cursor:pointer;margin-right:6px">⚠ Simular Alerta P2</button>
           <button id="iot-test-p1" style="font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid var(--fz-bad);color:var(--fz-bad);background:transparent;cursor:pointer">🔴 Simular Alarme P1</button>
         </div></div>`;
-    // Passa pelo MESMO caminho de um alarme real (topbar.js): log, sininho, rail e
-    // alerta "na cara". A IA só entra se o operador pedir no modal ou no rail.
-    // A hora no texto deixa cada clique único — dá pra repetir a demo sem recarregar.
+
     const simular = (p1, vel, temp, arms) => window.FZAlertas?.simular?.({
       prioridade: p1 ? 'P1 - Crítico' : 'P2 - Alto',
       titulo: p1 ? 'Vibração Crítica' : 'Vibração Alta',
@@ -120,7 +127,6 @@
     document.getElementById('iot-test-p1')?.addEventListener('click', () => simular(true, 6.8, 44, 0.052));
   }
 
-  /* ----------  Forzy Cloud (S1/S2 via daily_bridge.py)  ---------- */
   function parseCloudCsv(text) {
     const lines = text.trim().split(/\r?\n/);
     if (lines.length < 2) return [];
@@ -188,7 +194,6 @@
     const xyz = el('iotXyz'); if (xyz) xyz.innerHTML = '';
   }
 
-  /* ----------  KPIs + charts  ---------- */
   function renderLive() {
     if (st.modo === 'cloud') { renderCloudLive(); return; }
     const [cOk, cW, cB] = COR(); const cols = [cOk, cW, cB];
@@ -226,7 +231,6 @@
       <div class="fz-chart">${xyzChart()}</div></div>` : '';
   }
 
-  // Média móvel para suavizar curvas
   function smooth(arr, w = 5) {
     if (arr.length < 2) return arr;
     return arr.map((_, i) => {
@@ -280,7 +284,6 @@
       <path d="${pathOf(az, X, Y)}" fill="none" stroke="#3498db" stroke-width="1.4"/></svg>`;
   }
 
-  /* ----------  Bridge Python (serial_bridge.py → HTTP polling)  ---------- */
   function toggleBridge() {
     if (st.bridge.connected) { stopBridge(); renderConfig(); renderCards(); return; }
     startBridge();
@@ -291,7 +294,7 @@
     st.hist = []; st.modo = 'real';
     renderConfig(); renderCards(); renderLive();
     st.bridge.timer = setInterval(pollBridge, 1000);
-    pollBridge();   // imediato
+    pollBridge();
   }
   function stopBridge() {
     if (st.bridge.timer) { clearInterval(st.bridge.timer); st.bridge.timer = null; }
@@ -305,7 +308,7 @@
         if (st.bridge.connected) { st.bridge.connected = false; renderCards(); }
         return;
       }
-      if (j.ts === st.bridge.lastTs) return;   // sem dado novo
+      if (j.ts === st.bridge.lastTs) return;
       st.bridge.lastTs = j.ts;
       st.bridge.connected = true;
       st.bridge.rxCount = (st.bridge.rxCount || 0) + 1;
@@ -327,7 +330,6 @@
     }
   }
 
-  /* ----------  simulação  ---------- */
   function stepSim() {
     st.simT += 2;
     const base = 1.1 + 0.9 * Math.sin(st.simT / 30);
@@ -342,21 +344,18 @@
     st.hist.push(r);
     if (st.hist.length > 150) st.hist = st.hist.slice(-150);
 
-    // dispara alerta automático na IA quando flag sobe (0→1, 0→2, 1→2)
     if (r.flag > _flagAnterior) {
       if (window.FZAssistant && typeof window.FZAssistant.alertarIoT === 'function') {
         window.FZAssistant.alertarIoT({ vel: r.vel, temp: r.temp, flag: r.flag, arms: r.arms });
       }
     }
-    // reseta o controle quando volta ao normal
+
     if (r.flag === 0 && _flagAnterior > 0) {
       if (window.FZAssistant) window.FZAssistant.resetarAlertaIoT();
     }
     _flagAnterior = r.flag;
   }
 
-  /* ----------  ESP32 real (Web Serial)  ---------- */
-  // autoReconnect=true: chamado pelo connect event após reset — não espera boot (já bootou)
   async function openPort(port, autoReconnect = false) {
     if (st.serial.connected) return true;
     try {
@@ -372,12 +371,9 @@
         } else { throw e1; }
       }
 
-      // Baixa DTR/RTS imediatamente após open — evita que o ESP32-CAM resete
-      // (mesmo fix que o pyserial faz com dsrdtr=False / setDTR(False))
       try { await port.setSignals({ dataTerminalReady: false, requestToSend: false }); } catch (_) {}
-      await new Promise(r => setTimeout(r, 300));   // estabiliza a linha
+      await new Promise(r => setTimeout(r, 300));
 
-      // Verifica se o ESP32 sobreviveu sem reset (readable ainda vivo)
       if (!port.readable) {
         console.log('[IoT ESP32] porta fechou após open — aguardando connect event...');
         return true;
@@ -404,7 +400,7 @@
     if (!st.serial.supported) { st.serial.status = 'unsupported'; renderCards(); return; }
     st.serial.lastError = null;
     let port;
-    try { port = await navigator.serial.requestPort(); }   // janela do navegador (1ª vez)
+    try { port = await navigator.serial.requestPort(); }
     catch (e) {
       console.error('[IoT ESP32] seleção de porta cancelada/negada:', e);
       st.serial.status = 'idle'; st.serial.lastError = (e && e.message) || String(e);
@@ -412,7 +408,7 @@
     }
     await openPort(port);
   }
-  // Plug-and-play: reconecta sozinho a portas JÁ autorizadas (sem clique, sem janela).
+
   async function autoConnect() {
     if (!st.serial.supported || st.serial.connected) return;
     try {
@@ -423,7 +419,7 @@
   async function disconnectSerial() {
     st.serial.connected = false;
     try { if (st.serial.reader) await st.serial.reader.cancel(); } catch (e) {}
-    // releaseLock é feito pelo finally do readLoop após cancel()
+
     try { if (st.serial.port && st.serial.port.readable && !st.serial.port.readable.locked)
       st.serial.reader && st.serial.reader.releaseLock(); } catch (e) {}
     try { if (st.serial.port) await st.serial.port.close(); } catch (e) {}
@@ -449,8 +445,7 @@
       while (st.serial.connected) {
         const { value, done } = await reader.read();
         if (done) {
-          // done=true: o evento disconnect fechou a porta enquanto aguardávamos (race condition DTR)
-          // tratar igual a "device has been lost" → aguardar boot e reconectar
+
           needsReconnect = true;
           console.log('[IoT ESP32] stream encerrado (done=true) — aguardando boot ESP32 e reconectando...');
           break;
@@ -473,7 +468,7 @@
     } finally {
       try { reader.releaseLock(); } catch (_) {}
       st.serial.reader = null;
-      // Atualiza estado — o connect event cuida da reconexão quando o ESP32 voltar
+
       if (st.serial.connected) { st.serial.connected = false; renderCards(); }
       if (needsReconnect) console.log('[IoT ESP32] aguardando ESP32 reconectar (connect event)...');
     }
@@ -483,28 +478,26 @@
     if (!s) return;
     st.serial.rxCount = (st.serial.rxCount || 0) + 1;
     if (st.serial.rxCount <= 20 || st.serial.rxCount % 25 === 0) console.log('[IoT ESP32] linha recebida #' + st.serial.rxCount + ':', s);
-    if (!s.startsWith('{')) { st.serial.rxBad = (st.serial.rxBad || 0) + 1; return; }   // firmware envia 1 objeto JSON por linha (~1 Hz)
+    if (!s.startsWith('{')) { st.serial.rxBad = (st.serial.rxBad || 0) + 1; return; }
     let d; try { d = JSON.parse(s); } catch (e) { st.serial.rxBad = (st.serial.rxBad || 0) + 1; console.warn('[IoT ESP32] JSON inválido:', s, e.message); return; }
     if (d.error) { console.warn('[IoT ESP32] firmware reportou erro:', d.error); return; }
     if (d.ax_rms == null || d.ay_rms == null || d.az_rms == null) { st.serial.rxBad = (st.serial.rxBad || 0) + 1; console.warn('[IoT ESP32] JSON sem ax_rms/ay_rms/az_rms:', d); return; }
     const AX = +d.ax_rms, AY = +d.ay_rms, AZ = +d.az_rms;
     const arms = d.mag_rms != null ? +d.mag_rms : Math.sqrt(AX * AX + AY * AY + AZ * AZ);
-    // Usa freq_hz do firmware; se vier 0 ou ausente cai para 50 Hz (padrão ISO)
+
     const freq = (d.freq_hz && d.freq_hz > 0.5) ? +d.freq_hz : 50.0;
     const vel = arms * 9806.65 / (2 * Math.PI * freq);
     const apeak = Math.sqrt(AX * AX + AY * AY + AZ * AZ);
     const temp = d.temp_c != null ? +d.temp_c : 0;
     push({ vel: +vel.toFixed(4), apeak: +apeak.toFixed(4), arms: +arms.toFixed(4), temp: +temp.toFixed(2), flag: flagV(vel), AX, AY, AZ });
-    // grava TODAS as leituras na "pasta" do ativo selecionado.
-    // Bloqueado para ativos do Dataset Forzy e quando "Não gravar" está escolhido.
+
     if (S && ativoGravavel(st.ativo)) {
       S.insertLeitura(st.ativo, { fonte: 'esp32', vibracao_mm_s: +vel.toFixed(4), apeak_g: +apeak.toFixed(4), ax_rms: AX, ay_rms: AY, az_rms: AZ, mag_rms: +arms.toFixed(4), flag_anomalia: flagV(vel), coletado_em: new Date().toISOString() });
       st.savedCount = (st.savedCount || 0) + 1;
-      if (st.savedCount % 10 === 0) renderCards();   // atualiza o contador no card a cada 10
+      if (st.savedCount % 10 === 0) renderCards();
     }
   }
 
-  /* ----------  help  ---------- */
   function renderHelp() {
     const h = el('iotHelp'); if (!h) return;
     h.innerHTML = `<summary>Como conectar o hardware real</summary>
@@ -518,23 +511,21 @@
       </div>`;
   }
 
-  /* ----------  auto-bridge: tenta conectar o bridge assim que a tela IoT abre  ---------- */
   async function tryAutoBridge() {
-    if (st.bridge.connected || st.bridge.timer) return;   // já conectado
+    if (st.bridge.connected || st.bridge.timer) return;
     try {
       const r = await fetch(BRIDGE_URL, { signal: AbortSignal.timeout(1500) });
       const j = await r.json();
       if (j.status === 'online') {
-        // bridge está no ar → muda para modo real e começa polling
+
         st.modo = 'real';
         startBridge();
       }
     } catch (_) {
-      // bridge não encontrado — fica em simulação silenciosamente
+
     }
   }
 
-  /* ----------  loop  ---------- */
   const iotOn = () => document.getElementById('screen-iot').classList.contains('active');
   function tick() {
     if (!iotOn()) return;
@@ -549,19 +540,15 @@
   function init() {
     if (!el('iotConfig')) return;
     renderConfig(); renderCards(); renderHelp();
-    // semente de histórico para o gráfico não nascer vazio
+
     for (let i = 0; i < 30; i++) stepSim();
     renderLive();
     st.timer = setInterval(tick, 2000);
 
-    // Auto-bridge: tenta conectar ao bridge na abertura da tela
     tryAutoBridge();
 
-    // Forzy Cloud: carrega o log em background, independente da tela ativa
-    // (o Dashboard também consome via window.FZCloud, mesmo sem visitar a tela IoT)
     loadCloudLog();
 
-    // Plug-and-play Web Serial (fallback)
     if (st.serial.supported) {
       navigator.serial.addEventListener('connect', e => { openPort(e.target, true); });
       navigator.serial.addEventListener('disconnect', async () => {
@@ -570,13 +557,13 @@
       autoConnect();
     }
   }
-  // Expõe estado ao vivo para o Dashboard (fonte "ESP32")
+
   window.FZIoT = {
     isConnected: () => st.serial.connected || st.bridge.connected,
     getHist:     () => st.hist,
     getLast:     () => st.hist.length ? st.hist[st.hist.length - 1] : null,
   };
-  // Expõe o log da Forzy Cloud para o Dashboard (fonte "Forzy Cloud")
+
   window.FZCloud = {
     isLoaded: () => !!st.cloud.rows.length,
     getRows:  sensor => sensor ? st.cloud.rows.filter(r => r.sensor === sensor) : st.cloud.rows,

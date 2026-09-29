@@ -1,11 +1,18 @@
 /* ===================================================================
-   FORZY · Análise de Causa Raiz (RCA)  —  sub-aba de #screen-diagnostico
-   Reconstrói a linha do tempo do evento a partir da série histórica
-   (window.FORZY): primeiro sinal, mudanças abruptas, detecção. Monta
-   relatório estruturado (o quê / por quê / estopim) + manual de conserto,
-   com data e hora reais do dataset. Export PDF (jsPDF já no vision.html).
-   Refino opcional por IA (mesma chave do Copiloto), se configurada.
+   PROJETO FORZY - Sistema de Monitoramento Industrial
+   Trabalho academico FIAP + Forzy-Promon
+
+   Integrantes:
+   - Arthur Baptista dos Santos       (RM 565346)
+   - Joao Pedro de Moura Dutra Franco (RM 561738)
+   - Nelson Felix Neto                (RM 565603)
+   - Pietro Boroto Rodrigues          (RM 562407)
+   - Vitor Soares Goncalves           (RM 566181)
+
+   Arquivo: rca.js
+   O que faz: sub-aba de Causa Raiz (RCA) do motor
    =================================================================== */
+
 (function () {
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -27,7 +34,6 @@
   const hhmmss = d => d ? d.toLocaleTimeString('pt-BR') : '—';
   const dm = d => d ? d.toLocaleString('pt-BR') : '—';
 
-  /* ----------  reconstrução da linha do tempo  ---------- */
   function analisar(eixo) {
     const F = window.FORZY;
     if (!F || !F[eixo]) return null;
@@ -135,7 +141,6 @@
     };
   }
 
-  /* ----------  relatório  ---------- */
   function reportObj(a) {
     const at = _ativo ? (window.FZStore.getAtivoPorCodigo(_ativo) || {}) : {};
     return {
@@ -287,9 +292,8 @@
     }));
   }
 
-  /* ----------  log  ---------- */
   function lerLog() { try { return JSON.parse(localStorage.getItem(RCA_LOG) || '[]'); } catch (e) { return []; } }
-  function gravarLog(o) { const l = lerLog(); l.unshift(o); try { localStorage.setItem(RCA_LOG, JSON.stringify(l.slice(0, 80))); } catch (e) { /* noop */ } }
+  function gravarLog(o) { const l = lerLog(); l.unshift(o); try { localStorage.setItem(RCA_LOG, JSON.stringify(l.slice(0, 80))); } catch (e) {  } }
   function renderHist() {
     const host = _root && _root.querySelector('#rcHist'); if (!host) return;
     const l = lerLog();
@@ -298,7 +302,6 @@
       <tbody>${l.map(o => `<tr><td>${esc(new Date(o.gerado_em).toLocaleString('pt-BR'))}</td><td>${esc(o.ativo)} · ${esc(o.eixo)}</td><td>${esc(o.evento)}</td><td>${esc(o.severidade)}</td></tr>`).join('')}</tbody></table>`;
   }
 
-  /* ----------  texto plano + PDF  ---------- */
   function texto(a) {
     const L = [];
     L.push(`ANÁLISE DE CAUSA RAIZ — ${_rep.ativo} · ${_rep.eixo}`);
