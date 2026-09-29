@@ -1,36 +1,31 @@
-/* ===================================================================
-   PROJETO FORZY - Sistema de Monitoramento Industrial
-   Trabalho academico FIAP + Forzy-Promon
-
-   Integrantes:
-   - Arthur Baptista dos Santos       (RM 565346)
-   - Joao Pedro de Moura Dutra Franco (RM 561738)
-   - Nelson Felix Neto                (RM 565603)
-   - Pietro Boroto Rodrigues          (RM 562407)
-   - Vitor Soares Goncalves           (RM 566181)
-
-   Arquivo: gestao.js
-   O que faz: telas de Navegacao, RPA e Pipeline
-   =================================================================== */
+/* gestao.js: telas de Navegacao, RPA e Pipeline */
 
 (function () {
   const S = window.FZStore;
   if (!S) { console.error('gestao.js: FZStore ausente'); return; }
 
   const STATUS = ['ativo', 'manutencao', 'inativo'];
+  // atalho pra pegar um elemento pelo id
   const el = id => document.getElementById(id);
+  // protege o texto contra HTML/XSS antes de ir pro innerHTML
   const esc = s => (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const fmt = (v, d = 2) => (v == null || v === '' || v !== v) ? '—' : Number(v).toFixed(d);
+  // le o valor de uma variavel CSS (cor do tema)
   const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  // espera alguns milissegundos
   const sleep = ms => new Promise(r => setTimeout(r, ms));
+  // numero aleatorio com distribuicao normal (usado na simulacao)
   function gauss(mu, sd) { let u = 0, v = 0; while (!u) u = Math.random(); while (!v) v = Math.random(); return mu + sd * Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
 
+  // lista de checkboxes
   function checklist(id, codigos, checked) {
     return `<div class="fz-checklist" id="${id}">${codigos.map(c =>
       `<label class="fz-check"><input type="checkbox" value="${esc(c)}" ${checked && checked.includes(c) ? 'checked' : ''}><span>${esc(c)}</span></label>`).join('')}</div>`;
   }
+  // valores marcados
   const checkedVals = id => [...el(id).querySelectorAll('input:checked')].map(i => i.value);
 
+  // caixa de resultado
   function resultBox(res) {
     const cor = res.erros === 0 ? cssVar('--fz-ok') : cssVar('--fz-warn');
     return `<div class="fz-card" style="border-left:3px solid ${cor};margin-top:12px">
@@ -41,6 +36,7 @@
         </div></details></div>`;
   }
 
+  // mini mapa da planta
   function miniMap(points, selCod) {
     const pts = points.filter(p => p.lat && p.lon);
     if (!pts.length) return `<div class="fz-empty">Coordenadas não cadastradas.</div>`;
@@ -60,6 +56,7 @@
     }).join('');
     return `<div class="fz-minimap"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${grid}${pins}</svg></div>`;
   }
+  // legenda do mapa
   function mapLegend() {
     return `<div class="fz-legend" style="margin-top:8px">
       <span><i style="background:${cssVar('--fz-ok')}"></i>Ativo</span>
@@ -69,6 +66,7 @@
 
   const nav = { planta: null, area: null, ativo: null, query: '', level: 'plantas' };
 
+  // busca por texto livre
   function buscaNLP(query, ativos) {
     const toks = query.toLowerCase().split(/\s+/).filter(t => t.length >= 2);
     if (!toks.length) return [];
@@ -83,6 +81,7 @@
     return res.map(r => r[1]);
   }
 
+  // trilha de navegacao
   function breadcrumb() {
     const plantas = S.getPlantas();
     const pl = plantas.find(p => p.id === nav.planta);
@@ -102,6 +101,7 @@
     </nav>`;
   }
 
+  // mini grafico de linha
   function sparkLine(vals, cor) {
     if (!vals.length) return '';
     const W = 120, H = 36, pad = 3;
@@ -112,11 +112,13 @@
     return `<svg viewBox="0 0 ${W} ${H}" style="width:${W}px;height:${H}px;vertical-align:middle"><path d="${d}" fill="none" stroke="${cor}" stroke-width="1.8"/></svg>`;
   }
 
+  // etiqueta colorida de status
   function badge(st) {
     const c = S.statusColor(st);
     return `<span class="fz-badge" style="background:${c}22;border:1px solid ${c};color:${c}">${S.statusLabel(st)}</span>`;
   }
 
+  // navegacao por niveis
   function renderNavDrill() {
     const wrap = el('navDrill'); if (!wrap) return;
     wrap.innerHTML = breadcrumb() + `<div id="navDrillContent"></div>`;
@@ -130,6 +132,7 @@
     else if (nav.level === 'detalhe') renderDetalheAtivo();
   }
 
+  // lista de plantas
   function renderPlantas() {
     const box = el('navDrillContent'); if (!box) return;
     const plantas = S.getPlantas();
@@ -171,6 +174,7 @@
     );
   }
 
+  // lista de areas
   function renderAreas() {
     const box = el('navDrillContent'); if (!box) return;
     const areas = S.getAreas(nav.planta);
@@ -210,6 +214,7 @@
     );
   }
 
+  // lista de ativos
   function renderAtivos() {
     const box = el('navDrillContent'); if (!box) return;
     const ativos = S.getAtivosIndustrial(nav.area);
@@ -253,6 +258,7 @@
     );
   }
 
+  // detalhe do ativo
   function renderDetalheAtivo() {
     const box = el('navDrillContent'); if (!box) return;
     if (!nav.ativo) { box.innerHTML = `<div class="fz-empty">Ativo não encontrado.</div>`; return; }
@@ -375,6 +381,7 @@
       </div>`}`;
   }
 
+  // resultados da busca
   function renderNavBusca() {
     const c = el('navBusca'); if (!c) return;
     c.innerHTML = `
@@ -387,6 +394,7 @@
     el('navLimpar').addEventListener('click', () => { nav.query = ''; el('navQ').value = ''; drawNavResultados(); });
     if (nav.query) drawNavResultados();
   }
+  // desenha os resultados da busca
   function drawNavResultados() {
     const box = el('navResultados'); if (!box) return;
     if (!nav.query.trim()) { box.innerHTML = ''; return; }
@@ -415,12 +423,14 @@
     );
   }
 
+  // liga a tela Navegacao
   function initNav() {
     if (!el('navBusca')) return;
     renderNavBusca();
     renderNavDrill();
   }
 
+  // troca a aba do RPA
   function rpaSwitch(name) {
     document.querySelectorAll('#rpaTabs .fz-tab').forEach(b => b.classList.toggle('active', b.dataset.rtab === name));
     document.querySelectorAll('#screen-rpa .fz-cpanel').forEach(p => p.classList.toggle('active', p.dataset.rpanel === name));
@@ -430,6 +440,7 @@
     if (name === 'logs') rpaLogs();
   }
 
+  // associa leitura ao ativo pela tag
   function rpaAssoc(msg) {
     const p = el('rpaAssoc'); if (!p) return;
     const cods = S.getAtivosIndustrial().map(a => a.codigo);
@@ -460,6 +471,7 @@
     });
   }
 
+  // status da execucao do RPA
   function rpaStatus() {
     const p = el('rpaStatus'); if (!p) return;
     const ativos = S.getAtivosIndustrial();
@@ -492,6 +504,7 @@
     });
   }
 
+  // gera uma leitura de teste
   function gerarLeitura(a) {
     const anom = Math.random() < 0.05;
     const vel = anom ? 5 + Math.random() * 4 : Math.max(0, gauss(1.2, 0.4));
@@ -501,6 +514,7 @@
       ax_rms: gauss(0.02, 0.005), ay_rms: gauss(0.98, 0.01), az_rms: gauss(0.15, 0.01), _vel: vel, _anom: anom };
   }
 
+  // roda a coleta do RPA
   function rpaColeta() {
     const p = el('rpaColeta'); if (!p) return;
     const cods = S.getAtivosIndustrial().map(a => a.codigo);
@@ -527,6 +541,7 @@
     });
   }
 
+  // logs do RPA
   function rpaLogs() {
     const p = el('rpaLogs'); if (!p) return;
     const logs = S.getLogs(200), hist = S.getHistorico(200);
@@ -545,12 +560,14 @@
     }));
   }
 
+  // liga a tela RPA
   function initRpa() {
     const t = el('rpaTabs'); if (!t) return;
     t.querySelectorAll('.fz-tab').forEach(b => b.addEventListener('click', () => rpaSwitch(b.dataset.rtab)));
     rpaAssoc();
   }
 
+  // troca a aba do Pipeline
   function pipeSwitch(name) {
     document.querySelectorAll('#pipeTabs .fz-tab').forEach(b => b.classList.toggle('active', b.dataset.ptab === name));
     document.querySelectorAll('#screen-pipeline .fz-cpanel').forEach(p => p.classList.toggle('active', p.dataset.ppanel === name));
@@ -559,6 +576,7 @@
     if (name === 'ocr') pipeOcr();
   }
 
+  // executa o pipeline
   function pipeExec() {
     const p = el('pipeExec'); if (!p) return;
     const cods = S.getAtivosIndustrial().map(a => a.codigo);
@@ -594,8 +612,10 @@
         </div></div>`;
     });
   }
+  // celula de indicador
   const kpiCell = (l, v, c) => `<div class="fz-kpi-cell"><div class="k-lbl">${l}</div><div class="k-val" style="color:${c}">${v}</div></div>`;
 
+  // mapa do pipeline
   function pipeMapa() {
     const p = el('pipeMapa'); if (!p) return;
     const areas = S.getAreas();
@@ -621,6 +641,7 @@
 
   const OCR = { campos: null, imagemUpload: null };
 
+  // converte SVG em imagem PNG
   function svgToPngDataUrl(svgMarkup, w = 520, h = 300) {
     return new Promise((resolve, reject) => {
       const blob = new Blob([svgMarkup], { type: 'image/svg+xml;charset=utf-8' });
@@ -638,6 +659,7 @@
     });
   }
 
+  // le a plaqueta com OCR e IA
   function pipeOcr() {
     const p = el('pipeOcr'); if (!p) return;
     const cods = S.getAtivosIndustrial().map(a => a.codigo);
@@ -742,7 +764,9 @@ Se um campo não estiver legível ou não existir na imagem, use null nesse camp
       }
     });
   }
+  // campo lido pelo OCR
   const ocrField = (l, v) => `<div><span style="color:var(--text-2)">${l}:</span> <span style="color:var(--text);font-weight:600">${v == null ? '—' : esc(v)}</span></div>`;
+  // desenho da plaqueta
   function nameplateSVG() {
     return `<svg xmlns="http://www.w3.org/2000/svg" class="fz-nameplate" viewBox="0 0 520 300" preserveAspectRatio="xMidYMid meet">
       <rect x="0" y="0" width="520" height="300" rx="8" fill="#1e2d46"/>
@@ -761,12 +785,14 @@ Se um campo não estiver legível ou não existir na imagem, use null nesse camp
     </svg>`;
   }
 
+  // liga a tela Pipeline
   function initPipe() {
     const t = el('pipeTabs'); if (!t) return;
     t.querySelectorAll('.fz-tab').forEach(b => b.addEventListener('click', () => pipeSwitch(b.dataset.ptab)));
     pipeExec();
   }
 
+  // liga a tela (roda so na primeira visita)
   function init() { initNav(); initRpa(); initPipe(); if (window.lucide) lucide.createIcons(); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();

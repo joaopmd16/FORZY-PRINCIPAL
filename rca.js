@@ -1,19 +1,7 @@
-/* ===================================================================
-   PROJETO FORZY - Sistema de Monitoramento Industrial
-   Trabalho academico FIAP + Forzy-Promon
-
-   Integrantes:
-   - Arthur Baptista dos Santos       (RM 565346)
-   - Joao Pedro de Moura Dutra Franco (RM 561738)
-   - Nelson Felix Neto                (RM 565603)
-   - Pietro Boroto Rodrigues          (RM 562407)
-   - Vitor Soares Goncalves           (RM 566181)
-
-   Arquivo: rca.js
-   O que faz: sub-aba de Causa Raiz (RCA) do motor
-   =================================================================== */
+/* rca.js: sub-aba de Causa Raiz (RCA) do motor */
 
 (function () {
+  // protege o texto contra HTML/XSS antes de ir pro innerHTML
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const fmt = (v, d = 2) => (v == null || v !== v) ? '—' : Number(v).toFixed(d);
@@ -21,9 +9,11 @@
 
   let _root = null, _eixo = 'm1', _ativo = null, _rep = null;
 
+  // lista os ativos cadastrados
   function ativos() {
     try { return (window.FZStore && window.FZStore.getAtivosIndustrial()) || []; } catch (e) { return []; }
   }
+  // texto de quando o evento aconteceu
   function quando(F, i) {
     try {
       const base = Date.parse(F.meta.t0);
@@ -31,9 +21,12 @@
       return new Date(base + seg * 1000);
     } catch (e) { return null; }
   }
+  // formata hora:min:seg
   const hhmmss = d => d ? d.toLocaleTimeString('pt-BR') : '—';
+  // formata dia/mes
   const dm = d => d ? d.toLocaleString('pt-BR') : '—';
 
+  // monta a linha do tempo ate o estopim
   function analisar(eixo) {
     const F = window.FORZY;
     if (!F || !F[eixo]) return null;
@@ -141,6 +134,7 @@
     };
   }
 
+  // objeto do relatorio de causa raiz
   function reportObj(a) {
     const at = _ativo ? (window.FZStore.getAtivoPorCodigo(_ativo) || {}) : {};
     return {
@@ -179,6 +173,7 @@
     };
   }
 
+  // desenha a tela
   function render() {
     if (!_root) return;
     if (!window.FORZY) { _root.innerHTML = '<div class="fz-card">Dataset não carregado.</div>'; return; }
@@ -213,6 +208,7 @@
     renderHist();
   }
 
+  // gera o relatorio
   function gerar() {
     const a = analisar(_eixo);
     if (!a) { _root.querySelector('#rcOut').innerHTML = '<div class="fz-card">Sem dados para o eixo selecionado.</div>'; return; }
@@ -223,6 +219,7 @@
     _root.querySelector('#rcOut').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
+  // desenha o relatorio
   function renderReport(a) {
     const host = _root.querySelector('#rcOut');
     const cor = a.diag.prioridade === 'P1' ? 'var(--fz-bad)' : a.diag.prioridade === 'P2' ? 'var(--fz-warn)' : 'var(--fz-ok)';
@@ -292,8 +289,11 @@
     }));
   }
 
+  // le o historico salvo no navegador
   function lerLog() { try { return JSON.parse(localStorage.getItem(RCA_LOG) || '[]'); } catch (e) { return []; } }
+  // salva o historico no navegador
   function gravarLog(o) { const l = lerLog(); l.unshift(o); try { localStorage.setItem(RCA_LOG, JSON.stringify(l.slice(0, 80))); } catch (e) {  } }
+  // lista de relatorios gerados
   function renderHist() {
     const host = _root && _root.querySelector('#rcHist'); if (!host) return;
     const l = lerLog();
@@ -302,6 +302,7 @@
       <tbody>${l.map(o => `<tr><td>${esc(new Date(o.gerado_em).toLocaleString('pt-BR'))}</td><td>${esc(o.ativo)} · ${esc(o.eixo)}</td><td>${esc(o.evento)}</td><td>${esc(o.severidade)}</td></tr>`).join('')}</tbody></table>`;
   }
 
+  // relatorio em texto
   function texto(a) {
     const L = [];
     L.push(`ANÁLISE DE CAUSA RAIZ — ${_rep.ativo} · ${_rep.eixo}`);
@@ -330,6 +331,7 @@
     return L.join('\n');
   }
 
+  // abre o relatorio pra imprimir em PDF
   function exportarPDF(a) {
     const ctor = window.jspdf && window.jspdf.jsPDF;
     if (!ctor) { alert('jsPDF não carregou'); return; }
@@ -354,6 +356,7 @@
     doc.save(`RCA-${_rep.ativo}-${new Date().toISOString().slice(0, 10)}.pdf`);
   }
 
+  // pede parecer da IA (so no clique)
   async function refinarIA(host) {
     const btn = host.querySelector('#rcIA'); const key = window.FORZY_OPENAI_KEY;
     if (!key) return;
@@ -378,6 +381,7 @@
     } finally { btn.disabled = false; btn.textContent = 'Refinar com IA'; }
   }
 
+  // liga a tela (roda so na primeira visita)
   function init() {
     _root = document.getElementById('rcaRoot');
     if (!_root) return;

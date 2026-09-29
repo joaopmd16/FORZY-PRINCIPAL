@@ -1,29 +1,19 @@
-/* ===================================================================
-   PROJETO FORZY - Sistema de Monitoramento Industrial
-   Trabalho academico FIAP + Forzy-Promon
-
-   Integrantes:
-   - Arthur Baptista dos Santos       (RM 565346)
-   - Joao Pedro de Moura Dutra Franco (RM 561738)
-   - Nelson Felix Neto                (RM 565603)
-   - Pietro Boroto Rodrigues          (RM 562407)
-   - Vitor Soares Goncalves           (RM 566181)
-
-   Arquivo: preditivo.js
-   O que faz: sub-aba de Projecao (estimativa de quando pode dar falha)
-   =================================================================== */
+/* preditivo.js: sub-aba de Projecao (estimativa de quando pode dar falha) */
 
 (function () {
+  // protege o texto contra HTML/XSS antes de ir pro innerHTML
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const fmt = (v, d = 2) => (v == null || v !== v) ? '—' : Number(v).toFixed(d);
 
   let _root = null, _win = 30;
 
+  // lista os ativos cadastrados
   function ativos() {
     try { return (window.FZStore && window.FZStore.getAtivosIndustrial()) || []; } catch (e) { return []; }
   }
 
+  // regressao linear da vibracao pra prever quando passa o limite
   function projetar(eixo) {
     const F = window.FORZY;
     if (!F || !F[eixo]) return null;
@@ -75,6 +65,7 @@
     };
   }
 
+  // grafico com a projecao
   function sparkProj(p) {
     if (!p) return '';
     const LIM = window.FZCopiloto.LIM;
@@ -98,6 +89,7 @@
     </svg>`;
   }
 
+  // nota de risco do ativo
   function riscoScore(p) {
     if (!p) return 0;
     const LIM = window.FZCopiloto.LIM;
@@ -107,6 +99,7 @@
     return Math.round((nivel * 0.45 + tend * 0.35 + an * 0.20) * 100);
   }
 
+  // desenha a tela
   function render() {
     if (!_root) return;
     if (!window.FORZY) { _root.innerHTML = '<div class="fz-card">Dataset não carregado.</div>'; return; }
@@ -179,6 +172,7 @@
     if (_ia && !semChave) _ia.addEventListener('click', refinarIA);
   }
 
+  // resumo em texto pra IA
   function resumoTexto(p1, p2) {
     const F = window.FORZY || {};
     const linha = (p, nome) => {
@@ -202,6 +196,7 @@
     ].join('\n');
   }
 
+  // pede parecer da IA (so no clique)
   async function refinarIA() {
     const btn = _root.querySelector('#prIA'); const key = window.FORZY_OPENAI_KEY;
     if (!btn || !key) return;
@@ -227,6 +222,7 @@
     } finally { btn.disabled = false; btn.textContent = 'Refinar com IA'; }
   }
 
+  // liga a tela (roda so na primeira visita)
   function init() {
     _root = document.getElementById('preditivoRoot');
     if (!_root) return;

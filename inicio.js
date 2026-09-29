@@ -1,17 +1,4 @@
-/* ===================================================================
-   PROJETO FORZY - Sistema de Monitoramento Industrial
-   Trabalho academico FIAP + Forzy-Promon
-
-   Integrantes:
-   - Arthur Baptista dos Santos       (RM 565346)
-   - Joao Pedro de Moura Dutra Franco (RM 561738)
-   - Nelson Felix Neto                (RM 565603)
-   - Pietro Boroto Rodrigues          (RM 562407)
-   - Vitor Soares Goncalves           (RM 566181)
-
-   Arquivo: inicio.js
-   O que faz: tela Inicio com KPIs e alertas recentes
-   =================================================================== */
+/* inicio.js: tela Inicio com KPIs e alertas recentes */
 
 (function () {
   const F = window.FORZY;
@@ -21,17 +8,27 @@
   const NOME = ['NORMAL', 'ALERTA', 'ALARME'];
   const N = F.meta.n;
   const T0 = new Date(F.meta.t0).getTime();
+  // le o valor de uma variavel CSS (cor do tema)
   const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  // cores por nivel de status
   const COR = () => [cssVar('--fz-ok'), cssVar('--fz-warn'), cssVar('--fz-bad')];
+  // versao suave das cores
   const SOFT = () => [cssVar('--fz-ok-soft'), cssVar('--fz-warn-soft'), cssVar('--fz-bad-soft')];
 
+  // classifica o valor: 0 normal, 1 alerta, 2 alarme
   const flag = (v, a, al) => (v >= al ? 2 : v >= a ? 1 : 0);
   const fmt = (v, d = 2) => (v == null || v !== v) ? '—' : Number(v).toFixed(d);
+  // atalho pra pegar um elemento pelo id
   const el = (id) => document.getElementById(id);
+  // formata o tempo pra mostrar na tela
   function timeLabel(i) { const d = new Date(T0 + F.t[i] * 1000); return d.toLocaleTimeString('pt-BR', { hour12: false }); }
+  // formata hora:minuto
   function hm(i) { const d = new Date(T0 + F.t[i] * 1000); return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); }
 
-  const state = { fonte: 'forzy', auto: true, intervalo: 5000, idx: 0, t: 0, simHist: { v1: [], v2: [] }, timer: null };
+  // jeito de mostrar os 9 motores da fabrica: compacta (quadradinhos), por piso, detalhada (cards grandes) ou lista
+  const VISTAS = [['compacta', 'Compacta'], ['piso', 'Por piso'], ['detalhada', 'Detalhada'], ['lista', 'Lista']];
+  const vistaSalva = (() => { try { return localStorage.getItem('fz-inicio-vista'); } catch (_) { return null; } })();
+  const state = { vista: VISTAS.some(v => v[0] === vistaSalva) ? vistaSalva : 'compacta', fonte: 'forzy', auto: true, intervalo: 5000, idx: 0, t: 0, simHist: { v1: [], v2: [] }, timer: null };
 
   const KPI = (function () {
     const m1 = F.m1.vel, m2 = F.m2.vel;
@@ -59,6 +56,7 @@
     return ev.slice(0, 12);
   })();
 
+  // caminho SVG do mini grafico
   function sparkPath(arr, threshold) {
     const W = 200, H = 48, n = arr.length;
     if (n < 2) return { line: '', area: '', threshY: null };
@@ -74,16 +72,29 @@
     return { line: d, area: `${d} L${W},${H} L0,${H} Z`, threshY };
   }
 
+  // gerador de numero aleatorio
   function rng() { return Math.random(); }
+  // numero aleatorio com distribuicao normal (usado na simulacao)
   function gauss(mu, sd) { let u = 0, v = 0; while (!u) u = rng(); while (!v) v = rng(); return mu + sd * Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
   const SIM = { normal: 1, desbalanco: 1.9, cavitacao: 2.6, desalinhamento: 2.2 };
   let simModo = 'normal';
 
+  // leitura atual da fonte escolhida
   function currentReading() {
     if (state.fonte === 'forzy') {
       const i = state.idx;
       return { v1: F.m1.vel[i], t1: F.m1.temp[i], v2: F.m2.vel[i], t2: F.m2.temp[i],
                win1: window120(F.m1.vel, i), win2: window120(F.m2.vel, i) };
+    }
+
+    // fabrica de exemplo: pega o motor com a maior vibracao (define o selo NORMAL/ALERTA/ALARME)
+    if (state.fonte === 'fabrica') {
+      const ms = fabMotores();
+      if (ms.length) {
+        const pior = ms.reduce((p, m) => (Math.max(m.r.m1_vel, m.r.m2_vel) > Math.max(p.r.m1_vel, p.r.m2_vel) ? m : p));
+        return { v1: pior.r.m1_vel, t1: pior.r.m1_temp, v2: pior.r.m2_vel, t2: pior.r.m2_temp,
+                 win1: pior.hist.map(x => x.m1_vel), win2: pior.hist.map(x => x.m2_vel) };
+      }
     }
 
     if (state.fonte === 'esp32') {
@@ -109,11 +120,21 @@
     state.simHist.v1 = state.simHist.v1.slice(-120); state.simHist.v2 = state.simHist.v2.slice(-120);
     return { v1, t1, v2, t2, win1: state.simHist.v1.slice(), win2: state.simHist.v2.slice() };
   }
+  // ultimos 120 pontos
   function window120(arr, i) { const a = Math.max(0, i - 120); return arr.slice(a, i + 1); }
 
+  // motores da fabrica demo com leitura (vem do forzy.js)
+  function fabMotores() {
+    const d = window.FZDashboard;
+    return d && d.fabricaMotores ? d.fabricaMotores().filter(m => m.r) : [];
+  }
+
+  // true se o ESP32 esta conectado
   const esp32Online = () => !!(window.FZIoT && window.FZIoT.isConnected());
+  // true se o Forzy Cloud ja carregou
   const cloudCarregado = () => !!(window.FZCloud && window.FZCloud.isLoaded());
 
+  // controles da tela
   function renderControls() {
     const c = el('inicioControls');
     if (!c) return;
@@ -121,13 +142,13 @@
       <div class="fz-field"><span>Fonte</span>
         <div class="fz-seg" data-act="fonte">
           <button class="${state.fonte === 'forzy' ? 'active' : ''}" data-v="forzy">Dataset Forzy (rede neural)</button>
-          <button class="${state.fonte === 'sim' ? 'active' : ''}" data-v="sim">Simulado</button>
-          <button class="${state.fonte === 'esp32' ? 'active' : ''}" data-v="esp32"
-            style="${esp32Online() ? 'color:var(--fz-ok)' : 'opacity:.55'}">⬤ ESP32</button>
+          <button class="${state.fonte === 'fabrica' ? 'active' : ''}" data-v="fabrica">Fábrica Demo (fictícia)</button>
           <button class="${state.fonte === 'cloud' ? 'active' : ''}" data-v="cloud"
             style="${cloudCarregado() ? 'color:var(--fz-ok)' : 'opacity:.55'}">⬤ Forzy Cloud</button>
         </div>
       </div>
+      ${state.fonte === 'fabrica' ? `<div class="fz-field"><span>Visualização</span>
+        <div class="fz-seg" data-act="vista">${VISTAS.map(([v, l]) => `<button class="${state.vista === v ? 'active' : ''}" data-v="${v}">${l}</button>`).join('')}</div></div>` : ''}
       <div class="fz-field"><span>Auto-refresh</span>
         <label class="fz-toggle ${state.auto ? 'on' : ''}" data-act="auto"><span class="sw"></span><span>${state.auto ? 'Ligado' : 'Pausado'}</span></label>
       </div>
@@ -137,25 +158,19 @@
           <option value="5000" ${state.intervalo === 5000 ? 'selected' : ''}>5s</option>
           <option value="10000" ${state.intervalo === 10000 ? 'selected' : ''}>10s</option>
         </select>
-      </div>
-      ${state.fonte === 'sim' ? `
-      <div class="fz-field"><span>Cenário</span>
-        <select class="fz-select" data-act="modo">
-          <option value="normal">Normal</option>
-          <option value="desbalanco">Desbalanceamento</option>
-          <option value="cavitacao">Cavitação</option>
-          <option value="desalinhamento">Desalinhamento</option>
-        </select>
-      </div>` : ''}`;
+      </div>`;
 
     c.querySelector('[data-act="fonte"]').querySelectorAll('button').forEach(b =>
       b.addEventListener('click', () => { state.fonte = b.dataset.v; renderControls(); render(); }));
+    c.querySelectorAll('[data-act="vista"] button').forEach(b => b.addEventListener('click', () => {
+      state.vista = b.dataset.v; try { localStorage.setItem('fz-inicio-vista', state.vista); } catch (_) {}
+      renderControls(); render();
+    }));
     c.querySelector('[data-act="auto"]').addEventListener('click', () => { state.auto = !state.auto; renderControls(); });
     c.querySelector('[data-act="intervalo"]').addEventListener('change', e => { state.intervalo = +e.target.value; startTimer(); });
-    const modo = c.querySelector('[data-act="modo"]');
-    if (modo) { modo.value = simModo; modo.addEventListener('change', e => { simModo = e.target.value; render(); }); }
   }
 
+  // desenha a tela
   function render() {
     const [cOk, cWarn, cBad] = COR();
     const cols = [cOk, cWarn, cBad];
@@ -184,6 +199,10 @@
         const pct = (state.idx / Math.max(N - 1, 1) * 100);
         prog.querySelector('.fill').style.width = pct.toFixed(1) + '%';
         prog.querySelector('.p-lbl').textContent = `Dataset Forzy · frame ${state.idx + 1}/${N} · ${timeLabel(state.idx)}`;
+      } else if (state.fonte === 'fabrica') {
+        prog.hidden = false;
+        prog.querySelector('.fill').style.width = '100%';
+        prog.querySelector('.p-lbl').textContent = 'Fábrica Demo · 3 pisos · 9 motores (2 eixos cada) · dados fictícios';
       } else if (state.fonte === 'esp32' || state.fonte === 'cloud') {
         prog.hidden = false;
         prog.querySelector('.fill').style.width = '100%';
@@ -235,6 +254,42 @@
             <path fill="none" stroke="${cols[f]}" stroke-width="1.6" d="${sp.line}"/>
           </svg></div>`;
       };
+      assets.className = 'fz-grid4' + (state.fonte === 'fabrica' ? ' fz-vista-' + state.vista : '');
+      if (state.fonte === 'fabrica') {
+        // status de cada motor = o pior dos 2 eixos
+        const dados = fabMotores().map(m => {
+          const e1 = Math.max(flag(m.r.m1_vel, VEL_AL, VEL_ALM), flag(m.r.m1_temp, TEMP_AL, TEMP_ALM));
+          const e2 = Math.max(flag(m.r.m2_vel, VEL_AL, VEL_ALM), flag(m.r.m2_temp, TEMP_AL, TEMP_ALM));
+          return { m, f: Math.max(e1, e2), eixoPior: e2 > e1 ? 2 : 1 };
+        });
+        const CLS = ['fz-asset-ok', 'fz-asset-warn', 'fz-asset-bad'];
+        // quadradinho compacto
+        const tile = ({ m, f }) => `<div class="fz-asset fz-tile ${CLS[f]}" title="${m.piso}">
+          <div class="a-name">${m.codigo}</div>
+          <div class="a-status" style="color:${cols[f]}">${NOME[f]}</div>
+          <div class="a-read"><b>${fmt(Math.max(m.r.m1_vel, m.r.m2_vel), 2)}</b> mm/s · <b>${fmt(Math.max(m.r.m1_temp, m.r.m2_temp), 0)}</b> °C</div></div>`;
+        // card grande com mini grafico
+        const card = ({ m, f, eixoPior }) => {
+          const sp = sparkPath(m.hist.map(x => eixoPior === 2 ? x.m2_vel : x.m1_vel), VEL_ALM);
+          return `<div class="fz-asset ${CLS[f]}">
+            <div class="a-name">${m.codigo} · ${m.piso.split(' — ')[0]}</div>
+            <div class="a-status" style="color:${cols[f]}">${NOME[f]}</div>
+            <div class="a-read">E1: <b>${fmt(m.r.m1_vel, 2)}</b> mm/s · <b>${fmt(m.r.m1_temp, 0)}</b> °C<br>E2: <b>${fmt(m.r.m2_vel, 2)}</b> mm/s · <b>${fmt(m.r.m2_temp, 0)}</b> °C</div>
+            <svg class="a-spark" viewBox="0 0 200 48" preserveAspectRatio="none">
+              <path fill="${soft[f]}" d="${sp.area}"/>
+              <path fill="none" stroke="${cols[f]}" stroke-width="1.6" d="${sp.line}"/>
+            </svg></div>`;
+        };
+        if (state.vista === 'detalhada') assets.innerHTML = dados.map(card).join('');
+        else if (state.vista === 'lista') {
+          assets.innerHTML = `<div class="fz-lista-fab"><table class="fz-table"><thead><tr><th>Motor</th><th>Piso</th><th>Status</th><th>Eixo 1</th><th>Eixo 2</th></tr></thead><tbody>` +
+            dados.map(({ m, f }) => `<tr><td><b>${m.codigo}</b></td><td>${m.piso}</td><td style="color:${cols[f]};font-weight:700">${NOME[f]}</td>
+              <td>${fmt(m.r.m1_vel, 2)} mm/s · ${fmt(m.r.m1_temp, 0)} °C</td><td>${fmt(m.r.m2_vel, 2)} mm/s · ${fmt(m.r.m2_temp, 0)} °C</td></tr>`).join('') + '</tbody></table></div>';
+        } else if (state.vista === 'piso') {
+          const pisos = [...new Set(dados.map(d => d.m.piso))];
+          assets.innerHTML = pisos.map(p => `<div class="fz-piso-grupo"><div class="fz-piso-tit">${p}</div><div class="fz-piso-grid">${dados.filter(d => d.m.piso === p).map(tile).join('')}</div></div>`).join('');
+        } else assets.innerHTML = dados.map(tile).join('');
+      } else {
       const dur = F.t[N - 1] - F.t[0];
       const dh = Math.floor(dur / 3600), dm = Math.floor((dur % 3600) / 60);
       assets.innerHTML =
@@ -244,6 +299,7 @@
            <div class="i-body">VIM32PL-E1AC8<br>IO-Link 1.1<br>38,4 kBit/s<br><b style="color:${cOk}">Ativo</b></div></div>
          <div class="fz-info-card"><div class="i-lbl">Dataset</div>
            <div class="i-body">${N.toLocaleString('pt-BR')} amostras<br>${hm(0)} → ${hm(N - 1)}<br>Duração: ${dh}h ${String(dm).padStart(2, '0')}min<br><b>forzy.csv</b></div></div>`;
+      }
     }
 
     const log = el('inicioLog');
@@ -278,14 +334,18 @@
     }
   }
 
+  // atualiza a tela a cada ciclo
   function tick() {
     const active = document.getElementById('screen-inicio').classList.contains('active');
     if (!active || !state.auto) return;
     if (state.fonte === 'forzy') state.idx = (state.idx + 5) % N;
+    if (state.fonte === 'fabrica' && window.FZDashboard && window.FZDashboard.fabricaPasso) window.FZDashboard.fabricaPasso();
     render();
   }
+  // liga o timer da tela
   function startTimer() { if (state.timer) clearInterval(state.timer); state.timer = setInterval(tick, state.intervalo); }
 
+  // exporta os dados em CSV
   function exportCSV() {
     const cols = ['timestamp', 'm1_vel', 'm1_acel', 'm1_temp', 'm2_vel', 'm2_acel', 'm2_temp'];
     let csv = cols.join(';') + '\n';
@@ -300,6 +360,10 @@
     URL.revokeObjectURL(a.href);
   }
 
+  // a topbar le a fonte do Inicio pra alarmar a fabrica tambem quando ela e escolhida aqui
+  window.FZInicio = { getFonte: () => state.fonte };
+
+  // liga a tela (roda so na primeira visita)
   function init() {
     if (!el('inicioControls')) return;
     renderControls();

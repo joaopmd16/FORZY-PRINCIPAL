@@ -1,17 +1,4 @@
-/* ===================================================================
-   PROJETO FORZY - Sistema de Monitoramento Industrial
-   Trabalho academico FIAP + Forzy-Promon
-
-   Integrantes:
-   - Arthur Baptista dos Santos       (RM 565346)
-   - Joao Pedro de Moura Dutra Franco (RM 561738)
-   - Nelson Felix Neto                (RM 565603)
-   - Pietro Boroto Rodrigues          (RM 562407)
-   - Vitor Soares Goncalves           (RM 566181)
-
-   Arquivo: forzy.js
-   O que faz: tela de Monitoramento (graficos do motor)
-   =================================================================== */
+/* forzy.js: tela de Monitoramento (graficos do motor) */
 
 (function () {
   const F = window.FORZY;
@@ -32,29 +19,47 @@
 
   const clamp = (v,a,b)=> Math.max(a, Math.min(b, v));
   const fmt = (v,d=2)=> (v==null||v!==v) ? '—' : Number(v).toFixed(d);
+  // protege o texto contra HTML/XSS antes de ir pro innerHTML
   const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  // le o valor de uma variavel CSS (cor do tema)
   function cssVar(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+  // atalho pra pegar um elemento pelo id
   function el(tag, cls, html){ const e=document.createElement(tag); if(cls)e.className=cls; if(html!=null)e.innerHTML=html; return e; }
+  // estado da tela (fonte, aba, cenario...)
   function S(tag, attrs){ const e=document.createElementNS(NS,tag); for(const k in attrs) e.setAttribute(k, attrs[k]); return e; }
 
+  // series do dataset historico
   function series(col){ return F[col.slice(0,2)][col.slice(3)]; }
+  // leitura do dataset em um frame
   function readingAt(i){ const o={}; for(const c of COLS) o[c]=series(c)[i]; return o; }
+  // classifica o valor: 0 normal, 1 alerta, 2 alarme
   function flag(v,a,al){ v=+v||0; return v>=al?2 : v>=a?1 : 0; }
+  // mediana
   function median(arr){ const a=arr.slice().sort((x,y)=>x-y); const m=a.length>>1; return a.length%2 ? a[m] : (a[m-1]+a[m])/2; }
+  // media
   function mean(a){ let s=0; for(const x of a)s+=x; return s/a.length; }
+  // desvio padrao
   function std(a,mu){ mu=mu==null?mean(a):mu; let s=0; for(const x of a)s+=(x-mu)*(x-mu); return Math.sqrt(s/(a.length-1)); }
+  // quantil (percentil)
   function quantile(sorted,q){ const p=(sorted.length-1)*q, lo=Math.floor(p), hi=Math.ceil(p); return sorted[lo]+(sorted[hi]-sorted[lo])*(p-lo); }
 
   const T0 = new Date(F.meta.t0).getTime();
+  // formata o tempo pra mostrar na tela
   function tlabel(i){ const d=new Date(T0 + F.t[i]*1000); return d.toLocaleTimeString('pt-BR',{hour12:false}); }
 
+  // Z-score de um valor
   function zscore(reading){ const z={}; for(const c of COLS){ const b=BL[c]; z[c]= b.std? Math.abs(reading[c]-b.mean)/b.std : 0; } return z; }
+  // classifica o Z-score
   function classify(score){ if(score<2) return ['Normal',C.ok]; if(score<3) return ['Alerta',C.warn]; return ['Anomalia',C.bad]; }
+  // maior Z-score entre as variaveis
   function maxZ(z){ let m=0; for(const k in z) if(z[k]>m)m=z[k]; return m; }
 
+  // acesso a rede neural (FZModelo)
   const rede = () => (window.FZModelo && window.FZModelo.pronto()) ? window.FZModelo : null;
+  // roda a rede neural numa leitura
   function avaliarRede(reading){ const m = rede(); return m ? m.avaliar(reading) : null; }
 
+  // veredito final (rede + norma ISO)
   function veredito(reading){
     const r = avaliarRede(reading);
     if (r && r.ok) return [r.rotulo, r.cor, r.indice, r];
@@ -62,16 +67,24 @@
     return [cl, co, s, null];
   }
 
+  // indices igualmente espacados
   function idxLinspace(n, k){ if(n<=k) return Array.from({length:n},(_,i)=>i); const out=[]; for(let i=0;i<k;i++) out.push(Math.round(i*(n-1)/(k-1))); return out; }
 
+  // gerador de numero aleatorio
   function rng(seed){ let s=seed>>>0; return ()=>{ s|=0; s=s+0x6D2B79F5|0; let t=Math.imul(s^s>>>15,1|s); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+  // numero aleatorio com distribuicao normal (usado na simulacao)
   function gauss(r){ let u=0,v=0; while(!u)u=r(); while(!v)v=r(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); }
 
+  // magnitude da FFT (espectro)
   function rfftMag(sig){ const N=sig.length, half=N>>1, out=new Array(half+1); for(let k=0;k<=half;k++){ let re=0,im=0; for(let n=0;n<N;n++){ const a=-2*Math.PI*k*n/N; re+=sig[n]*Math.cos(a); im+=sig[n]*Math.sin(a);} out[k]=Math.sqrt(re*re+im*im)*2/N; } return out; }
+  // janela de Hanning pra FFT
   function hanning(N){ const w=new Array(N); for(let n=0;n<N;n++) w[n]=0.5-0.5*Math.cos(2*Math.PI*n/(N-1)); return w; }
 
+  // ponto no circulo (usado nos mostradores)
   function polar(cx,cy,r,deg){ const a=deg*Math.PI/180; return [cx+r*Math.cos(a), cy-r*Math.sin(a)]; }
+  // caminho SVG de um arco
   function arcD(cx,cy,r,d0,d1){ const p0=polar(cx,cy,r,d0),p1=polar(cx,cy,r,d1); const large=Math.abs(d1-d0)>180?1:0; const sweep=d0>d1?1:0; return `M ${p0[0].toFixed(2)} ${p0[1].toFixed(2)} A ${r} ${r} 0 ${large} ${sweep} ${p1[0].toFixed(2)} ${p1[1].toFixed(2)}`; }
+  // mostrador circular em SVG
   function gaugeSVG(v, max, a, al, unit, dec){
     v=+v||0; dec=dec==null?2:dec;
     const ang=x=>180-clamp(x/max,0,1)*180;
@@ -90,6 +103,7 @@
     </svg>`;
   }
 
+  // grafico de linhas com limites e hover
   function lineChart(host, opt){
     host.innerHTML=''; host.classList.add('fz-chart');
     const W=720, H=opt.height||260, padL=opt.padL||50, padR=14, padT=16, padB=30;
@@ -133,6 +147,7 @@
     svg.addEventListener('mouseleave',()=>{ hl.style.opacity=0; dots.forEach(d=>d.style.opacity=0); tip.style.opacity=0; });
   }
 
+  // grafico do espectro de frequencia
   function spectrumChart(host, opt){
     host.innerHTML=''; host.classList.add('fz-chart');
     const W=720,H=opt.height||360,padL=54,padR=16,padT=18,padB=40, plotW=W-padL-padR, plotH=H-padT-padB;
@@ -155,6 +170,7 @@
     host.appendChild(svg);
   }
 
+  // mapa de calor
   function heatmap(host, opt){
     host.innerHTML=''; host.classList.add('fz-chart');
     const rows=opt.z.length, cols=opt.z[0].length;
@@ -176,6 +192,7 @@
     host.appendChild(svg);
   }
 
+  // grafico boxplot
   function boxplot(host, groups){
     host.innerHTML=''; host.classList.add('fz-chart');
     const W=720, H=300, padT=24, padB=24, sub=groups.length, subW=W/sub;
@@ -196,15 +213,20 @@
     host.appendChild(svg);
   }
 
+  // legenda dos graficos
   function legend(items){ return `<div class="fz-legend">${items.map(i=>`<span><i style="background:${i.color}"></i>${i.name}</span>`).join('')}</div>`; }
+  // etiqueta colorida de status
   function badge(fl){ const col=FLAG_COL[fl]; return `<span class="fz-badge" style="background:${col}22;color:${col};border:1px solid ${col}">${FLAG_LBL[fl]}</span>`; }
+  // cartao de metrica
   function metric(lbl,val){ return `<div class="fz-metric"><div class="m-lbl">${lbl}</div><div class="m-val">${val}</div></div>`; }
 
+  // nota de saude do ativo
   function health(vel,acel,temp,isoAL){
     const h = Math.max(0, Math.round(100 - 60*Math.min(vel/(isoAL||1),1) - 25*Math.min(Math.max((temp-35)/45,0),1) - 15*Math.min(acel/(ACEL_AL||1),1)));
     return h;
   }
 
+  // cartao de um motor
   function motorCard(nome, r, iso, prefix){
     const vel=r[prefix+'_vel'], acel=r[prefix+'_acel'], temp=r[prefix+'_temp'];
     const fv=flag(vel,iso.alerta,iso.alarme), fa=flag(acel,ACEL_A,ACEL_AL), ft=flag(temp,TEMP_A,TEMP_AL);
@@ -228,8 +250,10 @@
     return card;
   }
 
+  // protege o texto contra HTML/XSS antes de ir pro innerHTML
   const escHtml = s => (s==null?'':String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
+  // nome da fonte de dados do alarme
   function origemFonte(){
     if(state.fonte==='esp32') return 'esp32';
     if(state.fonte==='ativo') return state.ativoCod ? ('ativo:'+state.ativoCod) : null;
@@ -239,6 +263,7 @@
     return null;
   }
 
+  // eixo de origem do alarme
   function origemEixo(prefix){
     const base = origemFonte();
     if(!base) return null;
@@ -254,6 +279,7 @@
     'Preciso parar a máquina?',
   ];
 
+  // abre o detalhe de um motor
   function abrirModalEixo(prefix, nome, r, iso, getWin, xlab){
     const origem = origemEixo(prefix);
     const nomeSafe = escHtml(nome).replace(/<[^>]+>/g,'');
@@ -385,6 +411,7 @@
     });
   }
 
+  // atualiza o detalhe do motor aberto
   function atualizarModalEixo(r, iso, getWin, xlab){
     if(!modalEixo) return;
     const overlay = document.getElementById('fzEixoModal');
@@ -437,24 +464,29 @@
   };
 
   const ZERO_R = { m1_vel:0, m1_acel:0, m1_temp:0, m2_vel:NaN, m2_acel:NaN, m2_temp:NaN };
+  // leituras do ativo escolhido
   function ativoLeituras(){
     if(!window.FZStore || !state.ativoCod) return [];
     return window.FZStore.getLeituras(state.ativoCod, 120).slice().reverse();
   }
+  // converte leitura do ativo pro formato da tela
   function ativoReadingFrom(l){
     return { m1_vel:+l.vibracao_mm_s||0, m1_acel:+l.mag_rms||+l.apeak_g||0, m1_temp:+l.temperatura_c||0,
              m2_vel:NaN, m2_acel:NaN, m2_temp:NaN };
   }
 
+  // converte leitura do ESP32 pro formato da tela
   function esp32ReadingFrom(h){
     return { m1_vel:+h.vel||0, m1_acel:+h.apeak||0, m1_temp:+h.temp||0,
              m2_vel:NaN, m2_acel:NaN, m2_temp:NaN };
   }
+  // leituras ao vivo do ESP32
   function esp32Leituras(){
     if(!window.FZIoT) return [];
     return window.FZIoT.getHist();
   }
 
+  // janela de dados do Forzy Cloud
   function cloudWindow(){
     if(!window.FZCloud) return [];
     const s1=window.FZCloud.getRows('s1'), s2=window.FZCloud.getRows('s2');
@@ -467,15 +499,20 @@
     });
     return win;
   }
+  // leitura atual da fonte escolhida
   function curReading(){
     if(state.fonte==='sim') return state.simReading || readingAt(F.meta.n-1);
+    // fabrica demo e ficticia: nao alimenta o selo nem os alarmes globais (usa o dataset real)
+    if(state.fonte==='fabrica') return readingAt(state.fidx);
     if(state.fonte==='ativo'){ const ls=ativoLeituras(); return ls.length ? ativoReadingFrom(ls[ls.length-1]) : ZERO_R; }
     if(state.fonte==='esp32'){ const h=window.FZIoT&&window.FZIoT.getLast(); return h ? esp32ReadingFrom(h) : ZERO_R; }
     if(state.fonte==='cloud'){ const w=cloudWindow(); return w.length ? w[w.length-1] : ZERO_R; }
     return readingAt(state.fidx);
   }
+  // status ISO da leitura atual
   function curIso(){ return NORMAS[state.norma]; }
 
+  // gera um passo da simulacao
   function simStep(){
     if(!state._simR) state._simR=rng(12345);
     const r=state._simR; const M={normal:[0.8,.2],desbalanco:[3.5,.6],cavitacao:[2.6,1.0],desalinhamento:[4.9,.7]}[state.simMode];
@@ -485,8 +522,83 @@
     if(!state.simHist) state.simHist=[]; state.simHist.push(state.simReading); if(state.simHist.length>120) state.simHist.shift();
   }
 
+  // ---- FABRICA DEMO (FICTICIA) ----
+  // 3 pisos x 3 motores x 2 eixos = 18 leituras simuladas. Serve so pra demonstrar o Monitoramento por setor.
+  // Perfil de cada motor: vibracao base (mm/s) do eixo 1 e 2 e temperatura base (C). Alguns ja nascem em atencao/critico.
+  // REVISAR (Vitor): ajustar os perfis se quiserem mostrar outro cenario na apresentacao
+  const FAB_PERFIL = {
+    'P1-M1':[0.8,0.9,31], 'P1-M2':[1.1,1.0,32], 'P1-M3':[2.6,2.2,37],
+    'P2-M1':[0.7,0.8,30], 'P2-M2':[4.9,3.1,46], 'P2-M3':[1.0,1.2,31],
+    'P3-M1':[2.2,1.9,38], 'P3-M2':[0.6,0.7,29], 'P3-M3':[0.9,1.0,30],
+  };
+  const fab = { hist:{}, rand:null, piso:0 };
+  // motores fictícios agrupados por piso
+  function fabPisos(){
+    const at = window.FZStore ? window.FZStore.getAtivosIndustrial().filter(a=>a.origem==='demo') : [];
+    const nomes = [...new Set(at.map(a=>a.area_nome))].sort();
+    return nomes.map(n=>({ nome:n, motores:at.filter(a=>a.area_nome===n).sort((a,b)=>a.codigo.localeCompare(b.codigo)) }));
+  }
+  // gera uma leitura nova (2 eixos) pra cada motor
+  function fabStep(){
+    if(!fab.rand) fab.rand = rng(777);
+    const t = Date.now()/20000;
+    fabPisos().forEach(pi=>pi.motores.forEach(m=>{
+      const p = FAB_PERFIL[m.codigo] || [1,1,38];
+      const eixo = (v,k)=>{ const vel=Math.max(0.1, v*(1+0.06*Math.sin(t+k))+gauss(fab.rand)*0.08*Math.max(1,v/2));
+        return { vel, acel:Math.max(0.01, 0.03+vel*0.035+gauss(fab.rand)*0.008), temp:p[2]+(k?-1.5:0)+gauss(fab.rand)*0.5 }; };
+      const a=eixo(p[0],0), b=eixo(p[1],1);
+      const r = { m1_vel:a.vel, m1_acel:a.acel, m1_temp:a.temp, m2_vel:b.vel, m2_acel:b.acel, m2_temp:b.temp };
+      const h = fab.hist[m.codigo] || (fab.hist[m.codigo]=[]);
+      h.push(r); if(h.length>120) h.shift();
+    }));
+  }
+  // garante historico inicial pra os graficos nao abrirem vazios
+  function fabGarantir(){ if(!Object.keys(fab.hist).length){ for(let i=0;i<40;i++) fabStep(); } }
+  // campo "Piso" que aparece na barra da fonte de dados quando a fonte e a fabrica
+  function fabPisoField(){
+    if(state.fonte!=='fabrica') return '';
+    const pisos = fabPisos();
+    return `<div class="fz-field"><span>Piso</span><div class="fz-seg" data-act="piso">${pisos.map((x,i)=>`<button data-v="${i}" class="${i===fab.piso?'active':''}">${escHtml(x.nome)}</button>`).join('')}</div></div>`;
+  }
+  // liga os botoes do campo Piso
+  function fabLigarPiso(sb){
+    sb.querySelectorAll('[data-act="piso"] button').forEach(b=>b.addEventListener('click',()=>{ fab.piso=+b.dataset.v; renderSourceBar(); rerenderActive(true); }));
+  }
+  // tela do Monitoramento da fabrica demo: escolhe o piso e mostra os 3 motores (6 eixos) ao vivo
+  function renderFabrica(p, iso){
+    fabGarantir();
+    const pisos = fabPisos(); const scrollY = window.scrollY;
+    p.innerHTML='';
+    if(!pisos.length){ p.innerHTML='<div class="fz-card"><div class="fz-empty">Fábrica demo não encontrada. Recarregue a página.</div></div>'; return; }
+    if(fab.piso>=pisos.length) fab.piso=0;
+    const piso = pisos[fab.piso];
+
+
+    piso.motores.forEach(m=>{
+      const h = fab.hist[m.codigo] || []; const r = h.length?h[h.length-1]:ZERO_R;
+      const sec = el('div','fz-card');
+      sec.innerHTML = `<div class="fz-card-title">${escHtml(m.codigo)} · ${escHtml(m.descricao)}</div><div class="fz-card-sub">${m.potencia_kw} kW · ${escHtml(m.fabricante)} · 2 eixos</div>`;
+      p.appendChild(sec);
+      const getWin = col => h.map(o=>o[col]);
+      const xlab = i => '-'+(h.length-1-i)+'s';
+      const row = el('div','fz-row2');
+      [['Eixo 1','m1'],['Eixo 2','m2']].forEach(([lbl,pre])=>{
+        const c = motorCard(m.codigo+' · '+lbl, r, iso, pre); c.classList.add('fz-card-clicavel');
+        c.addEventListener('click', ()=>abrirModalEixo(pre, m.codigo+' · '+lbl, r, iso, getWin, xlab));
+        row.appendChild(c);
+      });
+      p.appendChild(row);
+    });
+
+    if(window.lucide) lucide.createIcons();
+    window.scrollTo(0, scrollY);
+    manageMonTimer();
+  }
+
+  // aba Monitoramento
   function renderMon(){
     const p=document.getElementById('fzPanel-mon'); const iso=curIso();
+    if(state.fonte==='fabrica'){ renderFabrica(p, iso); return; }
     const isAtivo  = state.fonte==='ativo';
     const isEsp32  = state.fonte==='esp32';
     const isCloud  = state.fonte==='cloud';
@@ -603,13 +715,15 @@
     window.scrollTo(0, scrollY);
     manageMonTimer();
   }
+  // liga ou desliga o timer do Monitoramento
   function manageMonTimer(){
     if(state.monTimer){ clearInterval(state.monTimer); state.monTimer=null; }
     const active = state.tab==='mon' && document.getElementById('screen-dashboard').classList.contains('active');
-    if(state.auto && active){ state.monTimer=setInterval(()=>{ if(state.fonte==='sim'){ simStep(); } else if(state.fonte==='forzy'){ state.fidx=(state.fidx+state.step)%F.meta.n; } renderMon(); updateEsp32Btn(); }, state.interval); }
+    if(state.auto && active){ state.monTimer=setInterval(()=>{ if(state.fonte==='sim'){ simStep(); } else if(state.fonte==='fabrica'){ fabStep(); } else if(state.fonte==='forzy'){ state.fidx=(state.fidx+state.step)%F.meta.n; } renderMon(); updateEsp32Btn(); }, state.interval); }
   }
 
   const esp = { motor:'m1', rpm:1780, janela:256, harm:true, bandas:true };
+  // aba do ESP32 ao vivo
   function renderEsp(){
     const p=document.getElementById('fzPanel-esp');
     const col=esp.motor+'_acel', frot=esp.rpm/60, fs=1000, N=esp.janela;
@@ -667,6 +781,7 @@
 
   const oper = { motor:'both', sub:'timeline', va:1.8, val:4.5, aa:0.25, aal:0.45, ta:35, tal:42 };
   let _operCache=null;
+  // carrega dados operacionais
   function loadOper(){
     if(_operCache) return _operCache;
     const idx=idxLinspace(F.meta.n, 1500); const r=rng(42); const o={ idx, t:idx.map(i=>i) };
@@ -677,6 +792,7 @@
     });
     _operCache=o; return o;
   }
+  // aba Operacional
   function renderOper(){
     const p=document.getElementById('fzPanel-oper'); const o=loadOper(); const n=o.idx.length;
     const last=k=>k[k.length-1];
@@ -767,13 +883,16 @@
     ctl.querySelector('[data-act="motor"]').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{ oper.motor=b.dataset.v; renderOper(); }));
     ctl.querySelectorAll('input[data-act]').forEach(inp=>inp.addEventListener('change',e=>{ oper[e.target.dataset.act]=+e.target.value; renderOper(); }));
   }
+  // correlacao de Pearson
   function pearson(a,b){ const ma=mean(a),mb=mean(b); let n=0,da=0,db=0; for(let i=0;i<a.length;i++){const x=a[i]-ma,y=b[i]-mb; n+=x*y; da+=x*x; db+=y*y;} return (da&&db)? n/Math.sqrt(da*db):0; }
+  // baixa um arquivo
   function dl(content,name,mime){ const blob=new Blob([content],{type:mime}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; a.click(); URL.revokeObjectURL(a.href); }
 
   const hist = { variavel:'vel', speed:150, frame:0, playing:false, timer:null, motores:{m1:true,m2:true} };
   const HVAR={ vel:{u:'mm/s',la:1.8,lal:4.5,lbl:'Velocidade',dec:3}, acel:{u:'g',la:0.25,lal:0.45,lbl:'Aceleração',dec:3}, temp:{u:'°C',la:35,lal:42,lbl:'Temperatura',dec:1} };
   let _histData=null, _histFonte=null;
 
+  // carrega o historico
   function loadHist(){
     if(_histData && _histFonte===state.fonte) return _histData;
     _histFonte = state.fonte;
@@ -789,6 +908,7 @@
     ['m1','m2'].forEach(pp=>{ ['vel','acel','temp'].forEach(k=>{ _histData[pp+'_'+k]=idx.map(i=>F[pp][k][i]); }); });
     return _histData;
   }
+  // aba Historico
   function renderHist(){
     const p=document.getElementById('fzPanel-hist'); const d=loadHist(); const N=d.idx.length; const cfg=HVAR[hist.variavel];
     if(!N){
@@ -837,7 +957,9 @@
     ctl.querySelector('[data-act="reset"]').addEventListener('click',()=>{ hist.frame=1; hist.playing=false; histPlay(false); renderHist(); });
     ctl.querySelector('[data-act="scrub"]').addEventListener('input',e=>{ hist.frame=+e.target.value; hist.playing=false; histPlay(false); renderHist(); });
   }
+  // atualiza so os controles do historico
   function renderHistControlsOnly(){  }
+  // reproduz o historico frame a frame
   function histPlay(on){
     if(hist.timer){ clearInterval(hist.timer); hist.timer=null; }
     if(!on) return;
@@ -848,6 +970,7 @@
   const ml = { vars:['m1_vel','m2_vel'] };
   let _mlSerie=null;
 
+  // serie usada na aba Baseline ML
   function mlSerie(){
     if(_mlSerie) return _mlSerie;
     const idx=idxLinspace(F.meta.n,400);
@@ -862,6 +985,8 @@
     });
     _mlSerie={idx,rows}; return _mlSerie;
   }
+  // aba Baseline ML: mostra o veredito da rede neural
+  // REVISAR (Vitor): checar se os textos da aba estao claros pro Operador
   function renderMl(){
     const p=document.getElementById('fzPanel-ml');
     const m=rede(); const meta=m?m.info():null;
@@ -1036,16 +1161,19 @@
     p.appendChild(tc);
   }
 
+  // ativos cadastrados com leituras
   function ativosReais(){
     if(!window.FZStore) return [];
-    return window.FZStore.getAtivosIndustrial().filter(a=> a.origem!=='forzy' && !['FZ-M1','FZ-M2','FZ-M3'].includes(a.tag));
+    return window.FZStore.getAtivosIndustrial().filter(a=> a.origem!=='forzy' && a.origem!=='demo' && !['FZ-M1','FZ-M2','FZ-M3'].includes(a.tag));
   }
+  // atualiza o selo ao vivo da rede neural
   function updateLiveBadge(){
     const b=document.getElementById('fzLiveBadge'); if(!b)return;
     const [cl,co,,r]=veredito(curReading());
     const tip = r ? 'Rede neural · índice '+fmt(r.indice,2)+(r.motivo?' ('+r.motivo+')':'') : 'Z-score';
     b.innerHTML=`<span class="fz-badge" style="background:${co}22;color:${co};border:1px solid ${co}" title="${escHtml(tip)}">${escHtml(cl.toUpperCase())}</span>`;
   }
+  // barra de escolha da fonte de dados
   function renderSourceBar(){
     const sb=document.getElementById('fzSourceBar');
     const ativos=ativosReais();
@@ -1059,20 +1187,19 @@
 
       sb.innerHTML=`
         <div class="fz-field"><span>Fonte de dados</span><div class="fz-seg" data-act="fonte">
-          ${[['forzy','Dataset Forzy (rede neural)'],['ativo','Ativo Cadastrado'],['sim','Simulado']].map(([v,l])=>`<button data-v="${v}" class="${v==state.fonte?'active':''}">${l}</button>`).join('')}
-          <button data-v="esp32" class="${'esp32'==state.fonte?'active':''}" style="${esp32Connected?'color:var(--fz-ok)':'opacity:.55'}">
-            ⬤ ESP32
-          </button>
+          ${[['forzy','Dataset Forzy (rede neural)'],['ativo','Ativo Cadastrado'],['fabrica','Fábrica Demo (fictícia)']].map(([v,l])=>`<button data-v="${v}" class="${v==state.fonte?'active':''}">${l}</button>`).join('')}
           <button data-v="cloud" class="${'cloud'==state.fonte?'active':''}" style="${cloudLoaded?'color:var(--fz-ok)':'opacity:.55'}" title="S1/S2 via daily_bridge.py — só a aba Monitoramento usa essa fonte">
             ⬤ Forzy Cloud
           </button>
         </div></div>
+        ${fabPisoField()}
         ${state.fonte==='ativo'?`<div class="fz-field"><span>Ativo</span><select class="fz-select" data-act="ativocod">${ativos.length?ativos.map(a=>`<option value="${a.codigo}" ${a.codigo==state.ativoCod?'selected':''}>${a.codigo}${a.tag?' · '+a.tag:''}</option>`).join(''):'<option value="">— nenhum ativo criado —</option>'}</select></div>`:''}
         <div class="fz-field"><span>Norma ISO</span><select class="fz-select" data-act="norma">${Object.keys(NORMAS).map(k=>`<option ${k==state.norma?'selected':''}>${k}</option>`).join('')}</select><span class="fz-badge fz-badge-isa-sb" title="ISA-18.2:2016 — Management of Alarm Systems">ISA-18.2</span></div>
         <div class="fz-field" style="margin-left:auto"><span>Estado atual</span><div id="fzLiveBadge"></div></div>`;
       sb.querySelector('[data-act="fonte"]').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{ state.fonte=b.dataset.v; if(state.fonte==='sim'){ simStep(); } if(state.fonte==='ativo' && !state.ativoCod){ state.ativoCod=ativos[0]?ativos[0].codigo:null; } renderSourceBar(); rerenderActive(true); }));
       const acs0=sb.querySelector('[data-act="ativocod"]'); if(acs0) acs0.addEventListener('change',e=>{ state.ativoCod=e.target.value; rerenderActive(true); });
       sb.querySelector('[data-act="norma"]').addEventListener('change',e=>{ state.norma=e.target.value; rerenderActive(true); });
+      fabLigarPiso(sb);
       updateLiveBadge();
       return;
     }
@@ -1080,8 +1207,7 @@
     const FONTES=[
       ['forzy','Dataset Forzy (rede neural)', true],
       ['ativo','Ativo Cadastrado', true],
-      ['sim','Simulado', true],
-      ['esp32','ESP32', esp32Connected],
+      ['fabrica','Fábrica Demo (fictícia)', true],
       ['cloud','Forzy Cloud', cloudLoaded],
     ];
     const cur = FONTES.find(f=>f[0]===state.fonte) || FONTES[0];
@@ -1099,7 +1225,8 @@
           </div>
         </div>
       </div>
-      ${state.fonte==='ativo'?`<div class="fz-field"><span>Ativo</span><select class="fz-select" data-act="ativocod">${ativos.length?ativos.map(a=>`<option value="${a.codigo}" ${a.codigo==state.ativoCod?'selected':''}>${a.codigo}${a.tag?' · '+a.tag:''}</option>`).join(''):'<option value="">— nenhum ativo criado —</option>'}</select></div>`:''}
+      ${fabPisoField()}
+        ${state.fonte==='ativo'?`<div class="fz-field"><span>Ativo</span><select class="fz-select" data-act="ativocod">${ativos.length?ativos.map(a=>`<option value="${a.codigo}" ${a.codigo==state.ativoCod?'selected':''}>${a.codigo}${a.tag?' · '+a.tag:''}</option>`).join(''):'<option value="">— nenhum ativo criado —</option>'}</select></div>`:''}
       <div class="fz-field" style="margin-left:auto"><span>Estado atual</span><div id="fzLiveBadge"></div></div>
       <div class="fz-norm-wrap">
         <button class="fz-btn ghost fz-norm-gear" id="fzNormGear" type="button" title="Norma ISO / ISA-18.2"><i data-lucide="settings-2"></i></button>
@@ -1128,9 +1255,11 @@
         document.querySelectorAll('.fz-norm-pop.open').forEach(p=>p.classList.remove('open'));
       });
     }
+    fabLigarPiso(sb);
     if(window.lucide) lucide.createIcons();
     updateLiveBadge();
   }
+  // atualiza o botao do ESP32
   function updateEsp32Btn(){
     const btnV2 = document.querySelector('#fzSourceBar .fz-fonte-drop [data-v="esp32"] .fz-fonte-dot');
     if(btnV2){ const on = window.FZIoT && window.FZIoT.isConnected(); btnV2.style.background = on ? 'var(--fz-ok)' : 'var(--text-3)'; return; }
@@ -1141,6 +1270,7 @@
     btn.style.opacity = on ? '1' : '0.55';
   }
 
+  // barra de ferramentas da tela
   function renderToolbar(){
     const tb=document.getElementById('fzToolbar');
     tb.innerHTML=`<button class="fz-btn ghost" id="fzExportCsv"><i data-lucide="download"></i> Exportar CSV</button>`+
@@ -1149,6 +1279,7 @@
     tb.querySelector('#fzExportPdf').addEventListener('click',exportReportPDF);
     if(window.lucide) lucide.createIcons();
   }
+  // exporta o relatorio
   function exportReport(){
 
     let csv='Variavel;Media;Desvio;P5;P95;Min;Max;N\n';
@@ -1156,6 +1287,7 @@
     dl('﻿'+csv,'forzy_relatorio_'+new Date().toISOString().slice(0,10)+'.csv','text/csv');
   }
 
+  // exporta o relatorio em PDF
   function exportReportPDF(){
     const JsPDF = window.jspdf && window.jspdf.jsPDF;
     if(!JsPDF){ exportReportPrintFallback(); return; }
@@ -1244,6 +1376,7 @@
     doc.save('forzy_relatorio_'+now.toISOString().slice(0,10)+'.pdf');
   }
 
+  // imprime o relatorio se o PDF falhar
   function exportReportPrintFallback(){
     const live = curReading(); const z = zscore(live); const [classe,,score,rr] = veredito(live);
     const stamp = new Date().toLocaleString('pt-BR',{hour12:false});
@@ -1272,6 +1405,7 @@
   }
 
   const RENDER={ mon:renderMon, esp:renderEsp, oper:renderOper, hist:renderHist, ml:renderMl };
+  // troca a aba do Dashboard
   function showTab(name){
     state.tab=name;
     document.querySelectorAll('#fzTabs .fz-tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===name));
@@ -1280,12 +1414,14 @@
     if(name!=='mon'){ if(state.monTimer){clearInterval(state.monTimer);state.monTimer=null;} }
     RENDER[name](); updateLiveBadge();
   }
+  // redesenha a aba aberta
   function rerenderActive(force){ if(force) state.rendered={}; RENDER[state.tab](); updateLiveBadge(); }
 
+  // liga a tela (roda so na primeira visita)
   function init(){
     if(!document.getElementById('fzTabs')) return;
     renderToolbar(); renderSourceBar();
-    document.querySelectorAll('#fzTabs .fz-tab').forEach(b=>b.addEventListener('click',()=>showTab(b.dataset.tab)));
+    document.querySelectorAll('#fzTabs .fz-tab[data-tab]').forEach(b=>b.addEventListener('click',()=>showTab(b.dataset.tab)));
     showTab('mon');
 
     new MutationObserver(()=>{ RENDER[state.tab](); }).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
@@ -1299,6 +1435,10 @@
   window.FZDashboard = {
     getCurrentReading: () => curReading(),
     getFonte: () => state.fonte,
+    // leitura atual dos 9 motores da fabrica (a topbar usa pra disparar alarme/popup/sininho)
+    fabricaMotores: () => { fabGarantir(); return fabPisos().flatMap(pi=>pi.motores.map(m=>{ const h=fab.hist[m.codigo]||[]; return { codigo:m.codigo, descricao:m.descricao, piso:pi.nome, r:h.length?h[h.length-1]:null, hist:h.slice() }; })); },
+    // avanca a simulacao da fabrica um passo (o Inicio chama no proprio timer)
+    fabricaPasso: () => fabStep(),
     abrirAtivo: (codigo) => {
       state.fonte='ativo'; state.ativoCod=codigo; state.tab='mon';
       if(typeof window.showScreen==='function') window.showScreen('dashboard');

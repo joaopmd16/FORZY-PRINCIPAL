@@ -1,19 +1,7 @@
-/* ===================================================================
-   PROJETO FORZY - Sistema de Monitoramento Industrial
-   Trabalho academico FIAP + Forzy-Promon
-
-   Integrantes:
-   - Arthur Baptista dos Santos       (RM 565346)
-   - Joao Pedro de Moura Dutra Franco (RM 561738)
-   - Nelson Felix Neto                (RM 565603)
-   - Pietro Boroto Rodrigues          (RM 562407)
-   - Vitor Soares Goncalves           (RM 566181)
-
-   Arquivo: alert-rail.js
-   O que faz: coluna de alertas do lado direito da tela
-   =================================================================== */
+/* alert-rail.js: coluna de alertas do lado direito da tela */
 
 (function () {
+  // protege o texto contra HTML/XSS antes de ir pro innerHTML
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => (
     { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -22,8 +10,10 @@
   let abertoChave = null;
   let verHistorico = false;
 
+  // true se o perfil atual e Operador
   const ehOperador = () => !!(window.FZPerfil && window.FZPerfil.isOperador());
 
+  // nome e cor do eixo do alarme
   function eixoInfo(a) {
     const s = String(a.eixo || a.msg || '').toLowerCase();
     if (s.includes('m2') || s.includes('eixo 2')) return { id: 'm2', nome: 'Eixo 2', cod: 'BBA-002' };
@@ -31,6 +21,7 @@
     return { id: 'm1', nome: 'Eixo 1', cod: 'BBA-001' };
   }
 
+  // frase curta do alarme (visao Operador)
   function resumo(a) {
     const e = eixoInfo(a);
     const temp = String(a.variavel || a.titulo || '').toLowerCase().includes('temp');
@@ -78,6 +69,7 @@
     },
   ];
 
+  // desenha a tela
   function render(alertas, historico) {
     if (!host) return;
     alertas = alertas || [];
@@ -131,6 +123,7 @@
     wire();
   }
 
+  // monta o HTML de um alerta
   function item(a, op) {
     const crit = String(a.prioridade).indexOf('P1') === 0;
     const aberto = abertoChave === a.chave;
@@ -159,6 +152,7 @@
       </div>`;
   }
 
+  // liga os cliques do rail
   function wire() {
     host.querySelectorAll('[data-act="abrir"]').forEach(b => b.addEventListener('click', () => {
       abertoChave = abertoChave === b.dataset.chave ? null : b.dataset.chave;
@@ -183,10 +177,12 @@
     host.querySelector('[data-act="csv"]')?.addEventListener('click', () => window.FZAlertas?.exportarCSV());
   }
 
+  // redesenha o rail quando os alarmes mudam
   function refresh() {
     render(window.FZAlertas?.ativos() || [], window.FZAlertas?.historico() || []);
   }
 
+  // liga a tela (roda so na primeira visita)
   function init() {
     host = document.getElementById('fzAlertRailBody');
     if (!host) return;

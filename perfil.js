@@ -1,23 +1,11 @@
-/* ===================================================================
-   PROJETO FORZY - Sistema de Monitoramento Industrial
-   Trabalho academico FIAP + Forzy-Promon
-
-   Integrantes:
-   - Arthur Baptista dos Santos       (RM 565346)
-   - Joao Pedro de Moura Dutra Franco (RM 561738)
-   - Nelson Felix Neto                (RM 565603)
-   - Pietro Boroto Rodrigues          (RM 562407)
-   - Vitor Soares Goncalves           (RM 566181)
-
-   Arquivo: perfil.js
-   O que faz: troca entre o modo Operador e o modo Admin
-   =================================================================== */
+/* perfil.js: troca entre o modo Operador e o modo Admin */
 
 (function () {
   const KEY = 'fz-perfil';
   const VALIDOS = ['operador', 'admin'];
   const cbs = [];
 
+  // perfil atual
   function get() {
     try {
       const v = localStorage.getItem(KEY);
@@ -25,6 +13,7 @@
     } catch (_) { return 'admin'; }
   }
 
+  // poe a classe perfil-* no body
   function aplicarClasse(p) {
     const b = document.body;
     if (!b) return;
@@ -32,6 +21,7 @@
     b.classList.toggle('perfil-admin', p === 'admin');
   }
 
+  // define o perfil
   function set(p) {
     if (!VALIDOS.includes(p)) return;
     try { localStorage.setItem(KEY, p); } catch (_) {}
@@ -40,7 +30,9 @@
     document.dispatchEvent(new CustomEvent('fz-perfil-change', { detail: { perfil: p } }));
   }
 
+  // alterna Operador e Analista
   function toggle() { set(get() === 'admin' ? 'operador' : 'admin'); }
+  // avisa quando o perfil muda
   function onChange(fn) { if (typeof fn === 'function') cbs.push(fn); }
 
   window.FZPerfil = {
@@ -54,6 +46,7 @@
 
   const ROTULO = { operador: 'Operador', admin: 'Analista' };
 
+  // atualiza a chavinha da topbar
   function sincronizarSwitch() {
     const atual = get();
     const sw = document.getElementById('fzVisaoToggle');
@@ -64,6 +57,7 @@
     if (txt) txt.textContent = ROTULO[atual];
   }
 
+  // liga a chavinha da topbar
   function wireSwitch() {
     const sw = document.getElementById('fzVisaoToggle');
     if (sw) sw.addEventListener('click', toggle);
@@ -71,6 +65,7 @@
     document.addEventListener('fz-perfil-change', sincronizarSwitch);
   }
 
+  // inicia o perfil ao abrir o site
   function boot() { aplicarClasse(get()); wireSwitch(); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();

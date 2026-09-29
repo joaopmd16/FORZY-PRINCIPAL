@@ -1,27 +1,18 @@
-/* ===================================================================
-   PROJETO FORZY - Sistema de Monitoramento Industrial
-   Trabalho academico FIAP + Forzy-Promon
-
-   Integrantes:
-   - Arthur Baptista dos Santos       (RM 565346)
-   - Joao Pedro de Moura Dutra Franco (RM 561738)
-   - Nelson Felix Neto                (RM 565603)
-   - Pietro Boroto Rodrigues          (RM 562407)
-   - Vitor Soares Goncalves           (RM 566181)
-
-   Arquivo: scada.js
-   O que faz: tela SCADA com planta 2D e modelo 3D da bomba
-   =================================================================== */
+/* scada.js: tela SCADA com planta 2D e modelo 3D da bomba */
 
 (function () {
   const F = window.FORZY;
   if (!F) { console.error('scada.js: FORZY ausente'); return; }
 
+  // le o valor de uma variavel CSS (cor do tema)
   const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  // atalho pra pegar um elemento pelo id
   const el = id => document.getElementById(id);
+  // cores por nivel de status
   const COR = () => [cssVar('--fz-ok'), cssVar('--fz-warn'), cssVar('--fz-bad')];
   const NOME = ['OK', 'ALERTA', 'ALARME'];
   const T0 = new Date(F.meta.t0).getTime();
+  // classifica o valor: 0 normal, 1 alerta, 2 alarme
   const flag = (v, a, al) => (v >= al ? 2 : v >= a ? 1 : 0);
   const TH = { tempA: 35, tempAl: 42, velA: 1.8, velAl: 4.5, acelA: 0.25, acelAl: 0.45 };
 
@@ -34,10 +25,14 @@
   })();
 
   const st = { fidx: 0, playing: false, speed: 200, timer: null, yaw1: 0.6, pitch1: -0.5, yaw2: 0.6, pitch2: -0.5, drag: null, drawReq: false, live: false, liveTimer: null };
+  // formata o tempo pra mostrar na tela
   function tlabel(i) { return new Date(T0 + DS.t[i] * 1000).toLocaleTimeString('pt-BR', { hour12: false }); }
+  // linha do dataset em um frame
   function rowAt(i) { return { v1: DS.m1v[i], a1: DS.m1a[i], t1: DS.m1t[i], v2: DS.m2v[i], a2: DS.m2a[i], t2: DS.m2t[i] }; }
 
+  // converte pra numero
   const num = (v, d) => (v == null || isNaN(v)) ? (d || 0) : +v;
+  // leitura ao vivo mais recente
   function liveRow() {
     const d = window.FZDashboard;
     if (!st.live || !d || typeof d.getCurrentReading !== 'function') return rowAt(st.fidx);
@@ -48,15 +43,18 @@
       v2: num(r.m2_vel, num(r.m1_vel)), a2: num(r.m2_acel, num(r.m1_acel)), t2: num(r.m2_temp, num(r.m1_temp, 25)),
     };
   }
+  // nome da fonte ao vivo
   const liveFonteLbl = () => {
     const f = window.FZDashboard && window.FZDashboard.getFonte && window.FZDashboard.getFonte();
     return ({ esp32: 'ESP32 ao vivo', ativo: 'Ativo cadastrado', sim: 'Simulado', cloud: 'Forzy Cloud', forzy: 'Dataset Forzy (rede neural)' })[f] || '—';
   };
+  // true se a fonte ao vivo esta ativa
   const fonteAoVivoOk = () => {
     const f = window.FZDashboard && window.FZDashboard.getFonte && window.FZDashboard.getFonte();
     return f === 'esp32' || f === 'ativo' || f === 'sim' || f === 'cloud';
   };
 
+  // controles de reproducao
   function renderPlayer() {
     const p = el('scadaPlayer'); if (!p) return;
     const liveCtrls = `
@@ -93,8 +91,10 @@
       renderPlayer(); startTimer(); render();
     });
   }
+  // sincroniza os elementos com o frame atual
   function sync() { const s = el('scadaPlayer'); if (!s) return; const r = s.querySelector('[data-act="scrub"]'); if (r) r.value = st.fidx; const t = el('spTime'); if (t) t.textContent = tlabel(st.fidx); }
 
+  // lista de alertas da planta
   function renderAlerts() {
     const box = el('scadaAlerts'); if (!box) return;
     const r = liveRow();
@@ -108,6 +108,7 @@
     box.innerHTML = banner('EIXO 1', r.t1, r.v1, r.a1) + banner('EIXO 2', r.t2, r.v2, r.a2);
   }
 
+  // planta 2D em SVG
   function render2D() {
     const p = el('scada2d'); if (!p) return;
     const r = liveRow();
@@ -154,6 +155,7 @@
   const MESH = buildMesh();
   let activeMesh = MESH;
 
+  // le um arquivo .npy (mesh 3D)
   async function loadNpy(url) {
     const buf = await (await fetch(url)).arrayBuffer();
     const head = new Uint8Array(buf, 8, 2);
@@ -166,6 +168,8 @@
     if (descr === '<i4') return new Int32Array(slice);
     throw new Error('descr não suportado: ' + descr);
   }
+  // carrega o modelo 3D real da bomba (se falhar usa o desenho simples)
+  // REVISAR (Joao): testar a Vista 3D em PC mais fraco, sao ~21 mil triangulos
   async function loadRealMesh() {
     try {
       const [vd, fd] = await Promise.all([loadNpy('data/bomba_verts.npy'), loadNpy('data/bomba_faces.npy')]);
@@ -192,6 +196,7 @@
       if (el('scadaCanvas')) draw3D();
     } catch (e) {  console.warn('Mesh real não carregou:', e.message); }
   }
+  // monta os triangulos do modelo 3D
   function buildMesh() {
     const verts = [], faces = [];
     const add = v => (verts.push(v), verts.length - 1);
@@ -217,17 +222,20 @@
     box(2.9, 0, 1.6, 0.5, 0.5, 1.6, 'machine');
     return { verts, faces };
   }
+  // escurece ou clareia uma cor pela luz
   function shade(hex, b) {
     const n = hex.replace('#', ''); let r = parseInt(n.slice(0, 2), 16), g = parseInt(n.slice(2, 4), 16), bl = parseInt(n.slice(4, 6), 16);
     r = Math.round(r * b); g = Math.round(g * b); bl = Math.round(bl * b);
     return `rgb(${r},${g},${bl})`;
   }
+  // pede o proximo desenho do 3D
   function requestDraw() {
     if (st.drawReq) return;
     st.drawReq = true;
     requestAnimationFrame(() => { st.drawReq = false; draw3D(); });
   }
 
+  // aba Vista 3D
   function render3D(forceInit) {
     const host = el('scada3d'); if (!host) return;
     if (forceInit || !el('scadaCanvas')) {
@@ -243,6 +251,7 @@
     draw3D();
   }
 
+  // liga o arrastar pra girar o motor
   function attachDrag(cv) {
     if (!cv) return;
     cv.addEventListener('pointerdown', e => {
@@ -275,6 +284,7 @@
     cv.addEventListener('pointercancel', end);
   }
 
+  // painel com os dados do motor clicado
   function showMotorInfo(motorIdx) {
     const r = liveRow();
     const [cOk, cW, cB] = COR();
@@ -304,6 +314,7 @@
     });
   }
 
+  // ordena as faces pra desenhar (fundo primeiro)
   function buildSorted(yaw, pitch, isDragging) {
     const cya = Math.cos(yaw), sya = Math.sin(yaw), cp = Math.cos(pitch), sp = Math.sin(pitch);
     const rot = v => {
@@ -330,6 +341,7 @@
     return { faces, rot };
   }
 
+  // desenha o 3D no canvas
   function draw3D() {
     const cv = el('scadaCanvas'); if (!cv) return;
 
@@ -395,6 +407,7 @@
     drawMotor(W * 0.27, f1, rot1, status1, 'Eixo 1');
     drawMotor(W * 0.73, f2, rot2, status2, 'Eixo 2');
   }
+  // vetor normal de uma face
   function normal(vs) {
     const a = vs[0], b = vs[1], c = vs[2];
     const u = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], w = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
@@ -402,6 +415,7 @@
     const L = Math.hypot(n[0], n[1], n[2]) || 1; return [n[0] / L, n[1] / L, n[2] / L];
   }
 
+  // aba Historico
   function renderHist() {
     const p = el('scadaHist'); if (!p) return;
     const upto = st.fidx + 1;
@@ -415,6 +429,7 @@
       + chart(DS.m1a, DS.m2a, TH.acelA, TH.acelAl, 'Aceleração (g)', 'g')
       + chart(DS.m1t, DS.m2t, TH.tempA, TH.tempAl, 'Temperatura (°C)', '°C');
   }
+  // grafico com varias linhas
   function multiLine(s1, s2, la, lal, unit) {
     const W = 720, H = 180, padL = 42, padR = 12, padT = 10, padB = 22;
     const n = Math.max(s1.length, 2);
@@ -434,8 +449,11 @@
     </svg>`;
   }
 
+  // aba aberta agora
   const activeTab = () => { const t = document.querySelector('#scadaTabs .fz-tab.active'); return t ? t.dataset.stab : 'p2d'; };
+  // true se a tela SCADA esta aberta
   const scadaOn = () => document.getElementById('screen-scada').classList.contains('active');
+  // desenha a tela
   function render() {
     renderAlerts();
     const tab = activeTab();
@@ -444,6 +462,7 @@
     if (tab === 'hist') renderHist();
     sync();
   }
+  // liga o timer da tela
   function startTimer() {
     if (st.timer) clearInterval(st.timer);
     if (st.liveTimer) { clearInterval(st.liveTimer); st.liveTimer = null; }
@@ -465,15 +484,17 @@
     }, st.speed);
   }
 
+  // troca a aba do SCADA
   function switchTab(name) {
     document.querySelectorAll('#scadaTabs .fz-tab').forEach(b => b.classList.toggle('active', b.dataset.stab === name));
     document.querySelectorAll('#screen-scada .fz-cpanel').forEach(p => p.classList.toggle('active', p.dataset.spanel === name));
     if (name === 'p3d') render3D(true); else render();
   }
 
+  // liga a tela (roda so na primeira visita)
   function init() {
     if (!el('scadaTabs')) return;
-    document.querySelectorAll('#scadaTabs .fz-tab').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.stab)));
+    document.querySelectorAll('#scadaTabs .fz-tab[data-stab]').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.stab)));
     renderPlayer(); render(); startTimer(); loadRealMesh();
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();

@@ -1,17 +1,4 @@
-/* ===================================================================
-   PROJETO FORZY - Sistema de Monitoramento Industrial
-   Trabalho academico FIAP + Forzy-Promon
-
-   Integrantes:
-   - Arthur Baptista dos Santos       (RM 565346)
-   - Joao Pedro de Moura Dutra Franco (RM 561738)
-   - Nelson Felix Neto                (RM 565603)
-   - Pietro Boroto Rodrigues          (RM 562407)
-   - Vitor Soares Goncalves           (RM 566181)
-
-   Arquivo: assistant.js
-   O que faz: bolinha flutuante do assistente de IA (versao antiga)
-   =================================================================== */
+/* assistant.js: bolinha flutuante do assistente de IA (versao antiga) */
 
 (function () {
 
@@ -82,10 +69,12 @@ Use SEMPRE esse contexto. Se o usuário perguntar "onde estou?" ou "o que é iss
   let aberto = false;
   let carregando = false;
 
+  // true se a tela dedicada do Assistente existe (a bolinha nao aparece)
   function telaDedicada() {
     return document.getElementById('fz-chat-screen') ? window.FZChatScreen : null;
   }
 
+  // resumo da tela atual pra IA
   function contextoAtual() {
     const ctx = [];
 
@@ -186,6 +175,7 @@ Use SEMPRE esse contexto. Se o usuário perguntar "onde estou?" ou "o que é iss
 
   let imagemPendente = null;
 
+  // envia a pergunta pra IA e devolve a resposta
   async function perguntarGemini(texto) {
     const ctx = contextoAtual();
 
@@ -225,6 +215,7 @@ Use SEMPRE esse contexto. Se o usuário perguntar "onde estou?" ou "o que é iss
     return resposta;
   }
 
+  // mostra a miniatura da imagem anexada
   function mostrarPreviewImagem(nome) {
     let prev = document.getElementById('fz-img-preview');
     if (!prev) {
@@ -235,10 +226,12 @@ Use SEMPRE esse contexto. Se o usuário perguntar "onde estou?" ou "o que é iss
     prev.innerHTML = `<span>📎 ${nome}</span><button id="fz-img-rm" title="Remover">✕</button>`;
     document.getElementById('fz-img-rm').onclick = () => { imagemPendente = null; removerPreviewImagem(); };
   }
+  // remove a imagem anexada
   function removerPreviewImagem() {
     document.getElementById('fz-img-preview')?.remove();
   }
 
+  // converte o markdown simples da resposta em HTML
   function md(txt) {
     return txt
       .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
@@ -248,6 +241,7 @@ Use SEMPRE esse contexto. Se o usuário perguntar "onde estou?" ou "o que é iss
       .replace(/\n/g,'<br>');
   }
 
+  // cria a bolinha e o painel do chat
   function montar() {
     const wrap = document.createElement('div');
     wrap.id = 'fz-ai-wrap';
@@ -383,8 +377,10 @@ Use SEMPRE esse contexto. Se o usuário perguntar "onde estou?" ou "o que é iss
 
   let expandido = false;
 
+  // abre ou fecha o painel
   function togglePanel() { aberto ? fecharPanel() : abrirPanel(); }
 
+  // abre o painel
   function abrirPanel() {
     aberto = true;
     document.getElementById('fz-ai-panel').classList.add('visible');
@@ -393,6 +389,7 @@ Use SEMPRE esse contexto. Se o usuário perguntar "onde estou?" ou "o que é iss
     setTimeout(() => document.getElementById('fz-ai-input').focus(), 200);
   }
 
+  // fecha o painel
   function fecharPanel() {
     aberto = false;
     expandido = false;
@@ -404,6 +401,7 @@ Use SEMPRE esse contexto. Se o usuário perguntar "onde estou?" ou "o que é iss
     atualizarIconeExpand();
   }
 
+  // aumenta ou reduz o painel
   function toggleExpand() {
     expandido = !expandido;
     const panel = document.getElementById('fz-ai-panel');
@@ -415,6 +413,7 @@ Use SEMPRE esse contexto. Se o usuário perguntar "onde estou?" ou "o que é iss
     setTimeout(() => document.getElementById('fz-ai-msgs').scrollTop = 99999, 350);
   }
 
+  // troca o icone de expandir
   function atualizarIconeExpand() {
     const btn = document.getElementById('fz-ai-expand');
     if (!btn) return;
@@ -430,6 +429,7 @@ Use SEMPRE esse contexto. Se o usuário perguntar "onde estou?" ou "o que é iss
          </svg>`;
   }
 
+  // adiciona uma mensagem no chat
   function addMsg(role, html) {
     const msgs = document.getElementById('fz-ai-msgs');
     const div = document.createElement('div');
@@ -440,6 +440,7 @@ Use SEMPRE esse contexto. Se o usuário perguntar "onde estou?" ou "o que é iss
     return div;
   }
 
+  // envia a mensagem digitada
   async function enviar() {
     if (carregando) return;
     const inp = document.getElementById('fz-ai-input');
@@ -468,6 +469,7 @@ Use SEMPRE esse contexto. Se o usuário perguntar "onde estou?" ou "o que é iss
 
   let _ultimoAlertaFlag = -1;
 
+  // avisa a bolinha de alarme do ESP32 (no-op com a tela dedicada)
   async function alertarIoT({ vel, temp, flag, arms }) {
 
     if (flag <= 0 || flag === _ultimoAlertaFlag) return;
@@ -515,9 +517,11 @@ Por favor, analise esse desvio operacional seguindo a norma ISO 10816 e ISA-18.2
     }
   }
 
+  // zera o aviso de alarme do ESP32
   function resetarAlertaIoT() { _ultimoAlertaFlag = -1; }
 
   const _cooldownPorOrigem = new Map();
+  // avisa a bolinha de uma notificacao (no-op com a tela dedicada)
   async function alertarNotificacao({ prioridade, titulo, msg, nivel, valor, unidade, origem }) {
     const critico = /P1/.test(prioridade);
     const chaveCooldown = origem || 'geral';
@@ -567,6 +571,7 @@ Seguindo as normas ISO 10816 e ISA-18.2, responda com:
 
   window.FZAssistant = { alertarIoT, resetarAlertaIoT, alertarNotificacao, togglePanel };
 
+  // liga a tela (roda so na primeira visita)
   function init() {
 
     if (document.getElementById('fz-chat-screen')) return;
@@ -581,6 +586,7 @@ Seguindo as normas ISO 10816 e ISA-18.2, responda com:
     }, 5000);
   }
 
+  // injeta o CSS da bolinha
   function injectCSS() {
     const s = document.createElement('style');
     s.textContent = `

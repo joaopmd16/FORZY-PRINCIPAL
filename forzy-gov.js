@@ -1,17 +1,4 @@
-/* ===================================================================
-   PROJETO FORZY - Sistema de Monitoramento Industrial
-   Trabalho academico FIAP + Forzy-Promon
-
-   Integrantes:
-   - Arthur Baptista dos Santos       (RM 565346)
-   - Joao Pedro de Moura Dutra Franco (RM 561738)
-   - Nelson Felix Neto                (RM 565603)
-   - Pietro Boroto Rodrigues          (RM 562407)
-   - Vitor Soares Goncalves           (RM 566181)
-
-   Arquivo: forzy-gov.js
-   O que faz: numeros de governanca do modelo de IA
-   =================================================================== */
+/* forzy-gov.js: numeros de governanca do modelo de IA */
 
 (function () {
 

@@ -1,31 +1,29 @@
-/* ===================================================================
-   PROJETO FORZY - Sistema de Monitoramento Industrial
-   Trabalho academico FIAP + Forzy-Promon
-
-   Integrantes:
-   - Arthur Baptista dos Santos       (RM 565346)
-   - Joao Pedro de Moura Dutra Franco (RM 561738)
-   - Nelson Felix Neto                (RM 565603)
-   - Pietro Boroto Rodrigues          (RM 562407)
-   - Vitor Soares Goncalves           (RM 566181)
-
-   Arquivo: iot.js
-   O que faz: tela de Sensores (conexao com o ESP32)
-   =================================================================== */
+/* iot.js: tela de Sensores (conexao com o ESP32) */
 
 (function () {
   const S = window.FZStore;
+  // le o valor de uma variavel CSS (cor do tema)
   const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  // atalho pra pegar um elemento pelo id
   const el = id => document.getElementById(id);
+  // protege o texto contra HTML/XSS antes de ir pro innerHTML
   const esc = s => (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  // cores por nivel de status
   const COR = () => [cssVar('--fz-ok'), cssVar('--fz-warn'), cssVar('--fz-bad')];
   const NOME = ['NORMAL', 'ALERTA', 'ALARME'];
+  // 0 = normal, 1 = alerta, 2 = alarme (ISO 10816)
+  // REVISAR (Arthur): esses limites servem so pra motor < 15 kW, ver se bomba grande precisa de outros
   const flagV = v => (v >= 4.5 ? 2 : v >= 1.8 ? 1 : 0);
+  // numero aleatorio com distribuicao normal (usado na simulacao)
   function gauss(mu, sd) { let u = 0, v = 0; while (!u) u = Math.random(); while (!v) v = Math.random(); return mu + sd * Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
 
-  const isForzyAsset = a => !!a && (a.origem === 'forzy' || ['FZ-M1', 'FZ-M2', 'FZ-M3'].includes(a.tag));
+  // true se o ativo e do Forzy (IoT nao grava nele)
+  const isForzyAsset = a => !!a && ((a.origem === 'forzy' || a.origem === 'demo') || ['FZ-M1', 'FZ-M2', 'FZ-M3'].includes(a.tag));
+  // ativo onde o IoT pode gravar
   const ativoGravavel = cod => { if (!cod || !S) return false; return !isForzyAsset(S.getAtivoPorCodigo(cod)); };
 
+  // endereco do bridge Python (serial_bridge.py) que le a porta do ESP32
+  // REVISAR (Vitor): se o bridge nao estiver rodando, mostrar um aviso claro na tela IoT?
   const BRIDGE_URL = 'http://localhost:8766/data';
   const CLOUD_LOG_URL = 'dados/forzy_cloud_log.csv';
   const st = { modo: 'sim', porta: 'COM5', baud: 115200, hist: [], simT: 0, timer: null,
@@ -33,8 +31,10 @@
     bridge: { timer: null, connected: false, lastTs: 0 },
     cloud: { rows: [], lastTs: 0, lastFetch: 0, erro: '' },
     ativo: null };
+  // ultima leitura recebida
   const last = () => st.hist.length ? st.hist[st.hist.length - 1] : { vel: 0, apeak: 0, arms: 0, temp: 0, flag: 0 };
 
+  // painel de configuracao
   function renderConfig() {
     const c = el('iotConfig'); if (!c) return;
     const ativos = S ? S.getAtivosIndustrial() : [];
@@ -84,6 +84,7 @@
     const cr = c.querySelector('[data-act="cloud-refresh"]'); if (cr) cr.addEventListener('click', loadCloudLog);
   }
 
+  // cartoes de leitura
   function renderCards() {
     const c = el('iotCards'); if (!c) return;
     let dot, txt, cor, sub;
@@ -127,6 +128,7 @@
     document.getElementById('iot-test-p1')?.addEventListener('click', () => simular(true, 6.8, 44, 0.052));
   }
 
+  // le o CSV do Forzy Cloud
   function parseCloudCsv(text) {
     const lines = text.trim().split(/\r?\n/);
     if (lines.length < 2) return [];
@@ -144,6 +146,7 @@
       };
     }).filter(r => !r.erro && r.velocidade != null);
   }
+  // busca o CSV do Forzy Cloud
   async function loadCloudLog() {
     try {
       const res = await fetch(CLOUD_LOG_URL + '?_=' + Date.now());
@@ -155,6 +158,7 @@
     } catch (e) { st.cloud.erro = e.message; }
     if (st.modo === 'cloud') { renderCards(); renderLive(); }
   }
+  // grafico com dois sensores
   function dualLineChart(arr1, arr2, color1, color2) {
     color1 = color1 || '#3498db'; color2 = color2 || '#e67e22';
     const W = 700, H = 160, padL = 40, padR = 12, padT = 10, padB = 18;
@@ -167,6 +171,7 @@
       <path d="${pathOf(arr1, X, Y)}" fill="none" stroke="${color1}" stroke-width="1.8"/>
       <path d="${pathOf(arr2, X, Y)}" fill="none" stroke="${color2}" stroke-width="1.8"/></svg>`;
   }
+  // tela do Forzy Cloud (S1 e S2)
   function renderCloudLive() {
     const s1 = st.cloud.rows.filter(r => r.sensor === 's1');
     const s2 = st.cloud.rows.filter(r => r.sensor === 's2');
@@ -194,6 +199,7 @@
     const xyz = el('iotXyz'); if (xyz) xyz.innerHTML = '';
   }
 
+  // tela ao vivo do ESP32
   function renderLive() {
     if (st.modo === 'cloud') { renderCloudLive(); return; }
     const [cOk, cW, cB] = COR(); const cols = [cOk, cW, cB];
@@ -231,6 +237,7 @@
       <div class="fz-chart">${xyzChart()}</div></div>` : '';
   }
 
+  // media movel pra suavizar o grafico
   function smooth(arr, w = 5) {
     if (arr.length < 2) return arr;
     return arr.map((_, i) => {
@@ -240,11 +247,14 @@
     });
   }
 
+  // escala vertical do grafico
   function scaleY(arr, extra) {
     let mn = Infinity, mx = -Infinity; for (const v of arr.concat(extra || [])) { if (v < mn) mn = v; if (v > mx) mx = v; }
     if (!isFinite(mn)) { mn = 0; mx = 1; } if (mx - mn < 1e-6) { mn -= 1; mx += 1; } mn = Math.min(mn, 0); return [mn, mx];
   }
+  // caminho SVG de uma serie
   function pathOf(arr, X, Y) { if (arr.length < 2) return ''; let d = 'M' + X(0).toFixed(1) + ',' + Y(arr[0]).toFixed(1); for (let i = 1; i < arr.length; i++) d += ' L' + X(i).toFixed(1) + ',' + Y(arr[i]).toFixed(1); return d; }
+  // grafico de linha
   function lineChart(arr, color) {
     const W = 700, H = 160, padL = 40, padR = 12, padT = 10, padB = 18;
     const [mn, mx] = scaleY(arr);
@@ -254,6 +264,7 @@
     const d = pathOf(arr, X, Y); const area = d ? `${d} L${X(arr.length - 1)},${Y(mn)} L${X(0)},${Y(mn)} Z` : '';
     return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="width:100%;height:auto">${grid}<path d="${area}" fill="${color}22"/><path d="${d}" fill="none" stroke="${color}" stroke-width="1.8"/></svg>`;
   }
+  // grafico de velocidade com faixas ISO
   function velChart(arr) {
     const W = 700, H = 220, padL = 40, padR = 12, padT = 10, padB = 18;
     const mx = Math.max(6, ...arr, 6); const mn = 0;
@@ -270,7 +281,9 @@
       ${thr(1.8, cW)}${thr(4.5, cB)}
       <path d="${area}" fill="#3498db22"/><path d="${d}" fill="none" stroke="#3498db" stroke-width="2"/>${lastPt}</svg>`;
   }
+  // colunas de dados do grafico
   const cols = () => COR();
+  // grafico dos tres eixos
   function xyzChart() {
     const W = 700, H = 180, padL = 40, padR = 12, padT = 10, padB = 18;
     const ax = smooth(st.hist.map(h => h.AX || 0), 5), ay = smooth(st.hist.map(h => h.AY || 0), 5), az = smooth(st.hist.map(h => h.AZ || 0), 5);
@@ -284,10 +297,12 @@
       <path d="${pathOf(az, X, Y)}" fill="none" stroke="#3498db" stroke-width="1.4"/></svg>`;
   }
 
+  // liga ou desliga o bridge
   function toggleBridge() {
     if (st.bridge.connected) { stopBridge(); renderConfig(); renderCards(); return; }
     startBridge();
   }
+  // conecta ao bridge Python
   function startBridge() {
     if (st.bridge.timer) clearInterval(st.bridge.timer);
     st.bridge.connected = false; st.bridge.rxCount = 0;
@@ -296,10 +311,12 @@
     st.bridge.timer = setInterval(pollBridge, 1000);
     pollBridge();
   }
+  // desconecta do bridge
   function stopBridge() {
     if (st.bridge.timer) { clearInterval(st.bridge.timer); st.bridge.timer = null; }
     st.bridge.connected = false;
   }
+  // busca a ultima leitura no bridge
   async function pollBridge() {
     try {
       const r = await fetch(BRIDGE_URL, { signal: AbortSignal.timeout(2000) });
@@ -330,6 +347,7 @@
     }
   }
 
+  // gera leitura simulada
   function stepSim() {
     st.simT += 2;
     const base = 1.1 + 0.9 * Math.sin(st.simT / 30);
@@ -340,6 +358,7 @@
     push({ vel, apeak, arms, temp, flag: flagV(vel) });
   }
   let _flagAnterior = 0;
+  // toda leitura passa por aqui (grava e checa alarme)
   function push(r) {
     st.hist.push(r);
     if (st.hist.length > 150) st.hist = st.hist.slice(-150);
@@ -356,6 +375,7 @@
     _flagAnterior = r.flag;
   }
 
+  // abre a porta serial
   async function openPort(port, autoReconnect = false) {
     if (st.serial.connected) return true;
     try {
@@ -371,6 +391,8 @@
         } else { throw e1; }
       }
 
+      // evita que abrir a porta serial reinicie o ESP32-CAM
+      // REVISAR (Joao): testar na placa real se ainda reinicia
       try { await port.setSignals({ dataTerminalReady: false, requestToSend: false }); } catch (_) {}
       await new Promise(r => setTimeout(r, 300));
 
@@ -395,6 +417,7 @@
       return false;
     }
   }
+  // conecta ou desconecta a serial
   async function toggleSerial() {
     if (st.serial.connected) { await disconnectSerial(); renderConfig(); renderCards(); return; }
     if (!st.serial.supported) { st.serial.status = 'unsupported'; renderCards(); return; }
@@ -409,6 +432,7 @@
     await openPort(port);
   }
 
+  // tenta reconectar a porta ja autorizada
   async function autoConnect() {
     if (!st.serial.supported || st.serial.connected) return;
     try {
@@ -416,6 +440,7 @@
       if (ports.length) await openPort(ports[0]);
     } catch (e) { console.error('[IoT ESP32] autoConnect falhou:', e); }
   }
+  // desconecta a serial
   async function disconnectSerial() {
     st.serial.connected = false;
     try { if (st.serial.reader) await st.serial.reader.cancel(); } catch (e) {}
@@ -425,6 +450,7 @@
     try { if (st.serial.port) await st.serial.port.close(); } catch (e) {}
     st.serial.port = null; st.serial.reader = null;
   }
+  // le a serial em loop
   async function readLoop() {
     const decoder = new TextDecoder();
     const readable = st.serial.port.readable;
@@ -473,6 +499,7 @@
       if (needsReconnect) console.log('[IoT ESP32] aguardando ESP32 reconectar (connect event)...');
     }
   }
+  // converte uma linha JSON da serial em leitura
   function parseLine(s) {
     s = s.trim();
     if (!s) return;
@@ -498,6 +525,7 @@
     }
   }
 
+  // ajuda de conexao
   function renderHelp() {
     const h = el('iotHelp'); if (!h) return;
     h.innerHTML = `<summary>Como conectar o hardware real</summary>
@@ -511,6 +539,7 @@
       </div>`;
   }
 
+  // tenta conectar ao bridge sozinho
   async function tryAutoBridge() {
     if (st.bridge.connected || st.bridge.timer) return;
     try {
@@ -526,7 +555,9 @@
     }
   }
 
+  // true se a tela IoT esta aberta
   const iotOn = () => document.getElementById('screen-iot').classList.contains('active');
+  // ciclo de atualizacao da tela
   function tick() {
     if (!iotOn()) return;
     if (st.modo === 'sim') stepSim();
@@ -537,6 +568,7 @@
     if (!st.bridge.connected || st.modo === 'sim') renderLive();
   }
 
+  // liga a tela (roda so na primeira visita)
   function init() {
     if (!el('iotConfig')) return;
     renderConfig(); renderCards(); renderHelp();

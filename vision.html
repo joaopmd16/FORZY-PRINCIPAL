@@ -1,18 +1,6 @@
 <!DOCTYPE html>
-<!-- ===================================================================
-   PROJETO FORZY - Sistema de Monitoramento Industrial
-   Trabalho academico FIAP + Forzy-Promon
+<!-- vision.html: pagina unica com todas as telas do site -->
 
-   Integrantes:
-   - Arthur Baptista dos Santos       (RM 565346)
-   - Joao Pedro de Moura Dutra Franco (RM 561738)
-   - Nelson Felix Neto                (RM 565603)
-   - Pietro Boroto Rodrigues          (RM 562407)
-   - Vitor Soares Goncalves           (RM 566181)
-
-   Arquivo: vision.html
-   O que faz: pagina unica com todas as telas do site
-   =================================================================== -->
 <html lang="pt-BR" data-theme="dark">
 <head>
 <meta charset="UTF-8">
@@ -38,6 +26,8 @@ try{if(!localStorage.getItem('fz-sessao')&&!sessionStorage.getItem('fz-sessao'))
       <span class="logo-text">IMS · Forzy</span>
     </div>
 
+    <!-- menu dividido em 3 secoes: Operacao, Automacao e IA, Analise -->
+    <div class="fz-nav-sec">Operação</div>
     <nav class="nav-group nav-group-flat">
       <button class="nav-item active" data-screen="inicio">
         <i data-lucide="home"></i><span class="lbl">Início</span>
@@ -45,18 +35,23 @@ try{if(!localStorage.getItem('fz-sessao')&&!sessionStorage.getItem('fz-sessao'))
       <button class="nav-item" data-screen="dashboard">
         <i data-lucide="layout-dashboard"></i><span class="lbl">Monitoramento</span>
       </button>
-      <button class="nav-item" data-screen="scada">
-        <i data-lucide="factory"></i><span class="lbl">SCADA</span>
-      </button>
       <button class="nav-item" data-screen="cadastro">
         <i data-lucide="clipboard-list"></i><span class="lbl">Ativos</span>
       </button>
+    </nav>
+
+    <div class="fz-nav-sec">Automação e IA</div>
+    <nav class="nav-group nav-group-flat">
       <button class="nav-item" data-screen="iot" data-perfil="admin">
         <i data-lucide="cpu"></i><span class="lbl">Sensores &amp; Automação</span>
       </button>
       <button class="nav-item" data-screen="assistente">
         <i data-lucide="bot"></i><span class="lbl">Assistente IA</span><span class="fz-nav-dot" id="navAssistenteDot"></span>
       </button>
+    </nav>
+
+    <div class="fz-nav-sec">Análise</div>
+    <nav class="nav-group nav-group-flat">
       <button class="nav-item" data-screen="diagnostico">
         <i data-lucide="stethoscope"></i><span class="lbl">Diagnóstico</span>
       </button>
@@ -126,9 +121,15 @@ try{if(!localStorage.getItem('fz-sessao')&&!sessionStorage.getItem('fz-sessao'))
         <div class="fz-sourcebar" id="fzSourceBar"></div>
 
         <div class="fz-tabs" id="fzTabs">
-          <button class="fz-tab active" data-tab="mon">Monitoramento</button>
+          <span class="fz-tabs-lbl">Monitoramento</span>
+          <button class="fz-tab active" data-tab="mon">Visão Geral</button>
           <button class="fz-tab" data-tab="hist">Histórico</button>
           <button class="fz-tab" data-tab="ml" data-perfil="admin">Baseline ML</button>
+          <span class="fz-tabs-sep"></span>
+          <span class="fz-tabs-lbl">Planta</span>
+          <button class="fz-tab" data-goto-scada="p2d">2D</button>
+          <button class="fz-tab" data-goto-scada="p3d">Vista 3D</button>
+          <button class="fz-tab" data-goto-scada="hist">Hist. da Planta</button>
         </div>
 
         <div class="fz-panel active" data-panel="mon"  id="fzPanel-mon"></div>
@@ -313,16 +314,22 @@ try{if(!localStorage.getItem('fz-sessao')&&!sessionStorage.getItem('fz-sessao'))
       <div class="fz-dash">
         <div class="page-head">
           <div>
-            <div class="fz-eyebrow">Planta &amp; Sensores</div>
-            <h1 class="page-title">SCADA</h1>
+            <div class="fz-eyebrow">Forzy · Monitoramento Industrial</div>
+            <h1 class="page-title">Planta (SCADA)</h1>
           </div>
         </div>
         <div class="fz-card" id="scadaPlayer"></div>
         <div class="fz-row2" id="scadaAlerts"></div>
         <div class="fz-tabs" id="scadaTabs">
-          <button class="fz-tab active" data-stab="p2d">Planta 2D</button>
+          <span class="fz-tabs-lbl">Monitoramento</span>
+          <button class="fz-tab" data-goto-mon="mon">Visão Geral</button>
+          <button class="fz-tab" data-goto-mon="hist">Histórico</button>
+          <button class="fz-tab" data-goto-mon="ml" data-perfil="admin">Baseline ML</button>
+          <span class="fz-tabs-sep"></span>
+          <span class="fz-tabs-lbl">Planta</span>
+          <button class="fz-tab active" data-stab="p2d">2D</button>
           <button class="fz-tab" data-stab="p3d">Vista 3D</button>
-          <button class="fz-tab" data-stab="hist">Histórico</button>
+          <button class="fz-tab" data-stab="hist">Hist. da Planta</button>
         </div>
         <div class="fz-cpanel active" data-spanel="p2d"  id="scada2d"></div>
         <div class="fz-cpanel"        data-spanel="p3d"  id="scada3d"></div>
@@ -364,34 +371,38 @@ try{if(!localStorage.getItem('fz-sessao')&&!sessionStorage.getItem('fz-sessao'))
     </section>
 
     <section class="screen" id="screen-diagnostico">
-      <div class="page-head">
-        <div>
-          <div class="fz-eyebrow">Forzy · Manutenção Preditiva</div>
-          <h1 class="page-title">Diagnóstico</h1>
-          <div class="fz-hero-sub" id="fzDiagSub">Investigação da falha, causa raiz, projeção de degradação e Ordem de Serviço</div>
+      <div class="fz-dash">
+        <div class="page-head">
+          <div>
+            <div class="fz-eyebrow">Forzy · Manutenção Preditiva</div>
+            <h1 class="page-title">Diagnóstico</h1>
+            <div class="fz-hero-sub" id="fzDiagSub">Investigação da falha, causa raiz, projeção de degradação e Ordem de Serviço</div>
+          </div>
         </div>
+        <div class="fz-tabs" id="fzDiagTabs">
+          <button class="fz-tab active" data-dtab="investigacao" data-perfil="admin">Investigação</button>
+          <button class="fz-tab" data-dtab="rca" data-perfil="admin">Causa Raiz</button>
+          <button class="fz-tab" data-dtab="preditivo" data-perfil="admin">Projeção de Falha</button>
+          <button class="fz-tab" data-dtab="os">Ordem de Serviço</button>
+        </div>
+        <div class="fz-panel active" data-dpanel="investigacao"><div id="investigacaoRoot"></div></div>
+        <div class="fz-panel" data-dpanel="rca"><div id="rcaRoot"></div></div>
+        <div class="fz-panel" data-dpanel="preditivo"><div id="preditivoRoot"></div></div>
+        <div class="fz-panel" data-dpanel="os"><div id="copilotoRoot"></div></div>
       </div>
-      <div class="fz-tabs" id="fzDiagTabs">
-        <button class="fz-tab active" data-dtab="investigacao" data-perfil="admin">Investigação</button>
-        <button class="fz-tab" data-dtab="rca" data-perfil="admin">Causa Raiz</button>
-        <button class="fz-tab" data-dtab="preditivo" data-perfil="admin">Projeção de Falha</button>
-        <button class="fz-tab" data-dtab="os">Ordem de Serviço</button>
-      </div>
-      <div class="fz-panel active" data-dpanel="investigacao"><div id="investigacaoRoot"></div></div>
-      <div class="fz-panel" data-dpanel="rca"><div id="rcaRoot"></div></div>
-      <div class="fz-panel" data-dpanel="preditivo"><div id="preditivoRoot"></div></div>
-      <div class="fz-panel" data-dpanel="os"><div id="copilotoRoot"></div></div>
     </section>
 
     <section class="screen" id="screen-governanca">
-      <div class="page-head">
-        <div>
-          <div class="fz-eyebrow">Forzy · Governança de IA</div>
-          <h1 class="page-title">Governança</h1>
-          <div class="fz-hero-sub">KPIs estratégicos, Metric Contract, Circuit Breaker, trilha de auditoria e fairness</div>
+      <div class="fz-dash">
+        <div class="page-head">
+          <div>
+            <div class="fz-eyebrow">Forzy · Governança de IA</div>
+            <h1 class="page-title">Governança</h1>
+            <div class="fz-hero-sub">KPIs estratégicos, Metric Contract, Circuit Breaker, trilha de auditoria e fairness</div>
+          </div>
         </div>
+        <div id="governancaRoot"></div>
       </div>
-      <div id="governancaRoot"></div>
     </section>
   </main>
 
@@ -458,18 +469,19 @@ try{if(!localStorage.getItem('fz-sessao')&&!sessionStorage.getItem('fz-sessao'))
 <script src="data/forzy-data.js"></script>
 <script src="data/forzy-model.js?v=1"></script>
 <script src="modelo.js?v=2"></script>
-<script src="forzy-store.js?v=4"></script>
-<script src="forzy.js?v=16"></script>
-<script src="inicio.js?v=6"></script>
-<script src="cadastro.js?v=10"></script>
+<script src="forzy-store.js?v=7"></script>
+<script src="forzy.js?v=22"></script>
+<script src="inicio.js?v=8"></script>
+<script src="cadastro.js?v=12"></script>
+<script src="ativo-dados.js?v=2"></script>
 <script src="gestao.js?v=6"></script>
-<script src="scada.js?v=3"></script>
-<script src="iot.js?v=6"></script>
+<script src="scada.js?v=4"></script>
+<script src="iot.js?v=7"></script>
 <script src="perfil.js?v=3"></script>
 <script src="auth.js?v=1"></script>
-<script src="topbar.js?v=12"></script>
+<script src="topbar.js?v=14"></script>
 <script src="app.js?v=11"></script>
-<script src="nav-v2.js?v=5"></script>
+<script src="nav-v2.js?v=6"></script>
 <script src="config.js"></script>
 <script src="assistant.js?v=11"></script>
 <script src="assistente-screen.js?v=15"></script>

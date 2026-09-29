@@ -1,22 +1,11 @@
-/* ===================================================================
-   PROJETO FORZY - Sistema de Monitoramento Industrial
-   Trabalho academico FIAP + Forzy-Promon
-
-   Integrantes:
-   - Arthur Baptista dos Santos       (RM 565346)
-   - Joao Pedro de Moura Dutra Franco (RM 561738)
-   - Nelson Felix Neto                (RM 565603)
-   - Pietro Boroto Rodrigues          (RM 562407)
-   - Vitor Soares Goncalves           (RM 566181)
-
-   Arquivo: assistente-screen.js
-   O que faz: tela do Assistente de IA (conversa com a OpenAI)
-   =================================================================== */
+/* assistente-screen.js: tela do Assistente de IA (conversa com a OpenAI) */
 
 (function () {
   let iniciado = false;
 
   const STORAGE_KEY = 'forzy-chat-sessions-v1';
+  // limite de conversas guardadas no navegador
+  // REVISAR (Vitor): 100 conversas esta bom ou pode pesar o localStorage?
   const MAX_SESSOES = 100;
 
   const PROJETOS = [
@@ -37,10 +26,12 @@
   let projetoAtivo = null;
   let anexoPendente = null;
 
+  // protege o texto contra HTML/XSS antes de ir pro innerHTML
   function esc(s) {
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
+  // converte o markdown da IA em HTML
   function renderMd(text) {
     const inline = t => t
       .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
@@ -69,6 +60,7 @@
       .replace(/<br>$/, '');
   }
 
+  // le as conversas salvas
   function carregar() {
     try {
       const d = JSON.parse(localStorage.getItem(STORAGE_KEY));
@@ -77,13 +69,17 @@
     if (!sessions.length) novaSessao();
     else if (!sessions.some(s => s.id === currentId)) currentId = sessions[0].id;
   }
+  // salva as conversas
   function salvar() {
     if (sessions.length > MAX_SESSOES) sessions = sessions.slice(0, MAX_SESSOES);
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ sessions, currentId })); } catch (_) {}
   }
+  // conversa que esta aberta
   function sessaoAtual() { return sessions.find(s => s.id === currentId); }
+  // acha a conversa de um ativo ou da conversa geral
   function sessaoPorOrigem(origem) { return sessions.find(s => s.origem === origem); }
 
+  // cria uma conversa nova
   function novaSessao(projectId, origem) {
     const s = {
       id: 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
@@ -100,13 +96,16 @@
     return s;
   }
 
+  // marca a conversa como usada agora
   function tocar(s) { s.atualizadoEm = new Date().toISOString(); }
 
+  // titulo curto da conversa
   function tituloTruncado(t) {
     if (!t) return 'Nova conversa';
     return t.length > 34 ? t.slice(0, 34) + '…' : t;
   }
 
+  // agrupa conversas por data (hoje, ontem...)
   function grupoDe(iso) {
     const d = new Date(iso), now = new Date();
     if (d.toDateString() === now.toDateString()) return 'Hoje';
@@ -116,6 +115,7 @@
     return 'Mais antigo';
   }
 
+  // desenha a lista de conversas
   function renderSidebar() {
     const el = document.getElementById('fzChatSidebar');
     if (!el) return;
@@ -174,6 +174,7 @@
     if (window.lucide) lucide.createIcons();
   }
 
+  // apaga uma conversa
   function excluirSessao(id) {
     sessions = sessions.filter(s => s.id !== id);
     if (currentId === id) {
@@ -183,6 +184,7 @@
     salvar(); renderTudo();
   }
 
+  // tela de boas-vindas do chat
   function welcomeHtml() {
     return `
       <div class="fz-chat-welcome">
@@ -201,6 +203,7 @@
     `;
   }
 
+  // liga os botoes de sugestao de pergunta
   function ativarSuggest() {
     const grid = document.getElementById('fzChatSuggest');
     if (!grid) return;
@@ -210,6 +213,7 @@
     });
   }
 
+  // redesenha as mensagens da conversa
   function redesenharMsgs() {
     const msgs = document.getElementById('fzChatMsgs');
     if (!msgs) return;
@@ -226,6 +230,7 @@
     msgs.scrollTop = msgs.scrollHeight;
   }
 
+  // redesenha o cabecalho do chat
   function redesenharHeader() {
     const t = document.getElementById('fzChatCurTitle');
     if (t) t.textContent = tituloTruncado(sessaoAtual()?.title);
@@ -236,12 +241,14 @@
     }
   }
 
+  // redesenha lista, cabecalho e mensagens
   function renderTudo() {
     redesenharHeader();
     redesenharMsgs();
     renderSidebar();
   }
 
+  // ajusta a altura do campo de texto
   function ajustarAltura() {
     const ws = document.querySelector('.fz-chat-workspace');
     if (!ws) return;
@@ -250,6 +257,7 @@
     ws.style.height = Math.max(460, window.innerHeight - top - 24) + 'px';
   }
 
+  // liga a tela (roda so na primeira visita)
   function init() {
     if (iniciado) return;
     iniciado = true;
@@ -325,6 +333,7 @@
     });
   }
 
+  // mostra a imagem anexada
   function mostrarAnexo() {
     const prev = document.getElementById('fzChatAttachPreview');
     if (!prev) return;
@@ -334,6 +343,7 @@
     document.getElementById('fzChatAttachRm').addEventListener('click', () => { anexoPendente = null; mostrarAnexo(); });
   }
 
+  // adiciona uma bolha no chat
   function addBubble(role, html, id, cls) {
     const s = sessaoAtual();
     s.bubbles.push({ role, html, id, cls: cls || undefined });
@@ -348,6 +358,7 @@
     msgs.appendChild(div);
     msgs.scrollTop = msgs.scrollHeight;
   }
+  // atualiza o texto de uma bolha
   function atualizarBubble(id, html) {
     const s = sessaoAtual();
     const b = s.bubbles.find(x => x.id === id);
@@ -356,6 +367,7 @@
     if (el) el.querySelector('.fz-chat-bubble-inner').innerHTML = html;
   }
 
+  // linha de contexto do ativo pra IA
   function linhaAtivo(a) {
     const partes = [
       `[${a.codigo}]`,
@@ -393,6 +405,7 @@
     return `\n\n[ATIVOS CADASTRADOS — dados de placa]\n${ativos.map(linhaAtivo).join('\n')}`;
   }
 
+  // resultado da rede neural pra IA
   function contextoRede(leituraFixa) {
     try {
       const M = window.FZModelo;
@@ -417,6 +430,7 @@
     } catch (_) { return ''; }
   }
 
+  // envia a mensagem pra OpenAI
   async function enviar(texto, opts) {
     opts = opts || {};
     const isAlerta = !!opts.isAlerta;
@@ -489,6 +503,7 @@ Seja direto: máximo 3-4 parágrafos por resposta. Use **negrito** para destacar
     if (msgs) msgs.scrollTop = 99999;
   }
 
+  // manda um alarme como pergunta (so quando o operador pede)
   function enviarAlerta(msgIA, tituloSugerido, origem) {
     init();
     const jaEstaAberto = document.getElementById('screen-assistente')?.classList.contains('active');
@@ -509,16 +524,20 @@ Seja direto: máximo 3-4 parágrafos por resposta. Use **negrito** para destacar
   }
 
   const listenersAlerta = [];
+  // reage a um alarme novo
   function onAlerta(cb) {
     listenersAlerta.push(cb);
     return () => { const i = listenersAlerta.indexOf(cb); if (i >= 0) listenersAlerta.splice(i, 1); };
   }
+  // mostra o ponto de aviso na sidebar
   function notificarAlerta(origem, sessao) {
     listenersAlerta.forEach(cb => { try { cb(origem, sessao); } catch (_) {} });
   }
 
+  // busca uma conversa pelo id
   function getSessao(origem) { return origem ? sessaoPorOrigem(origem) : null; }
 
+  // faz a chamada a API da OpenAI
   async function perguntar(origem, tituloSugerido, texto) {
     init();
     let s = origem ? sessaoPorOrigem(origem) : null;
@@ -529,6 +548,7 @@ Seja direto: máximo 3-4 parágrafos por resposta. Use **negrito** para destacar
     await enviar(texto, {});
   }
 
+  // abre uma conversa
   function abrirConversa(origem, tituloSugerido) {
     init();
     let s = origem ? sessaoPorOrigem(origem) : null;
@@ -537,6 +557,7 @@ Seja direto: máximo 3-4 parágrafos por resposta. Use **negrito** para destacar
     salvar(); renderTudo();
   }
 
+  // abre a conversa de um ativo
   function abrirAtivo(codigo) {
     if (!codigo) return;
     abrirConversa('ativo:' + codigo, 'Ativo ' + codigo);
@@ -547,6 +568,7 @@ Seja direto: máximo 3-4 parágrafos por resposta. Use **negrito** para destacar
 
   const alertasAnalisados = new Set();
 
+  // nome de exibicao da origem da conversa
   function rotuloOrigem(origem) {
     const o = String(origem || '').split(':')[0];
     const MAPA = { 'dataset-forzy': 'Dataset Forzy', simulado: 'Simulado', 'forzy-cloud': 'Forzy Cloud', esp32: 'ESP32', dashboard: 'Dashboard' };
@@ -555,6 +577,7 @@ Seja direto: máximo 3-4 parágrafos por resposta. Use **negrito** para destacar
     return '';
   }
 
+  // abre o chat ja com o card do alarme e pede a analise
   function abrirComContexto(payload) {
     payload = payload || {};
     init();

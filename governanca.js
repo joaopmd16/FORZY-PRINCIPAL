@@ -1,22 +1,11 @@
-/* ===================================================================
-   PROJETO FORZY - Sistema de Monitoramento Industrial
-   Trabalho academico FIAP + Forzy-Promon
-
-   Integrantes:
-   - Arthur Baptista dos Santos       (RM 565346)
-   - Joao Pedro de Moura Dutra Franco (RM 561738)
-   - Nelson Felix Neto                (RM 565603)
-   - Pietro Boroto Rodrigues          (RM 562407)
-   - Vitor Soares Goncalves           (RM 566181)
-
-   Arquivo: governanca.js
-   O que faz: tela de Governanca (KPIs, auditoria, fairness)
-   =================================================================== */
+/* governanca.js: tela de Governanca (KPIs, auditoria, fairness) */
 
 (function () {
+  // protege o texto contra HTML/XSS antes de ir pro innerHTML
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const fmt = (v, d = 1) => (v == null || v !== v) ? '—' : Number(v).toFixed(d);
+  // formata valor em reais
   const brl = v => 'R$ ' + Number(v || 0).toLocaleString('pt-BR');
 
   let _root = null, _tab = null, _cbSensor = 'vibracao', _cbCenario = 'normal', _auditFiltro = '';
@@ -27,17 +16,20 @@
     { id: 'audit',  lbl: 'Auditoria / Trilha' },
     { id: 'fair',   lbl: 'Fairness' },
   ];
+  // abas liberadas pro perfil atual
   function abasPermitidas() {
     const op = window.FZPerfil && window.FZPerfil.isOperador && window.FZPerfil.isOperador();
     return op ? ABAS.filter(a => a.id === 'kpi') : ABAS.slice();
   }
 
+  // cartao de KPI
   function kpiPanel(titulo, rows) {
     return `<div class="fz-card fz-gov-kpi">
       <div class="fz-card-title">${esc(titulo)}</div>
       ${rows.map(([k, v, c]) => `<div class="fz-gov-kpi-row"><span>${esc(k)}</span><b style="color:${c || 'var(--text)'}">${esc(v)}</b></div>`).join('')}
     </div>`;
   }
+  // aba KPIs estrategicos
   function renderKPI() {
     const bi = window.FZBI ? window.FZBI.resumo() : {};
     const m = (window.FZGovDados && window.FZGovDados.metrics && window.FZGovDados.metrics()) || {};
@@ -78,6 +70,7 @@
     </div>`;
   }
 
+  // contrato de metrica
   function metricContract() {
     const LIM = (window.FZCopiloto && window.FZCopiloto.LIM) || { vel: { a: 1.8, al: 4.5 }, acel: { a: 0.25, al: 0.45 }, temp: { a: 35, al: 42 } };
     const bl = (window.FORZY && window.FORZY.baseline) || {};
@@ -87,6 +80,7 @@
       aceleracao: { label: 'Aceleração de impacto', unit: 'g', atencao: LIM.acel.a, alarme: LIM.acel.al, baseline: bl.m1_acel ? +bl.m1_acel.mean.toFixed(2) : '—', norma: 'ISO 10816' },
     };
   }
+  // aba Metric Contract e Circuit Breaker
   function renderMetric() {
     const mc = metricContract();
     const CEN = {
@@ -145,6 +139,7 @@
     </div>`;
   }
 
+  // aba Auditoria
   function renderAudit() {
     const l = (window.FZAudit && window.FZAudit.list()) || [];
     const filt = _auditFiltro ? l.filter(e => (e.tipo + e.ator + e.detalhe).toLowerCase().includes(_auditFiltro.toLowerCase())) : l;
@@ -173,6 +168,7 @@
     </div>`;
   }
 
+  // aba Fairness
   function renderFair() {
     const F = (window.FZGovDados && window.FZGovDados.fairness && window.FZGovDados.fairness()) || [];
     return `<div class="fz-gov-fair-grid">
@@ -187,6 +183,7 @@
     </div>`;
   }
 
+  // desenha a tela
   function render() {
     if (!_root) return;
     const abas = abasPermitidas();
@@ -219,6 +216,7 @@
     if (csv) csv.addEventListener('click', () => window.FZAudit && window.FZAudit.exportCSV());
   }
 
+  // liga a tela (roda so na primeira visita)
   function init() {
     _root = document.getElementById('governancaRoot');
     if (!_root) return;

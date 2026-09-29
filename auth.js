@@ -1,19 +1,8 @@
-/* ===================================================================
-   PROJETO FORZY - Sistema de Monitoramento Industrial
-   Trabalho academico FIAP + Forzy-Promon
-
-   Integrantes:
-   - Arthur Baptista dos Santos       (RM 565346)
-   - Joao Pedro de Moura Dutra Franco (RM 561738)
-   - Nelson Felix Neto                (RM 565603)
-   - Pietro Boroto Rodrigues          (RM 562407)
-   - Vitor Soares Goncalves           (RM 566181)
-
-   Arquivo: auth.js
-   O que faz: login de usuario, criar conta e perfis de acesso
-   =================================================================== */
+/* auth.js: login de usuario, criar conta e perfis de acesso */
 
 (function () {
+  // chaves onde o navegador guarda usuarios e sessao
+  // REVISAR (Pietro): nao ha backend, cada navegador tem a propria lista de usuarios; ok pra entrega?
   const KEY_USUARIOS  = 'fz-usuarios-v1';
   const KEY_SESSAO    = 'fz-sessao';
   const KEY_SEED      = 'fz-usuarios-seed';
@@ -25,12 +14,15 @@
     { usuario: 'operador',    nome: 'Operador de turno', perfil: 'operador' },
   ];
 
+  // protege o texto contra HTML/XSS antes de ir pro innerHTML
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => (
     { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   const ROTULO = { admin: 'Analista', operador: 'Operador' };
+  // nome do perfil (Analista/Operador)
   const rotuloPerfil = p => ROTULO[p] || ROTULO.admin;
 
+  // padroniza o usuario (sem acento, minusculo, nome.sobrenome)
   function normalizar(s) {
     return String(s || '')
       .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -41,18 +33,21 @@
       .replace(/^[._-]+|[._-]+$/g, '');
   }
 
+  // sugere o usuario a partir do nome
   function sugerir(nome) {
     const partes = normalizar(nome).split('.').filter(Boolean);
     if (!partes.length) return '';
     return partes.length === 1 ? partes[0] : partes[0] + '.' + partes[partes.length - 1];
   }
 
+  // iniciais do nome pro avatar
   function iniciais(nome) {
     const p = String(nome || '').trim().split(/\s+/).filter(Boolean);
     if (!p.length) return '?';
     return ((p[0][0] || '') + (p.length > 1 ? p[p.length - 1][0] : '')).toUpperCase();
   }
 
+  // gera um salt aleatorio pra senha
   function salt() {
     const a = new Uint8Array(12);
     if (window.crypto && crypto.getRandomValues) crypto.getRandomValues(a);
@@ -60,6 +55,7 @@
     return Array.from(a, b => b.toString(16).padStart(2, '0')).join('');
   }
 
+  // hash simples de reserva se nao houver crypto.subtle
   function fnv(txt) {
     let h1 = 0x811c9dc5, h2 = 0x01000193;
     for (let i = 0; i < txt.length; i++) {
@@ -70,6 +66,7 @@
     return 'fnv:' + h1.toString(16).padStart(8, '0') + h2.toString(16).padStart(8, '0');
   }
 
+  // gera o hash SHA-256 da senha
   async function hash(senha, sal, algo) {
     const txt = sal + ':' + senha;
     if (algo !== 'fnv') {
@@ -83,17 +80,23 @@
     return fnv(txt);
   }
 
+  // le a lista de usuarios
   function ler() {
     try {
       const a = JSON.parse(localStorage.getItem(KEY_USUARIOS) || '[]');
       return Array.isArray(a) ? a : [];
     } catch (_) { return []; }
   }
+  // salva a lista de usuarios
   function gravar(lista) { try { localStorage.setItem(KEY_USUARIOS, JSON.stringify(lista)); } catch (_) {} }
+  // marca que a lista deixou de ser o seed
   function mexeu()       { try { localStorage.removeItem(KEY_SEED); } catch (_) {} }
+  // true se a lista ainda e a original
   function seedIntacto() { try { return localStorage.getItem(KEY_SEED) === '1'; } catch (_) { return false; } }
+  // dados do usuario sem senha
   function publico(u)    { return { usuario: u.usuario, nome: u.nome, perfil: u.perfil, criadoEm: u.criadoEm }; }
 
+  // monta um usuario novo com senha protegida
   async function novoRegistro(usuario, nome, perfil, senha) {
     const sal = salt();
     return {
@@ -103,6 +106,7 @@
     };
   }
 
+  // cria os usuarios iniciais se nao existirem
   async function garantirSeed() {
     let existe = false;
     try { existe = !!localStorage.getItem(KEY_USUARIOS); } catch (_) { return; }
@@ -123,6 +127,7 @@
     try { localStorage.setItem(KEY_SEED, '1'); } catch (_) {}
   }
 
+  // le a sessao salva
   function lerSessao() {
     for (const st of [localStorage, sessionStorage]) {
       try {
@@ -132,16 +137,19 @@
     }
     return null;
   }
+  // salva a sessao (30 dias ou so na aba)
   function gravarSessao(usuario, manter) {
     limparSessao();
     const s = JSON.stringify({ usuario, exp: manter ? Date.now() + DIAS_SESSAO * 864e5 : null, desde: new Date().toISOString() });
     try { (manter ? localStorage : sessionStorage).setItem(KEY_SESSAO, s); } catch (_) {}
   }
+  // apaga a sessao
   function limparSessao() {
     try { localStorage.removeItem(KEY_SESSAO); } catch (_) {}
     try { sessionStorage.removeItem(KEY_SESSAO); } catch (_) {}
   }
 
+  // usuario logado agora
   function usuarioAtual() {
     const s = lerSessao();
     if (!s) return null;
@@ -149,8 +157,10 @@
     return u ? publico(u) : null;
   }
   const logado   = () => !!usuarioAtual();
+  // true se o usuario logado e Analista
   const souAdmin = () => { const u = usuarioAtual(); return !!u && u.perfil === 'admin'; };
 
+  // aplica o perfil da conta na tela
   function aplicarConta(forcar) {
     const u = usuarioAtual();
     const op = !!u && u.perfil === 'operador';
@@ -158,10 +168,12 @@
     if (u && window.FZPerfil && (forcar || op) && window.FZPerfil.get() !== u.perfil) window.FZPerfil.set(u.perfil);
     if (u) document.documentElement.classList.remove('fz-sem-sessao');
   }
+  // avisa o resto do app que o login mudou
   function notificar() {
     document.dispatchEvent(new CustomEvent('fz-auth-change', { detail: { usuario: usuarioAtual() } }));
   }
 
+  // faz o login
   async function entrar(usuario, senha, manter) {
     await pronto;
     usuario = normalizar(usuario);
@@ -175,6 +187,7 @@
     return { ok: true, usuario: publico(u) };
   }
 
+  // faz o logout
   function sair() {
     limparSessao();
     aplicarConta(false);
@@ -188,6 +201,7 @@
 
   const SO_ADMIN = { ok: false, erro: 'Só um analista pode gerenciar usuários.' };
 
+  // cria um usuario
   async function criarUsuario({ usuario, nome, perfil, senha }) {
     if (!souAdmin()) return SO_ADMIN;
     usuario = normalizar(usuario) || sugerir(nome);
@@ -200,6 +214,7 @@
     return { ok: true, usuario };
   }
 
+  // remove um usuario
   function removerUsuario(usuario) {
     if (!souAdmin()) return SO_ADMIN;
     const eu = usuarioAtual();
@@ -212,6 +227,7 @@
     return { ok: true };
   }
 
+  // troca a senha de um usuario
   async function redefinirSenha(usuario, senha) {
     if (!souAdmin()) return SO_ADMIN;
     if (!senha || senha.length < 4) return { ok: false, erro: 'Senha precisa de pelo menos 4 caracteres.' };
@@ -223,6 +239,7 @@
     return { ok: true };
   }
 
+  // troca a propria senha
   async function alterarPropria({ nome, senhaAtual, novaSenha }) {
     const eu = usuarioAtual();
     if (!eu) return { ok: false, erro: 'Sessão expirada. Entre de novo.' };
@@ -240,6 +257,7 @@
     return { ok: true };
   }
 
+  // abre o modal de perfil/usuarios
   function modal(html, largo) {
     const velho = document.getElementById('fz-profile-modal');
     if (velho) velho.remove();
@@ -252,13 +270,16 @@
     m.addEventListener('click', e => { if (e.target === m) m.remove(); });
     return m;
   }
+  // cabecalho do modal
   const cab = t => '<div class="fz-auth-head"><strong>' + esc(t) + '</strong><button class="fz-auth-close" title="Fechar">✕</button></div>';
+  // mostra mensagem de erro ou sucesso no modal
   function setMsg(el, txt, tipo) {
     if (!el) return;
     el.textContent = txt || '';
     el.className = 'fz-auth-msg' + (tipo ? ' is-' + tipo : '');
   }
 
+  // modal Meu perfil
   function abrirEditarPerfil() {
     const eu = usuarioAtual();
     if (!eu) return;
@@ -289,6 +310,7 @@
     };
   }
 
+  // modal de gestao de usuarios
   function abrirUsuarios() {
     if (!souAdmin()) return;
     const m = modal(cab('Usuários') + `
@@ -376,6 +398,7 @@
     render();
   }
 
+  // liga o formulario de login
   function wireLogin() {
     const btn = document.getElementById('doLogin');
     if (!btn) return;
@@ -438,6 +461,7 @@
     abrirEditarPerfil, abrirUsuarios, normalizar, sugerir, seedIntacto, esc,
   };
 
+  // inicia o login ao abrir o site
   function boot() { aplicarConta(false); wireLogin(); }
   if (document.body && document.getElementById('doLogin')) boot();
   else document.addEventListener('DOMContentLoaded', boot);

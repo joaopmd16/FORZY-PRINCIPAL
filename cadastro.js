@@ -1,17 +1,4 @@
-/* ===================================================================
-   PROJETO FORZY - Sistema de Monitoramento Industrial
-   Trabalho academico FIAP + Forzy-Promon
-
-   Integrantes:
-   - Arthur Baptista dos Santos       (RM 565346)
-   - Joao Pedro de Moura Dutra Franco (RM 561738)
-   - Nelson Felix Neto                (RM 565603)
-   - Pietro Boroto Rodrigues          (RM 562407)
-   - Vitor Soares Goncalves           (RM 566181)
-
-   Arquivo: cadastro.js
-   O que faz: tela de Cadastro de Ativos (criar, editar, listar motores)
-   =================================================================== */
+/* cadastro.js: tela de Cadastro de Ativos (criar, editar, listar motores) */
 
 (function () {
   const S = window.FZStore;
@@ -21,13 +8,17 @@
   const COLS = ['m1_vel', 'm1_acel', 'm1_temp', 'm2_vel', 'm2_acel', 'm2_temp'];
   const STATUS = ['ativo', 'manutencao', 'inativo'];
   const IP = ['IP44', 'IP54', 'IP55', 'IP65', 'IP66', 'IP67'];
+  // le o valor de uma variavel CSS (cor do tema)
   const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  // atalho pra pegar um elemento pelo id
   const el = id => document.getElementById(id);
+  // protege o texto contra HTML/XSS antes de ir pro innerHTML
   const esc = s => (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const fmt = (v, d = 2) => (v == null || v === '' || v !== v) ? '—' : Number(v).toFixed(d);
 
   const state = { selEditar: null, selDash: null, dashTimer: null };
 
+  // troca a aba da tela
   function switchTab(name) {
     if (state.dashTimer) { clearInterval(state.dashTimer); state.dashTimer = null; }
     document.querySelectorAll('#cadTabs .fz-tab').forEach(b => b.classList.toggle('active', b.dataset.ctab === name));
@@ -40,15 +31,19 @@
     if (window.lucide) lucide.createIcons();
   }
 
+  // mensagem rapida de sucesso ou erro
   function feedback(msg, ok = true) {
     return `<div class="fz-feedback ${ok ? 'ok' : 'bad'}">${esc(msg)}</div>`;
   }
 
+  // status do ativo pela ultima leitura
   function statusOf(o) { return o.status || 'ativo'; }
+  // etiqueta de status do ativo
   function statusBadge(st) {
     const c = S.statusColor(st);
     return `<span class="lc-badge" style="background:${c}22;border:1px solid ${c};color:${c}">${S.statusLabel(st)}</span>`;
   }
+  // desenha plantas e areas
   function renderLocais(msg) {
     const p = el('cadLocais'); if (!p) return;
     const plantas = S.getPlantas();
@@ -142,6 +137,7 @@
     }));
   }
 
+  // desenha a lista de ativos
   function renderLista() {
     const p = el('cadLista'); if (!p) return;
     const plantas = S.getPlantas();
@@ -182,6 +178,7 @@
     draw();
   }
 
+  // monta a tabela de ativos
   function tableHTML(rows) {
     if (!rows.length) return `<div class="fz-empty">Nenhum ativo encontrado.</div>`;
     const sc = s => S.statusColor(s);
@@ -200,6 +197,7 @@
       </tbody></table></div>`;
   }
 
+  // exporta a lista em CSV
   function exportLista() {
     const rows = S.getAtivosIndustrial();
     const head = ['Codigo', 'TAG', 'Descricao', 'Fabricante', 'kW', 'V', 'A_nom', 'IP', 'Status', 'Area', 'Planta'];
@@ -219,6 +217,8 @@
     ip_rating:    { el: 'nIp',   rot: 'IP Rating',        dica: 'ex: IP55' },
   };
 
+  // le a plaqueta do motor pela foto usando a IA de visao
+  // REVISAR (Joao): conferir se os campos lidos batem com a plaqueta antes de salvar o ativo
   async function lerPlacaComIA(base64, mime) {
     const key = window.FORZY_OPENAI_KEY;
     if (!key) return { dados: null, erro: 'Chave de API não configurada em config.js' };
@@ -289,6 +289,7 @@ Não inclua o campo de localização/endereço: essa informação nunca vem da p
     } catch (e) { return { dados: null, erro: e.message || 'Erro de rede' }; }
   }
 
+  // liga o envio da foto da plaqueta
   function setupOCRPlaca() {
     const btn = el('ocrBtn'); if (!btn) return;
     const inp = el('ocrInput');
@@ -392,6 +393,7 @@ Não inclua o campo de localização/endereço: essa informação nunca vem da p
     });
   }
 
+  // formulario de ativo novo
   function renderNovo(msg) {
     const p = el('cadNovo'); if (!p) return;
     const plantas = S.getPlantas();
@@ -518,11 +520,14 @@ Não inclua o campo de localização/endereço: essa informação nunca vem da p
         observacoes: el('nObs')?.value.trim() || '',
       });
       if (!ok) return renderNovo(feedback(`Código "${codigo}" já existe.`, false));
-      state.selDash = codigo;
-      switchTab('dash');
+      // proximo passo: conectar o endpoint / CSV do motor (fica na aba Editar Ativo)
+      state.selEditar = codigo;
+      switchTab('editar');
+      renderEditar(feedback('Ativo ' + codigo + ' cadastrado. Agora conecte os dados do motor logo abaixo (endpoint, CSV e treino do modelo).'));
     });
   }
 
+  // formulario de editar ativo
   function renderEditar(msg) {
     const p = el('cadEditar'); if (!p) return;
     const ativos = S.getAtivosIndustrial();
@@ -564,8 +569,11 @@ Não inclua o campo de localização/endereço: essa informação nunca vem da p
         <button class="fz-btn fz-btn-save" id="eSalvar">Salvar Alterações</button>
         ${a.origem === 'forzy' ? '' : '<button class="fz-btn danger" id="eExcluir">Excluir Ativo</button>'}
       </div>
-    </div>`;
+    </div>
+    <div id="ativoDadosHost"></div>`;
 
+    // endpoint + CSV + treino do modelo do ativo (ativo-dados.js)
+    if (window.FZAtivoDados) window.FZAtivoDados.montar(el('ativoDadosHost'), state.selEditar);
     if (msg) p.querySelector('.fz-feedback')?.scrollIntoView({ block: 'center' });
 
     el('eSel').addEventListener('change', e => { state.selEditar = e.target.value; renderEditar(); });
@@ -594,16 +602,21 @@ Não inclua o campo de localização/endereço: essa informação nunca vem da p
     });
   }
 
+  // ultima leitura do ativo
   function lastReading() {
     if (!F) return null;
     const i = F.meta.n - 1; const o = {};
     for (const c of COLS) o[c] = F[c.slice(0, 2)][c.slice(3)][i];
     return o;
   }
+  // calcula o Z-score de cada variavel
   function zscores(r) { const z = {}; for (const c of COLS) { const b = F.baseline[c]; z[c] = (b && b.std) ? Math.abs(r[c] - b.mean) / b.std : 0; } return z; }
+  // classifica o Z-score em Normal/Atencao/Critico
   function classify(score) { if (score < 2) return ['Normal', cssVar('--fz-ok')]; if (score < 3) return ['Alerta', cssVar('--fz-warn')]; return ['Anomalia', cssVar('--fz-bad')]; }
 
+  // classifica pela ISO 10816
   const flagISO = v => (v >= 4.5 ? 2 : v >= 1.8 ? 1 : 0);
+  // grafico de vibracao do ativo
   function vibChart(vals) {
     const W = 720, H = 200, padL = 40, padR = 12, padT = 12, padB = 22;
     const mx = Math.max(6, ...vals), mn = 0;
@@ -618,6 +631,7 @@ Não inclua o campo de localização/endereço: essa informação nunca vem da p
       <line x1="${padL}" x2="${W - padR}" y1="${Y(4.5).toFixed(1)}" y2="${Y(4.5).toFixed(1)}" stroke="${bd}" stroke-width="1" stroke-dasharray="3 3"/>
       <path d="${d}" fill="none" stroke="${ac}" stroke-width="2"/></svg>`;
   }
+  // bloco de leitura ao vivo do IoT
   function iotLiveBlock(leituras) {
     const rec = leituras.slice(0, 300).reverse();
     const vib = rec.map(l => +l.vibracao_mm_s || 0);
@@ -640,6 +654,7 @@ Não inclua o campo de localização/endereço: essa informação nunca vem da p
     </div>`;
   }
 
+  // Dashboard do Ativo
   function renderDash() {
     const p = el('cadDash'); if (!p) return;
     const ativos = S.getAtivosIndustrial();
@@ -794,10 +809,12 @@ Não inclua o campo de localização/endereço: essa informação nunca vem da p
       </tbody></table></div>` : `<div class="fz-empty">Sem alterações registradas para este ativo.</div>`;
   }
 
+  // linha de especificacao tecnica
   function spec(label, val) {
     return `<div class="da-spec"><div class="s-lbl">${label}</div><div class="s-val">${esc(val) || '—'}</div></div>`;
   }
 
+  // mostrador circular em SVG
   function gaugeSVG(score, cor) {
     const W = 180, H = 110, cx = W / 2, cy = H - 10, R = 74;
     const frac = Math.max(0, Math.min(1, score / 5));
@@ -813,6 +830,7 @@ Não inclua o campo de localização/endereço: essa informação nunca vem da p
     </svg>`;
   }
 
+  // grafico de referencia com limites
   function refChart() {
     if (!F) return '';
     const N = F.meta.n, K = 120, W = 720, H = 240, padL = 40, padR = 12, padT = 12, padB = 24;
@@ -832,6 +850,7 @@ Não inclua o campo de localização/endereço: essa informação nunca vem da p
     </svg>`;
   }
 
+  // liga a tela (roda so na primeira visita)
   function init() {
     const tabs = el('cadTabs'); if (!tabs) return;
     tabs.querySelectorAll('.fz-tab').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.ctab)));

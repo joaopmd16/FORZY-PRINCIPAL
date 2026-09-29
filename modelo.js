@@ -1,17 +1,4 @@
-/* ===================================================================
-   PROJETO FORZY - Sistema de Monitoramento Industrial
-   Trabalho academico FIAP + Forzy-Promon
-
-   Integrantes:
-   - Arthur Baptista dos Santos       (RM 565346)
-   - Joao Pedro de Moura Dutra Franco (RM 561738)
-   - Nelson Felix Neto                (RM 565603)
-   - Pietro Boroto Rodrigues          (RM 562407)
-   - Vitor Soares Goncalves           (RM 566181)
-
-   Arquivo: modelo.js
-   O que faz: roda o modelo de IA (rede neural) que detecta anomalia
-   =================================================================== */
+/* modelo.js: roda o modelo de IA (rede neural) que detecta anomalia */
 
 (function () {
   const M = window.FORZY_MODELO || null;
@@ -21,6 +8,8 @@
   const COR = ['#2ecc71', '#f39c12', '#e74c3c'];
 
   const NORMA = {
+    // limites de atencao (a) e alarme (al) de cada variavel
+    // REVISAR (Nelson): rever se os valores de temperatura e aceleracao estao certos
     vel:  { a: 1.8,  al: 4.5,  un: 'mm/s', nome: 'vibração',    dec: 2, ref: 'ISO 10816' },
     acel: { a: 0.25, al: 0.45, un: 'g',    nome: 'aceleração',  dec: 2, ref: 'ISO 10816' },
     temp: { a: 35.0, al: 42.0, un: '°C',   nome: 'temperatura', dec: 1, ref: 'ISA-18.2' },
@@ -28,18 +17,24 @@
 
   const EIXO_NOME = { m1: 'Eixo 1', m2: 'Eixo 2' };
 
+  // converte pra numero (NaN se invalido)
   const num = v => (typeof v === 'number' && isFinite(v)) ? v : null;
+  // formata numero pra texto
   const fmt = (v, d) => v == null ? '—' : Number(v).toFixed(d).replace('.', ',');
 
+  // nivel de uma leitura dentro dos limites
   const faixa = v => v < -1 ? -1 : (v > 2 ? 2 : v);
 
+  // funcao de ativacao tanh
   function tanh(x) {
     if (Math.tanh) return Math.tanh(x);
     const e = Math.exp(2 * x);
     return (e - 1) / (e + 1);
   }
+  // funcao de ativacao sigmoide
   const sigmoid = x => 1 / (1 + Math.exp(-Math.max(-60, Math.min(60, x))));
 
+  // passa a leitura pela rede (6-8-2-8-6)
   function frente(v) {
     let a = v;
     const nCamadas = M.W.length;
@@ -56,9 +51,12 @@
     return a;
   }
 
+  // escala os valores pra entrada da rede
   const normalizar = x => M.cols.map((_, i) => faixa((x[i] - M.norm.lo[i]) / (M.norm.hi[i] - M.norm.lo[i])));
+  // volta a saida da rede pra escala real
   const desnormalizar = v => M.cols.map((_, i) => M.norm.lo[i] + v[i] * (M.norm.hi[i] - M.norm.lo[i]));
 
+  // nivel pela norma ISO/ISA
   function nivelNorma(col, valor) {
     const n = NORMA[col.slice(3)];
     if (!n || valor == null) return NIVEL.NORMAL;
@@ -67,6 +65,7 @@
     return NIVEL.NORMAL;
   }
 
+  // dados do modelo (arquitetura, limiares)
   function info() {
     if (!M) return null;
     return {
@@ -85,6 +84,7 @@
     };
   }
 
+  // avalia uma leitura e devolve indice e veredito
   function avaliar(leitura) {
     if (!M || !leitura) return { ok: false, nivel: NIVEL.NORMAL, rotulo: '—', cor: COR[0], indice: 0 };
 
@@ -162,6 +162,7 @@
     };
   }
 
+  // acha eixo vibrando e o outro parado
   function detectarAssimetria(x) {
     const i1 = M.cols.indexOf('m1_vel'), i2 = M.cols.indexOf('m2_vel');
     if (i1 < 0 || i2 < 0) return null;
@@ -172,6 +173,7 @@
              maior, menor, razao: menor > 0.05 ? maior / menor : Infinity };
   }
 
+  // texto explicando o resultado
   function explicar(r) {
     if (r.nivel === NIVEL.NORMAL) {
       return 'Rede neural: leitura compatível com a operação normal da máquina (índice '
@@ -211,6 +213,7 @@
     return partes.join(' ');
   }
 
+  // veredito final: maior entre rede e norma
   function veredito(r) {
     if (!r || !r.ok || r.nivel === NIVEL.NORMAL) return 'Máquina operando normal.';
 

@@ -15,3 +15,8 @@ config.js
 
 .vercel
 .env.local
+
+# contexto local de ferramentas (nao vai pro repositorio)
+.claude/
+CLAUDE.md
+**/.claude/

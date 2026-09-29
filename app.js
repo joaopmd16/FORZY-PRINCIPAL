@@ -1,23 +1,11 @@
-/* ===================================================================
-   PROJETO FORZY - Sistema de Monitoramento Industrial
-   Trabalho academico FIAP + Forzy-Promon
-
-   Integrantes:
-   - Arthur Baptista dos Santos       (RM 565346)
-   - Joao Pedro de Moura Dutra Franco (RM 561738)
-   - Nelson Felix Neto                (RM 565603)
-   - Pietro Boroto Rodrigues          (RM 562407)
-   - Vitor Soares Goncalves           (RM 566181)
-
-   Arquivo: app.js
-   O que faz: troca de tela (mostra so uma secao por vez) e login
-   =================================================================== */
+/* app.js: troca de tela (mostra so uma secao por vez) e login */
 
 (function () {
   const root = document.documentElement;
   const appShell = document.getElementById('app-shell');
   const loginScreen = document.getElementById('screen-login');
 
+  // tema claro/escuro: lembra a escolha do usuario
   const saved = localStorage.getItem('vision-theme');
   if (saved) root.setAttribute('data-theme', saved);
   document.getElementById('themeToggle').addEventListener('click', () => {
@@ -26,6 +14,7 @@
     localStorage.setItem('vision-theme', next);
   });
 
+  // cada tela do site (so uma fica com a classe .active por vez)
   const sections = {
     inicio: document.getElementById('screen-inicio'),
     navegacao: document.getElementById('screen-navegacao'),
@@ -41,11 +30,15 @@
   };
   const navItems = document.querySelectorAll('.nav-item[data-screen]');
 
+  // telas que o Operador nao pode abrir (itens da sidebar com data-perfil="admin")
   const ADMIN_ONLY = new Set();
   document.querySelectorAll('.nav-item[data-perfil="admin"]').forEach(b => ADMIN_ONLY.add(b.dataset.screen));
 
+  // true se o perfil atual e Operador
   function ehOperador() { return !!(window.FZPerfil && window.FZPerfil.isOperador()); }
 
+  // esconde os itens de admin quando o perfil e Operador
+  // REVISAR (Nelson): se o Operador cair numa tela de admin, mandar pro Inicio esta bom?
   function aplicarPerfilNav() {
     const op = ehOperador();
     document.querySelectorAll('[data-perfil="admin"]').forEach(elm => {
@@ -60,6 +53,7 @@
   }
   document.addEventListener('fz-perfil-change', aplicarPerfilNav);
 
+  // mostra a tela pedida e esconde as outras
   function showScreen(name) {
 
     const key = name.replace('screen-', '');
@@ -105,6 +99,7 @@
   const navAssistente = document.getElementById('navAssistente');
   if (navAssistente) navAssistente.addEventListener('click', () => window.FZAssistant?.togglePanel());
 
+  // volta pra tela de login
   function showLogin() {
     appShell.style.display = 'none';
     loginScreen.classList.add('active');
@@ -113,6 +108,8 @@
 
   window.showLogin = showLogin;
 
+  // troca a sub-aba do Diagnostico (Investigacao, Causa Raiz, Projecao, OS)
+  // REVISAR (Pietro): Operador abre direto na aba de Ordem de Servico, confirmar com a Forzy
   function ativarAbaDiag(alvo) {
     const abas = document.querySelectorAll('#fzDiagTabs .fz-tab[data-dtab]');
     if (!abas.length) return;
@@ -135,6 +132,7 @@
   document.querySelectorAll('#fzDiagTabs .fz-tab[data-dtab]').forEach(b =>
     b.addEventListener('click', () => ativarAbaDiag(b.dataset.dtab)));
 
+  // atualiza o Diagnostico quando um alarme muda ou o perfil troca
   function reagirDiag() {
     const tela = document.getElementById('screen-diagnostico');
     if (!tela || !tela.classList.contains('active')) return;
@@ -147,6 +145,7 @@
   }
   document.addEventListener('fz-perfil-change', reagirDiag);
 
+  // ao abrir o site: sem sessao vai pro login
   if (window.FZAuth && !window.FZAuth.logado()) showLogin();
   else appShell.style.display = 'grid';
   aplicarPerfilNav();

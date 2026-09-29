@@ -1,20 +1,8 @@
-/* ===================================================================
-   PROJETO FORZY - Sistema de Monitoramento Industrial
-   Trabalho academico FIAP + Forzy-Promon
-
-   Integrantes:
-   - Arthur Baptista dos Santos       (RM 565346)
-   - Joao Pedro de Moura Dutra Franco (RM 561738)
-   - Nelson Felix Neto                (RM 565603)
-   - Pietro Boroto Rodrigues          (RM 562407)
-   - Vitor Soares Goncalves           (RM 566181)
-
-   Arquivo: topbar.js
-   O que faz: barra de cima (relogio, busca, sininho de alertas, conta)
-   =================================================================== */
+/* topbar.js: barra de cima (relogio, busca, sininho de alertas, conta) */
 
 (function () {
 
+  // relogio da topbar
   function iniciarRelogio() {
     const el = document.getElementById('topbar-clock');
     if (!el) return;
@@ -37,6 +25,7 @@
     { label: 'IoT ESP32',        id: 'screen-iot',       icon: '·', keywords: ['iot','esp32','serial','sensor','vibração'] },
   ];
 
+  // lista o que a busca pode achar
   function buscarOpcoes(q) {
     q = q.toLowerCase().trim();
     if (!q) return [];
@@ -63,6 +52,7 @@
     return resultados.slice(0, 8);
   }
 
+  // liga a busca da topbar
   function iniciarBusca() {
     const inp = document.getElementById('topbar-search');
     const res = document.getElementById('topbar-search-results');
@@ -81,6 +71,7 @@
     });
   }
 
+  // resultados da busca
   function renderResultados(q) {
     const res = document.getElementById('topbar-search-results');
     const opts = buscarOpcoes(q);
@@ -110,12 +101,15 @@
   const estadoAlarme = new Map();
 
   const LIMITES_ISA = [
+    // limites de alarme (ISA-18.2): P1 critico e P2 alto; deadband = 90% do limite pra nao ficar piscando
+    // REVISAR (Arthur): confirmar os limites de vibracao e temperatura com a Forzy antes de implementar
     { variavel: 'vel',     threshold: 4.5, deadband: 4.5 * 0.90, prioridade: 'P1 - Crítico', nivel: 'bad',  unidade: 'mm/s', titulo: 'Vibração Crítica' },
     { variavel: 'vel',     threshold: 1.8, deadband: 1.8 * 0.90, prioridade: 'P2 - Alto',    nivel: 'warn', unidade: 'mm/s', titulo: 'Vibração Alta'    },
     { variavel: 'temp',    threshold: 42,  deadband: 42  * 0.90, prioridade: 'P1 - Crítico', nivel: 'bad',  unidade: '°C',   titulo: 'Temperatura Crítica' },
     { variavel: 'temp',    threshold: 35,  deadband: 35  * 0.90, prioridade: 'P2 - Alto',    nivel: 'warn', unidade: '°C',   titulo: 'Temperatura Alta'    },
   ];
 
+  // registra ATIVADO ou NORMALIZADO no log
   function registrarLogEvento(prioridade, ativo, variavel, valor, unidade, status) {
     logAlarmes.unshift({
       timestamp: new Date().toISOString(),
@@ -125,6 +119,7 @@
     notificarAlertas();
   }
 
+  // true se o valor acabou de cruzar o limite (com histerese)
   function cruzouAgora(chave, ativo, variavel, valor, limite) {
     const estado = estadoAlarme.get(chave) || { ativo: false };
     if (!estado.ativo) {
@@ -148,12 +143,14 @@
     return false;
   }
 
+  // checa um limite de uma variavel
   function processarLimite(chave, ativo, variavel, valor, limite, origem) {
     if (cruzouAgora(chave, ativo, variavel, valor, limite)) {
       adicionarAlerta(limite.prioridade, limite.titulo, `${ativo}: ${variavel === 'vel' ? 'Vibração' : 'Temperatura'} ${valor.toFixed(variavel === 'vel' ? 2 : 1)} ${limite.unidade}`, limite.nivel, valor, limite.unidade, origem, null, variavel);
     }
   }
 
+  // checa um limite nos dois eixos
   function processarLimiteMultiEixo(rotulo, origem, eixos, campo, limite, sufixo) {
     const cruzaram = [];
     eixos.forEach(e => {
@@ -173,6 +170,7 @@
     1: { threshold: 1, deadband: 0.9, prioridade: 'P2 - Alto',    nivel: 'warn', titulo: 'Anomalia Detectada (rede neural)' },
   };
 
+  // checa o alarme da rede neural
   function processarRede(rotulo, origem, leitura) {
     const M = window.FZModelo;
     if (!M || !M.pronto() || !leitura) return;
@@ -205,6 +203,7 @@
     });
   }
 
+  // roda todas as checagens de alarme
   function checarAlertas() {
     try {
 
@@ -236,7 +235,24 @@
 
       if (window.FZDashboard) {
         const fonte = window.FZDashboard.getFonte();
-        if (fonte !== 'ativo' && fonte !== 'esp32') {
+        // fabrica de exemplo: cada motor/eixo passa pelos limites ISA-18.2 (vibracao e temperatura), igual a um real
+        if ((fonte === 'fabrica' || (window.FZInicio && window.FZInicio.getFonte() === 'fabrica')) && window.FZDashboard.fabricaMotores) {
+          window.FZDashboard.fabricaMotores().forEach(m => {
+            if (!m.r) return;
+            _leituraEmCheque = m.r;
+            const origem = 'fabrica:' + m.codigo;
+            const rotulo = m.codigo + ' (' + m.piso + ')';
+            const eixos = [
+              { nome: 'Eixo 1', id: 'm1', pfx: 'fab_' + m.codigo + '_m1', vel: m.r.m1_vel || 0, temp: m.r.m1_temp || 0 },
+              { nome: 'Eixo 2', id: 'm2', pfx: 'fab_' + m.codigo + '_m2', vel: m.r.m2_vel || 0, temp: m.r.m2_temp || 0 },
+            ];
+            processarLimiteMultiEixo(rotulo, origem, eixos.map(e => ({ ...e, valor: e.vel  })), 'vel',  LIMITES_ISA[0], 'p1');
+            processarLimiteMultiEixo(rotulo, origem, eixos.map(e => ({ ...e, valor: e.vel  })), 'vel',  LIMITES_ISA[1], 'p2');
+            processarLimiteMultiEixo(rotulo, origem, eixos.map(e => ({ ...e, valor: e.temp })), 'temp', LIMITES_ISA[2], 'p1');
+            processarLimiteMultiEixo(rotulo, origem, eixos.map(e => ({ ...e, valor: e.temp })), 'temp', LIMITES_ISA[3], 'p2');
+          });
+        }
+        if (fonte !== 'ativo' && fonte !== 'esp32' && fonte !== 'fabrica') {
           const r = window.FZDashboard.getCurrentReading();
           const rotulo = fonte === 'forzy' ? 'Dataset Forzy' : fonte === 'sim' ? 'Simulado' : fonte === 'cloud' ? 'Forzy Cloud' : 'Dashboard';
           const origem = fonte === 'forzy' ? 'dataset-forzy' : fonte === 'sim' ? 'simulado' : fonte === 'cloud' ? 'forzy-cloud' : 'dashboard';
@@ -264,6 +280,7 @@
 
   let _leituraEmCheque = null;
 
+  // cria o alarme e dispara modal ou faixa (a IA so roda se o operador pedir)
   function adicionarAlerta(prioridade, titulo, msg, nivel, valor, unidade, origem, eixo, variavel) {
 
     const chave = prioridade + '|' + msg;
@@ -284,6 +301,7 @@
     }
   }
 
+  // exporta o log de alarmes em CSV
   function exportarLogCSV() {
     const hoje = new Date().toISOString().slice(0, 10);
     let csv = 'timestamp,prioridade,ativo,variavel,valor,unidade,status\n';
@@ -297,6 +315,7 @@
     URL.revokeObjectURL(url);
   }
 
+  // desenha o painel do sininho
   function renderSininho() {
     const dot   = document.getElementById('topbar-bell-dot');
     const panel = document.getElementById('topbar-bell-panel');
@@ -337,6 +356,7 @@
   }
 
   const _obsAlertas = [];
+  // avisa quem escuta os alarmes
   function notificarAlertas() {
     _obsAlertas.forEach(fn => { try { fn(alertas, logAlarmes); } catch (_) {} });
   }
@@ -361,6 +381,7 @@
     exportarCSV: exportarLogCSV,
   };
 
+  // liga o sininho
   function iniciarSininho() {
     const bell = document.getElementById('topbar-bell');
     if (!bell) return;
@@ -383,9 +404,12 @@
 
     checarAlertas();
     _topbarInicializado = true;
+    // checa os alarmes a cada 2 segundos
+    // REVISAR (Vitor): 2s esta bom ou vale aumentar pra aliviar o navegador?
     setInterval(checarAlertas, 2000);
   }
 
+  // liga o menu da conta
   function iniciarConta() {
     const btn  = document.getElementById('topbar-account');
     const menu = document.getElementById('topbar-account-menu');
@@ -457,6 +481,7 @@
     });
   }
 
+  // injeta o CSS da topbar
   function injectCSS() {
     const s = document.createElement('style');
     s.textContent = `
@@ -565,6 +590,7 @@
     document.head.appendChild(s);
   }
 
+  // liga a tela (roda so na primeira visita)
   function init() {
     injectCSS();
     iniciarRelogio();

@@ -1,22 +1,11 @@
-/* ===================================================================
-   PROJETO FORZY - Sistema de Monitoramento Industrial
-   Trabalho academico FIAP + Forzy-Promon
-
-   Integrantes:
-   - Arthur Baptista dos Santos       (RM 565346)
-   - Joao Pedro de Moura Dutra Franco (RM 561738)
-   - Nelson Felix Neto                (RM 565603)
-   - Pietro Boroto Rodrigues          (RM 562407)
-   - Vitor Soares Goncalves           (RM 566181)
-
-   Arquivo: nav-v2.js
-   O que faz: menu lateral (sidebar) e realce do item ativo
-   =================================================================== */
+/* nav-v2.js: menu lateral (sidebar) e realce do item ativo */
 
 (function () {
 
-  const NAV_DO_GRUPO = { navegacao: 'cadastro', rpa: 'iot', pipeline: 'iot' };
+  // telas que acendem o item de outra tela na sidebar (a Planta/SCADA fica dentro do Monitoramento)
+  const NAV_DO_GRUPO = { navegacao: 'cadastro', rpa: 'iot', pipeline: 'iot', scada: 'dashboard' };
 
+  // marca o item ativo da sidebar e atualiza o breadcrumb
   function sincronizarNavItem(key) {
     const dono = NAV_DO_GRUPO[key];
     if (!dono) return;
@@ -41,6 +30,17 @@
       return r;
     };
   }
+
+  // Monitoramento -> Planta: abre a tela SCADA ja na aba escolhida (2D, Vista 3D, Historico)
+  document.querySelectorAll('[data-goto-scada]').forEach(b => b.addEventListener('click', () => {
+    if (typeof window.showScreen === 'function') window.showScreen('scada');
+    document.querySelector('#scadaTabs .fz-tab[data-stab="' + b.dataset.gotoScada + '"]')?.click();
+  }));
+  // Planta -> Monitoramento: volta pro Dashboard ja na aba escolhida
+  document.querySelectorAll('[data-goto-mon]').forEach(b => b.addEventListener('click', () => {
+    if (typeof window.showScreen === 'function') window.showScreen('dashboard');
+    document.querySelector('#fzTabs .fz-tab[data-tab="' + b.dataset.gotoMon + '"]')?.click();
+  }));
 
   const gear = document.getElementById('inicioSettingsBtn');
   const drop = document.getElementById('inicioControlsDrop');

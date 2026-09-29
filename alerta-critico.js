@@ -1,26 +1,17 @@
-/* ===================================================================
-   PROJETO FORZY - Sistema de Monitoramento Industrial
-   Trabalho academico FIAP + Forzy-Promon
-
-   Integrantes:
-   - Arthur Baptista dos Santos       (RM 565346)
-   - Joao Pedro de Moura Dutra Franco (RM 561738)
-   - Nelson Felix Neto                (RM 565603)
-   - Pietro Boroto Rodrigues          (RM 562407)
-   - Vitor Soares Goncalves           (RM 566181)
-
-   Arquivo: alerta-critico.js
-   O que faz: aviso grande na tela quando da alarme critico
-   =================================================================== */
+/* alerta-critico.js: aviso grande na tela quando da alarme critico */
 
 (function () {
+  // protege o texto contra HTML/XSS antes de ir pro innerHTML
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => (
     { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
+  // true se o perfil atual e Operador
   const perfilOperador = () => !!(window.FZPerfil && window.FZPerfil.isOperador());
 
+  // true se a tela de login esta aberta (modal fica escondido)
   const loginAtivo = () => { const l = document.getElementById('screen-login'); return !!(l && l.classList.contains('active')); };
 
+  // nome e cor do eixo do alarme
   function eixoInfo(eixo) {
     const s = String(eixo || '').toLowerCase();
     if (s.includes('m2') || s.includes('2') || s.includes('eixo 2')) return { idx: 2, nome: 'Eixo 2', cod: 'BBA-002' };
@@ -41,6 +32,7 @@
     },
   };
 
+  // nome, unidade e limites da variavel do alarme
   function verVar(variavel) {
     const v = String(variavel || '').toLowerCase();
     if (v.includes('temp')) return 'temp';
@@ -51,6 +43,7 @@
     vel:  { min: 0,  max: 6,  a: 1.8, al: 4.5, un: 'mm/s', dec: 2, ref: 'ISO 10816' },
     temp: { min: 20, max: 50, a: 35,  al: 42,  un: '°C',   dec: 1, ref: 'ISA-18.2' },
   };
+  // regua de severidade com o marcador no valor medido
   function escalaHtml(vv, valor, unidade) {
     if (unidade === 'índice' || valor == null || isNaN(valor)) return '';
     const e = ESCALA[vv] || ESCALA.vel;
@@ -69,6 +62,7 @@
       </div>`;
   }
 
+  // texto do veredito da rede neural
   function veredito(p) {
     const e = eixoInfo(p.eixo);
     const val = (p.valor != null && !isNaN(p.valor))
@@ -84,8 +78,10 @@
   const reconhecidas = new Set();
   let idxAtual = 0;
 
+  // chave unica do alarme (evita repetir)
   function chaveDe(p) { return (p.prioridade || '') + '|' + (p.msg || ''); }
 
+  // abre o modal P1 (some so ao reconhecer)
   function disparar(payload) {
     if (!payload) return;
     const chave = chaveDe(payload);
@@ -96,6 +92,7 @@
     render();
   }
 
+  // fecha o modal atual e mostra o proximo da fila
   function fecharAtual() {
     const p = pendentes[idxAtual];
     if (p) { reconhecidas.add(p._chave); pendentes.splice(idxAtual, 1); }
@@ -103,6 +100,7 @@
     render();
   }
 
+  // leva pra tela que resolve o alarme
   function irPara(scada) {
     const p = pendentes[idxAtual];
     fecharAtual();
@@ -123,6 +121,7 @@
     }
   }
 
+  // desenha a tela
   function render() {
     let host = document.getElementById('fz-alerta-critico');
     if (!pendentes.length || loginAtivo()) { if (host) host.remove(); return; }
@@ -188,6 +187,7 @@
   }
 
   const faixas = [];
+  // mostra a faixa P2 no topo
   function faixa(payload) {
     if (!payload) return;
     const chave = chaveDe(payload);
@@ -196,6 +196,7 @@
     renderFaixa();
   }
 
+  // limpa modal e faixa
   function limpar(chave) {
     if (chave == null) { faixas.length = 0; }
     else {
@@ -205,6 +206,7 @@
     renderFaixa();
   }
 
+  // desenha a faixa P2
   function renderFaixa() {
     let host = document.getElementById('fz-alerta-faixa');
     if (!faixas.length || loginAtivo()) { if (host) host.remove(); return; }

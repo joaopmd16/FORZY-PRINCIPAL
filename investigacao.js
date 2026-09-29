@@ -1,19 +1,7 @@
-/* ===================================================================
-   PROJETO FORZY - Sistema de Monitoramento Industrial
-   Trabalho academico FIAP + Forzy-Promon
-
-   Integrantes:
-   - Arthur Baptista dos Santos       (RM 565346)
-   - Joao Pedro de Moura Dutra Franco (RM 561738)
-   - Nelson Felix Neto                (RM 565603)
-   - Pietro Boroto Rodrigues          (RM 562407)
-   - Vitor Soares Goncalves           (RM 566181)
-
-   Arquivo: investigacao.js
-   O que faz: sub-aba de Investigacao (vista explodida do motor)
-   =================================================================== */
+/* investigacao.js: sub-aba de Investigacao (vista explodida do motor) */
 
 (function () {
+  // protege o texto contra HTML/XSS antes de ir pro innerHTML
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const fmt = (v, d = 2) => (v == null || v !== v) ? '—' : Number(v).toFixed(d);
@@ -21,9 +9,11 @@
   let _root = null, _eixo = 'm1', _ativo = null, _explodido = false, _sel = null, _diag = null;
   let _momento = 'auto';
 
+  // lista os ativos cadastrados
   function ativos() {
     try { return (window.FZStore && window.FZStore.getAtivosIndustrial()) || []; } catch (e) { return []; }
   }
+  // hora do maior pico de vibracao
   function horaPico(idx) {
     const F = window.FORZY;
     try {
@@ -31,6 +21,7 @@
       return new Date(Date.parse(F.meta.t0) + seg * 1000).toLocaleString('pt-BR');
     } catch (e) { return null; }
   }
+  // leitura no instante escolhido
   function leituraDoMomento() {
     let now = null;
     try { now = window.FZCopiloto.leituraAtual(); } catch (e) {  }
@@ -43,6 +34,7 @@
     }
     return bad ? { r: bad, tag: 'pior momento da série', idx: bad.idx } : { r: now, tag: 'leitura atual', idx: null };
   }
+  // cor pela prioridade do alarme
   function corDaPrioridade(p) {
     return p === 'P1' ? 'var(--fz-bad)' : p === 'P2' ? 'var(--fz-warn)' : 'var(--fz-ok)';
   }
@@ -57,6 +49,7 @@
     { id: 'rolamento_la',d: 'M76,42 a6,8 0 1 0 0.01,0 z' },
   ];
 
+  // vista explodida do motor em SVG
   function svgMotor() {
     const suspeitos = (window.FZFMEA && _diag) ? window.FZFMEA.componentesDoModo(_diag.key) : [];
     const sev = _diag ? _diag.prioridade : 'P3';
@@ -79,6 +72,7 @@
     </svg>`;
   }
 
+  // mini grafico de uma grandeza
   function sparkGrandeza(col) {
     const F = window.FORZY; if (!F) return '';
     const src = F[_eixo] && F[_eixo][col]; if (!src) return '';
@@ -95,6 +89,7 @@
     </svg>`;
   }
 
+  // painel de detalhe do componente
   function painel() {
     if (!_sel) {
       return `<div class="fz-card fz-xv-panel">
@@ -157,6 +152,7 @@
     </div>`;
   }
 
+  // desenha a tela
   function render() {
     if (!_root) return;
     const mom = leituraDoMomento();
@@ -229,12 +225,14 @@
     if (window.lucide) lucide.createIcons();
   }
 
+  // liga a tela (roda so na primeira visita)
   function init() {
     _root = document.getElementById('investigacaoRoot');
     if (!_root) return;
     render();
   }
 
+  // abre ja no ativo do alarme
   function abrirPara(eixo, ativoCod) {
     if (eixo === 'm1' || eixo === 'm2') _eixo = eixo;
     if (ativoCod) _ativo = ativoCod;

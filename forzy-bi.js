@@ -1,27 +1,16 @@
-/* ===================================================================
-   PROJETO FORZY - Sistema de Monitoramento Industrial
-   Trabalho academico FIAP + Forzy-Promon
-
-   Integrantes:
-   - Arthur Baptista dos Santos       (RM 565346)
-   - Joao Pedro de Moura Dutra Franco (RM 561738)
-   - Nelson Felix Neto                (RM 565603)
-   - Pietro Boroto Rodrigues          (RM 562407)
-   - Vitor Soares Goncalves           (RM 566181)
-
-   Arquivo: forzy-bi.js
-   O que faz: calcula os indicadores usados na tela de Governanca
-   =================================================================== */
+/* forzy-bi.js: calcula os indicadores usados na tela de Governanca */
 
 (function () {
   const LIM = { vel: { a: 1.8, al: 4.5 }, acel: { a: 0.25, al: 0.45 }, temp: { a: 35, al: 42 } };
 
+  // serie historica usada nos calculos
   function serie(eixo) {
     const F = window.FORZY;
     if (!F || !F[eixo]) return null;
     return { vel: F[eixo].vel, acel: F[eixo].acel, temp: F[eixo].temp, t: F.t, t0: F.meta && F.meta.t0 };
   }
 
+  // percentual do tempo sem alarme
   function disponibilidade(eixo) {
     const s = serie(eixo); if (!s) return null;
     let ok = 0;
@@ -29,6 +18,7 @@
     return +(ok / s.vel.length * 100).toFixed(1);
   }
 
+  // tempo medio entre falhas
   function mtbf(eixo) {
     const s = serie(eixo); if (!s || !s.t) return null;
     const cruz = [];
@@ -40,6 +30,7 @@
     return +(acc / (cruz.length - 1) / 3600).toFixed(1);
   }
 
+  // tempo medio de reparo
   function mttr(eixo) {
     const s = serie(eixo); if (!s || !s.t) return null;
     const durs = []; let ini = null;
@@ -52,6 +43,7 @@
     return +(durs.reduce((a, b) => a + b, 0) / durs.length / 3600).toFixed(2);
   }
 
+  // saude geral da frota de ativos
   function frota() {
     const ativos = (window.FZStore && window.FZStore.getAtivosIndustrial && window.FZStore.getAtivosIndustrial()) || [];
     const cop = window.FZCopiloto;
@@ -83,6 +75,7 @@
     return { eixos: out, ativos: ativos.map(a => ({ codigo: a.codigo, descricao: a.descricao || '', worst })), worst };
   }
 
+  // alarmes do periodo
   function alertas() {
     const fa = window.FZAlertas;
     const log = fa && typeof fa.historico === 'function' ? (fa.historico() || [])
@@ -96,6 +89,7 @@
     return { total: ativados.length, p1, p2, validados: valid, rejeitados: rej };
   }
 
+  // OS geradas no periodo
   function ordensServico() {
     try {
       const l = JSON.parse(localStorage.getItem('forzy-os-log') || '[]');
@@ -103,6 +97,7 @@
     } catch (e) { return { total: 0, ultimas: [] }; }
   }
 
+  // junta todos os indicadores
   function resumo() {
     const f = frota();
     const nCrit = f.eixos.filter(e => e.status === 'critical' || e.status === 'emergency').length;

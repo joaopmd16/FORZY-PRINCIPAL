@@ -1,17 +1,4 @@
-/* ===================================================================
-   PROJETO FORZY - Sistema de Monitoramento Industrial
-   Trabalho academico FIAP + Forzy-Promon
-
-   Integrantes:
-   - Arthur Baptista dos Santos       (RM 565346)
-   - Joao Pedro de Moura Dutra Franco (RM 561738)
-   - Nelson Felix Neto                (RM 565603)
-   - Pietro Boroto Rodrigues          (RM 562407)
-   - Vitor Soares Goncalves           (RM 566181)
-
-   Arquivo: copiloto.js
-   O que faz: tela do Copiloto de Manutencao (diagnostico e Ordem de Servico)
-   =================================================================== */
+/* copiloto.js: tela do Copiloto de Manutencao (diagnostico e Ordem de Servico) */
 
 (function () {
   const F = window.FORZY;
@@ -24,12 +11,16 @@
   const OS_SEQ_KEY = 'forzy-os-seq';
   const OS_LOG_KEY = 'forzy-os-log';
 
+  // protege o texto contra HTML/XSS antes de ir pro innerHTML
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const fmt = (v, d = 2) => (v == null || v !== v) ? '—' : Number(v).toFixed(d);
+  // limita um numero entre minimo e maximo
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  // atalho pra pegar um elemento pelo id
   function el(tag, cls, html) { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
 
+  // leitura mais recente do ativo
   function leituraAtual() {
     let r = null;
     try { r = window.FZDashboard && window.FZDashboard.getCurrentReading(); } catch (e) {  }
@@ -41,12 +32,14 @@
       m2_vel: F.m2.vel[i], m2_acel: F.m2.acel[i], m2_temp: F.m2.temp[i],
     };
   }
+  // Z-score de um valor
   function zscore(col, val) {
     const b = F && F.baseline && F.baseline[col];
     if (!b || !b.std) return 0;
     return Math.abs(val - b.mean) / b.std;
   }
 
+  // tendencia da vibracao (subindo, estavel, caindo)
   function tendenciaVel(eixo) {
     if (!F) return 0;
     const arr = F[eixo].vel, n = arr.length, w = Math.min(180, n);
@@ -126,6 +119,7 @@
     },
   };
 
+  // monta o diagnostico do ativo (nunca rebaixa a prioridade)
   function diagnosticar(reading, eixo) {
     const pfx = eixo === 'm2' ? 'm2' : 'm1';
     const vel = +reading[pfx + '_vel'] || 0;
@@ -190,6 +184,7 @@
              evidencias: ev, tendencia: trend, eixo: pfx, rede };
   }
 
+  // proximo numero de Ordem de Servico
   function proximoNumero() {
     let n = 0;
     try { n = parseInt(localStorage.getItem(OS_SEQ_KEY) || '0', 10) || 0; } catch (e) {  }
@@ -198,9 +193,11 @@
     const yy = new Date().getFullYear();
     return `OS-${yy}-${String(n).padStart(4, '0')}`;
   }
+  // le o historico salvo no navegador
   function lerLog() {
     try { return JSON.parse(localStorage.getItem(OS_LOG_KEY) || '[]'); } catch (e) { return []; }
   }
+  // salva o historico no navegador
   function gravarLog(os) {
     const log = lerLog();
     log.unshift(os);
@@ -241,10 +238,12 @@
 
   let _root = null, _diag = null, _os = null, _eixo = 'm1', _ativo = null;
 
+  // ativos que podem virar OS
   function ativosDisponiveis() {
     try { return (window.FZStore && window.FZStore.getAtivosIndustrial()) || []; } catch (e) { return []; }
   }
 
+  // desenha a tela
   function render() {
     if (!_root) return;
     const reading = leituraAtual();
@@ -389,6 +388,7 @@
     if (_os) renderOS();
   }
 
+  // lista de OS ja geradas
   function renderHist() {
     const host = _root && _root.querySelector('#copHistBody');
     if (!host) return;
@@ -405,6 +405,7 @@
       </tr>`).join('')}</tbody></table>`;
   }
 
+  // gera a Ordem de Servico
   function gerarOS() {
     _os = montarOS(_diag, _ativo);
     gravarLog(_os);
@@ -413,6 +414,7 @@
     _root.querySelector('#copOSHost').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
+  // desenha a OS na tela
   function renderOS() {
     const host = _root && _root.querySelector('#copOSHost');
     if (!host || !_os) return;
@@ -460,6 +462,7 @@
     if (_os.refino_ia) mostrarRefino(_os.refino_ia);
   }
 
+  // texto da OS pra copiar
   function osTexto() {
     const L = [];
     L.push(`ORDEM DE SERVIÇO ${_os.numero}`);
@@ -483,6 +486,7 @@
     return L.join('\n');
   }
 
+  // copia o texto pra area de transferencia
   function copiarTexto() {
     const t = osTexto();
     navigator.clipboard && navigator.clipboard.writeText(t).then(
@@ -490,6 +494,7 @@
       () => toast('Não foi possível copiar'));
   }
 
+  // abre a OS pra imprimir em PDF
   function exportarPDF() {
     const jsPDFctor = window.jspdf && window.jspdf.jsPDF;
     if (!jsPDFctor) { toast('jsPDF não carregou'); return; }
@@ -549,6 +554,7 @@
     doc.save(`${_os.numero}.pdf`);
   }
 
+  // pede um parecer curto da IA (so no clique)
   async function refinarComIA() {
     const btn = _root.querySelector('#copIA');
     const key = window.FORZY_OPENAI_KEY;
@@ -587,6 +593,7 @@
       btn.disabled = false; btn.textContent = 'Refinar com IA';
     }
   }
+  // mostra a resposta da IA
   function mostrarRefino(txt) {
     const box = _root.querySelector('#copRefinoBox');
     if (!box) return;
@@ -594,6 +601,7 @@
     box.innerHTML = `<div class="fz-card-title">Complemento técnico (IA)</div><p>${esc(txt)}</p>`;
   }
 
+  // aviso rapido na tela
   function toast(msg) {
     let t = document.getElementById('copToast');
     if (!t) { t = el('div', 'fz-cop-toast'); t.id = 'copToast'; document.body.appendChild(t); }
@@ -601,6 +609,7 @@
     clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), 2600);
   }
 
+  // liga a tela (roda so na primeira visita)
   function init() {
     _root = document.getElementById('copilotoRoot');
     if (!_root) return;
@@ -608,6 +617,7 @@
     if (window.lucide) lucide.createIcons();
   }
 
+  // abre a aba de OS ja no eixo e ativo do alarme
   function abrirPara(eixo, ativoCod) {
     if (eixo === 'm1' || eixo === 'm2') _eixo = eixo;
     if (ativoCod) _ativo = ativoCod;
@@ -619,6 +629,7 @@
     render();
   }
 
+  // leitura mais grave do ativo
   function piorLeitura(eixo) {
     if (!F) return null;
     const pfx = eixo === 'm2' ? 'm2' : 'm1';

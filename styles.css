@@ -1,17 +1,4 @@
-/* ===================================================================
-   PROJETO FORZY - Sistema de Monitoramento Industrial
-   Trabalho academico FIAP + Forzy-Promon
-
-   Integrantes:
-   - Arthur Baptista dos Santos       (RM 565346)
-   - Joao Pedro de Moura Dutra Franco (RM 561738)
-   - Nelson Felix Neto                (RM 565603)
-   - Pietro Boroto Rodrigues          (RM 562407)
-   - Vitor Soares Goncalves           (RM 566181)
-
-   Arquivo: styles.css
-   O que faz: estilo visual de todas as telas (tema claro e escuro)
-   =================================================================== */
+/* styles.css: estilo visual de todas as telas (tema claro e escuro) */
 
 @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap');
 @import url('https://api.fontshare.com/v2/css?f[]=clash-display@400,500,600&display=swap');
@@ -1779,10 +1766,11 @@ html[data-theme='dark'] .panel {
 .fz-btn:disabled{ opacity:.45; cursor:not-allowed; }
 
 .fz-cop-controls{ display:flex; flex-wrap:wrap; gap:16px; align-items:flex-end; }
-.fz-cop-controls label{ display:flex; flex-direction:column; gap:5px; font-size:11.5px; font-weight:700;
+.fz-cop-controls label{ display:flex; flex-direction:column; gap:5px; flex:1 1 120px; min-width:0; font-size:11.5px; font-weight:700;
   text-transform:uppercase; letter-spacing:.04em; color:var(--text-2); }
 .fz-cop-controls select{ background:var(--field); color:var(--text); border:1px solid var(--hairline);
-  border-radius:9px; padding:8px 12px; font-weight:600; font-size:13px; min-width:200px; }
+  border-radius:9px; padding:8px 12px; font-weight:600; font-size:13px; font-family:inherit; width:100%; min-width:0; text-overflow:ellipsis; }
+.fz-cop-controls .fz-btn{ flex:none; white-space:nowrap; }
 
 .fz-cop-grid{ display:grid; grid-template-columns:1.4fr 1fr; gap:18px; margin-top:18px; }
 @media (max-width:980px){ .fz-cop-grid{ grid-template-columns:1fr; } }
@@ -2304,3 +2292,23 @@ body.fz-conta-operador .fz-so-admin-conta{ display:none !important; }
 .fz-gov-bias-h b{ font-size:14px; color:var(--text); }
 .fz-gov-bias-mit{ background:var(--field); border-radius:8px; padding:9px 11px; font-size:12px; color:var(--teal); margin-top:8px; }
 @media (max-width:900px){ .fz-gov-kpi-grid,.fz-gov-fair-grid{ grid-template-columns:1fr; } }
+
+/* ===== Sidebar em secoes (Operacao / Automacao e IA / Analise) ===== */
+.fz-nav-sec { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-3); margin: 18px 12px 6px; }
+.brand + .fz-nav-sec { margin-top: 10px; }
+@media (max-width: 1180px) { .fz-nav-sec { display: none; } }
+
+/* ===== Barra de abas com grupos (Monitoramento | Planta) ===== */
+.fz-tabs-lbl { align-self: center; flex: none; padding: 0 8px; font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-3); }
+.fz-tabs-sep { flex: none; width: 1px; margin: 6px 6px; background: var(--hairline); }
+
+/* ===== Inicio: visualizacoes da Fabrica Demo (compacta, por piso, detalhada, lista) ===== */
+#inicioAssets.fz-vista-compacta{ grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:12px; }
+#inicioAssets.fz-vista-piso,#inicioAssets.fz-vista-lista{ grid-template-columns:1fr; }
+.fz-tile{ padding:12px 14px; }
+.fz-tile .a-status{ font-size:15px; margin:4px 0; }
+.fz-tile .a-read{ font-size:12px; }
+.fz-piso-grupo{ display:flex; flex-direction:column; gap:8px; }
+.fz-piso-tit{ font-size:12px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--text-2); }
+.fz-piso-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:12px; }
+.fz-lista-fab{ background:var(--card); border-radius:var(--radius-inner); padding:8px 16px; box-shadow:var(--shadow); overflow:auto; }
