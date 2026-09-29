@@ -235,5 +235,17 @@
     render();
   }
 
-  window.FZInvestigacao = { init, render };
+  function abrirPara(eixo, ativoCod) {
+    if (eixo === 'm1' || eixo === 'm2') _eixo = eixo;
+    if (ativoCod) _ativo = ativoCod;
+    _sel = null;
+    _explodido = true;
+    if (typeof window.showScreen === 'function') window.showScreen('diagnostico');
+    const aba = document.querySelector('#fzDiagTabs .fz-tab[data-dtab="investigacao"]');
+    if (aba) aba.click();
+    init();
+    render();
+  }
+
+  window.FZInvestigacao = { init, render, abrirPara };
 })();

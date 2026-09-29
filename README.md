@@ -222,10 +222,11 @@ python treinar_modelo.py
 - Perfis Operador/Analista: o Operador vê uma versão simplificada (sem jargão técnico, sem Sensores/Governança, e só a aba Ordem de Serviço em Diagnóstico); o Analista/Admin vê tudo
 - Governança: KPIs, métricas do modelo, auditoria e fairness (só-analista)
 - Integração ESP32 + MPU6050 via Web Serial API ou bridge Python
+- Vista 3D (SCADA) conectada ao Diagnóstico: clicar num motor no modelo 3D mostra um botão "Ver Diagnóstico deste Motor" que abre a Vista Explodida (Investigação) já com o eixo certo selecionado — a região do motor associada a um problema é destacada lá, de acordo com o modo de falha diagnosticado pelo Copiloto
 
 ## Limitações conhecidas
 
-- **Diagnóstico dentro da visualização 3D:** ainda não existe. Hoje o 3D (SCADA) e o Diagnóstico (Investigação/RCA/Preditivo/OS) são telas separadas — clicar num componente do modelo 3D não abre o diagnóstico daquele componente. O escopo exato dessa integração (o que deveria acontecer ao clicar, qual granularidade de componente) ainda não foi definido.
+- **Diagnóstico embutido *dentro* do canvas 3D:** o que existe é um link direto do 3D pra tela de Diagnóstico (Vista Explodida, já no eixo certo) — não uma anotação/destaque desenhado em cima do próprio modelo 3D. Fazer o problema aparecer diretamente sobre a peça no modelo 3D (sem trocar de tela) é uma etapa a mais que não foi escopada.
 - **Leituras de um ativo recém-cadastrado:** um ativo só recebe leituras via ESP32/bridge. Um ativo cadastrado sem sensor conectado aparece no Monitoramento com um aviso "sem leituras" em vez de gráfico — não é um bug, é a ausência de fonte de dados real pra ele.
 - **Investigação e Projeção de Falha não são focadas por ativo:** essas duas sub-abas do Diagnóstico trabalham sobre o Dataset Forzy (M1/M2); só a Ordem de Serviço (Copiloto) e parcialmente a Causa Raiz (RCA) já aceitam um ativo cadastrado específico.
 - **`config.js`** (chave da OpenAI) é gitignored — precisa ser recriado manualmente em cada ambiente novo (não existe por padrão num clone do repositório).

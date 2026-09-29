@@ -297,7 +297,11 @@
           <div><div style="color:var(--muted,#888);font-size:11px">Aceleração</div><b>${(m.a||0).toFixed(3)} g</b></div>
           <div><div style="color:var(--muted,#888);font-size:11px">Temperatura</div><b>${m.t.toFixed(1)} °C</b></div>
         </div>
+        <button class="fz-btn ghost" id="scada3dDiag" style="margin-top:10px">🔍 Ver Diagnóstico deste Motor</button>
       </div>`;
+    document.getElementById('scada3dDiag')?.addEventListener('click', () => {
+      window.FZInvestigacao?.abrirPara?.(motorIdx === 2 ? 'm2' : 'm1');
+    });
   }
 
   function buildSorted(yaw, pitch, isDragging) {
