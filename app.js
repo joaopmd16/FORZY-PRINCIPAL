@@ -80,7 +80,7 @@
     }
     if (key === 'diagnostico') {
       const atual = document.querySelector('#fzDiagTabs .fz-tab.active');
-      ativarAbaDiag(atual ? atual.dataset.dtab : 'investigacao');
+      ativarAbaDiag(atual ? atual.dataset.dtab : null);
     }
     if (key === 'governanca') window.FZGovernanca?.init();
   }
@@ -116,8 +116,15 @@
   function ativarAbaDiag(alvo) {
     const abas = document.querySelectorAll('#fzDiagTabs .fz-tab[data-dtab]');
     if (!abas.length) return;
-    if (!alvo || ![...abas].some(x => x.dataset.dtab === alvo)) alvo = 'investigacao';
+    const padrao = ehOperador() ? 'os' : 'investigacao';
+    const abaEscondida = alvo && ehOperador()
+      && [...abas].some(x => x.dataset.dtab === alvo && x.dataset.perfil === 'admin');
+    if (!alvo || abaEscondida || ![...abas].some(x => x.dataset.dtab === alvo)) alvo = padrao;
     abas.forEach(x => x.classList.toggle('active', x.dataset.dtab === alvo));
+    const sub = document.getElementById('fzDiagSub');
+    if (sub) sub.textContent = ehOperador()
+      ? 'Diagnóstico do problema e Ordem de Serviço'
+      : 'Investigação da falha, causa raiz, projeção de degradação e Ordem de Serviço';
     document.querySelectorAll('#screen-diagnostico .fz-panel[data-dpanel]').forEach(p =>
       p.classList.toggle('active', p.dataset.dpanel === alvo));
     if (alvo === 'investigacao') window.FZInvestigacao?.init();
@@ -132,7 +139,7 @@
     const tela = document.getElementById('screen-diagnostico');
     if (!tela || !tela.classList.contains('active')) return;
     const atual = document.querySelector('#fzDiagTabs .fz-tab.active');
-    ativarAbaDiag(atual ? atual.dataset.dtab : 'investigacao');
+    ativarAbaDiag(atual ? atual.dataset.dtab : null);
   }
   if (window.FZAlertas && typeof window.FZAlertas.onChange === 'function') {
     let _1a = true;

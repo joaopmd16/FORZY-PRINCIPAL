@@ -57,7 +57,7 @@ try{if(!localStorage.getItem('fz-sessao')&&!sessionStorage.getItem('fz-sessao'))
       <button class="nav-item" data-screen="assistente">
         <i data-lucide="bot"></i><span class="lbl">Assistente IA</span><span class="fz-nav-dot" id="navAssistenteDot"></span>
       </button>
-      <button class="nav-item" data-screen="diagnostico" data-perfil="admin">
+      <button class="nav-item" data-screen="diagnostico">
         <i data-lucide="stethoscope"></i><span class="lbl">Diagnóstico</span>
       </button>
       <button class="nav-item" data-screen="governanca" data-perfil="admin">
@@ -368,13 +368,13 @@ try{if(!localStorage.getItem('fz-sessao')&&!sessionStorage.getItem('fz-sessao'))
         <div>
           <div class="fz-eyebrow">Forzy · Manutenção Preditiva</div>
           <h1 class="page-title">Diagnóstico</h1>
-          <div class="fz-hero-sub">Investigação da falha, causa raiz, projeção de degradação e Ordem de Serviço</div>
+          <div class="fz-hero-sub" id="fzDiagSub">Investigação da falha, causa raiz, projeção de degradação e Ordem de Serviço</div>
         </div>
       </div>
       <div class="fz-tabs" id="fzDiagTabs">
-        <button class="fz-tab active" data-dtab="investigacao">Investigação</button>
-        <button class="fz-tab" data-dtab="rca">Causa Raiz</button>
-        <button class="fz-tab" data-dtab="preditivo">Projeção de Falha</button>
+        <button class="fz-tab active" data-dtab="investigacao" data-perfil="admin">Investigação</button>
+        <button class="fz-tab" data-dtab="rca" data-perfil="admin">Causa Raiz</button>
+        <button class="fz-tab" data-dtab="preditivo" data-perfil="admin">Projeção de Falha</button>
         <button class="fz-tab" data-dtab="os">Ordem de Serviço</button>
       </div>
       <div class="fz-panel active" data-dpanel="investigacao"><div id="investigacaoRoot"></div></div>
@@ -459,20 +459,20 @@ try{if(!localStorage.getItem('fz-sessao')&&!sessionStorage.getItem('fz-sessao'))
 <script src="data/forzy-model.js?v=1"></script>
 <script src="modelo.js?v=2"></script>
 <script src="forzy-store.js?v=4"></script>
-<script src="forzy.js?v=15"></script>
+<script src="forzy.js?v=16"></script>
 <script src="inicio.js?v=6"></script>
-<script src="cadastro.js?v=9"></script>
+<script src="cadastro.js?v=10"></script>
 <script src="gestao.js?v=6"></script>
 <script src="scada.js?v=2"></script>
 <script src="iot.js?v=6"></script>
 <script src="perfil.js?v=3"></script>
 <script src="auth.js?v=1"></script>
 <script src="topbar.js?v=12"></script>
-<script src="app.js?v=10"></script>
+<script src="app.js?v=11"></script>
 <script src="nav-v2.js?v=5"></script>
 <script src="config.js"></script>
 <script src="assistant.js?v=11"></script>
-<script src="assistente-screen.js?v=14"></script>
+<script src="assistente-screen.js?v=15"></script>
 <script src="alerta-critico.js?v=3"></script>
 <script src="alert-rail.js?v=2"></script>
 <script src="copiloto.js?v=5"></script>

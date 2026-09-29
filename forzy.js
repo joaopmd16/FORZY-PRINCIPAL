@@ -555,9 +555,21 @@
       const card1=motorCard(label, r, iso, 'm1'); card1.classList.add('fz-card-clicavel');
       card1.addEventListener('click', ()=>abrirModalEixo('m1', nomeModal, r, iso, getWin, xlab));
       const row=el('div'); row.appendChild(card1); p.appendChild(row);
-      const note=el('div','fz-card-sub'); note.style.margin='8px 2px 0';
-      note.textContent='ESP32 = 1 sensor (mapeado como Eixo 1). Espectral, Operacional e Baseline ML continuam usando o Dataset Forzy.';
-      p.appendChild(note);
+      const noteRow=el('div','fz-card-sub'); noteRow.style.cssText='margin:8px 2px 0;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap';
+      const noteTxt=el('span'); noteTxt.textContent = isEsp32
+        ? 'ESP32 = 1 sensor (mapeado como Eixo 1). Espectral, Operacional e Baseline ML continuam usando o Dataset Forzy.'
+        : 'Clique no card acima pra abrir o chat rápido, ou fale direto com o Assistente sobre este ativo.';
+      noteRow.appendChild(noteTxt);
+      if(isAtivo && state.ativoCod){
+        const btnChat=el('button','fz-btn ghost'); btnChat.textContent='💬 Assistente sobre '+esc(state.ativoCod);
+        btnChat.style.flexShrink='0';
+        btnChat.addEventListener('click', ()=>{
+          if(window.FZChatScreen && window.FZChatScreen.abrirAtivo) window.FZChatScreen.abrirAtivo(state.ativoCod);
+          if(typeof window.showScreen==='function') window.showScreen('assistente');
+        });
+        noteRow.appendChild(btnChat);
+      }
+      p.appendChild(noteRow);
     } else {
       const card1=motorCard('Eixo 1', r, iso, 'm1'); card1.classList.add('fz-card-clicavel');
       card1.addEventListener('click', ()=>abrirModalEixo('m1', 'Eixo 1', r, iso, getWin, xlab));
@@ -1287,5 +1299,11 @@
   window.FZDashboard = {
     getCurrentReading: () => curReading(),
     getFonte: () => state.fonte,
+    abrirAtivo: (codigo) => {
+      state.fonte='ativo'; state.ativoCod=codigo; state.tab='mon';
+      if(typeof window.showScreen==='function') window.showScreen('dashboard');
+      renderSourceBar();
+      showTab('mon');
+    },
   };
 })();

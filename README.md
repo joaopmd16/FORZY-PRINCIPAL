@@ -210,6 +210,29 @@ python treinar_modelo.py
 
 ---
 
+## Funcionalidades concluídas
+
+- Dashboard de Monitoramento (gauges, gráficos, health score) com 5 fontes de dados: Dataset Forzy, Ativo Cadastrado, Simulado, ESP32 ao vivo e Forzy Cloud (S1/S2)
+- Cadastro de ativos (CRUD completo), organização por Planta → Área → Ativo com drill-down e busca
+- OCR de plaqueta por IA (gpt-4o-mini visão) no cadastro e no Pipeline
+- SCADA: planta 2D SVG + modelo 3D real da bomba (mesh `.npy`), navegável por rotação/clique
+- Autoencoder (rede neural) rodando no browser para índice de anomalia — ver [Modelo de Machine Learning](#modelo-de-machine-learning)
+- Diagnóstico: Investigação (vista explodida), Causa Raiz (RCA), Projeção de Falha e Copiloto de Manutenção (Ordem de Serviço automática)
+- Assistente IA (gpt-4o-mini) com conversa dedicada por ativo, contexto focado no ativo selecionado e alertas automáticos
+- Perfis Operador/Analista: o Operador vê uma versão simplificada (sem jargão técnico, sem Sensores/Governança, e só a aba Ordem de Serviço em Diagnóstico); o Analista/Admin vê tudo
+- Governança: KPIs, métricas do modelo, auditoria e fairness (só-analista)
+- Integração ESP32 + MPU6050 via Web Serial API ou bridge Python
+
+## Limitações conhecidas
+
+- **Diagnóstico dentro da visualização 3D:** ainda não existe. Hoje o 3D (SCADA) e o Diagnóstico (Investigação/RCA/Preditivo/OS) são telas separadas — clicar num componente do modelo 3D não abre o diagnóstico daquele componente. O escopo exato dessa integração (o que deveria acontecer ao clicar, qual granularidade de componente) ainda não foi definido.
+- **Leituras de um ativo recém-cadastrado:** um ativo só recebe leituras via ESP32/bridge. Um ativo cadastrado sem sensor conectado aparece no Monitoramento com um aviso "sem leituras" em vez de gráfico — não é um bug, é a ausência de fonte de dados real pra ele.
+- **Investigação e Projeção de Falha não são focadas por ativo:** essas duas sub-abas do Diagnóstico trabalham sobre o Dataset Forzy (M1/M2); só a Ordem de Serviço (Copiloto) e parcialmente a Causa Raiz (RCA) já aceitam um ativo cadastrado específico.
+- **`config.js`** (chave da OpenAI) é gitignored — precisa ser recriado manualmente em cada ambiente novo (não existe por padrão num clone do repositório).
+- Erro de console pré-existente, não bloqueante: `TypeError: Cannot read properties of null (reading 'classList')`, aparentando vir de `iot.js`; causa raiz não encontrada, não afeta funcionalidade testada.
+
+---
+
 ## Licença
 
 Projeto acadêmico FIAP × Forzy-Promon — uso educacional.

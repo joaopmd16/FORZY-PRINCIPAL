@@ -680,6 +680,11 @@ Não inclua o campo de localização/endereço: essa informação nunca vem da p
             <span class="fz-badge" style="background:${sc}22;border:1px solid ${sc};color:${sc};align-self:center">${S.statusLabel(a.status)}</span>
           </div>
         </div>
+        <div class="da-nav-links" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+          <button class="fz-btn ghost" id="daIrMonitoramento">📊 Ver no Monitoramento</button>
+          <button class="fz-btn ghost" id="daIrDiagnostico">🩺 Abrir Diagnóstico (OS)</button>
+          <button class="fz-btn ghost" id="daIrAssistente">💬 Falar com o Assistente</button>
+        </div>
       </div>
 
       <!-- Ficha Técnica completa -->
@@ -764,6 +769,12 @@ Não inclua o campo de localização/endereço: essa informação nunca vem da p
       </div>`;
 
     el('daSel').addEventListener('change', e => { state.selDash = e.target.value; renderDash(); });
+    el('daIrMonitoramento')?.addEventListener('click', () => window.FZDashboard?.abrirAtivo?.(a.codigo));
+    el('daIrDiagnostico')?.addEventListener('click', () => window.FZCopiloto?.abrirPara?.('m1', a.codigo));
+    el('daIrAssistente')?.addEventListener('click', () => {
+      window.FZChatScreen?.abrirAtivo?.(a.codigo);
+      if (typeof window.showScreen === 'function') window.showScreen('assistente');
+    });
 
     if (state.dashTimer) { clearInterval(state.dashTimer); state.dashTimer = null; }
     if (temIoT) {
