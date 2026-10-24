@@ -1416,6 +1416,7 @@
     // leitura atual dos motores da fabrica (a topbar usa pra disparar alarme/popup/sininho)
     fabricaMotores: () => window.FZFabrica.motores(),
     abrirAtivo: (codigo) => {
+      window.FZSelecao.set({ fabrica:'bancada' }); state.fonteBancada='ativo';
       state.fonte='ativo'; state.ativoCod=codigo; state.tab='mon';
       if(typeof window.showScreen==='function') window.showScreen('dashboard');
       renderSourceBar();

@@ -209,9 +209,11 @@
     return s;
   })();
   const aoMudar = [];
+  let auto = false; // motor escolhido sozinho pelo Diagnostico (nao pela pessoa)
   const getSel = () => ({ ...sel });
   // muda a selecao (troca de fabrica zera setor/motor; escolher motor acerta o setor)
   function setSel(p) {
+    auto = false;
     const novo = { ...sel, ...p };
     if (p.fabrica && p.fabrica !== sel.fabrica) { novo.setor = p.setor || null; novo.motor = p.motor || null; }
     if (novo.fabrica !== 'forzy') { novo.setor = null; novo.motor = null; }
@@ -247,7 +249,7 @@
     const { host, op } = ref;
     if (op.exigeMotor && !host.offsetParent) return; // tela escondida: nao mexe na selecao dos outros
     if (op.exigeMotor && sel.fabrica === 'forzy' && !sel.motor) {
-      const p = piorMotor(sel.setor); if (p) { setSel({ motor: p.codigo }); if (!forcar) return; }
+      const p = piorMotor(sel.setor); if (p) { setSel({ motor: p.codigo }); auto = true; if (!forcar) return; }
     }
     const foco = host.contains(document.activeElement) && document.activeElement.tagName === 'SELECT';
     if (foco && !forcar) return;
@@ -287,11 +289,13 @@
   // desenha os motores agrupados por setor (so um setor, se "setor" vier preenchido) e liga o clique
   function tiles(host, setor) {
     if (!host) return;
+    const foco = host.contains(document.activeElement) && document.activeElement.dataset ? document.activeElement.dataset.cod : null;
     host.innerHTML = setores().filter(s => !setor || s.nome === setor).map(s => {
       const ms = motoresComLeitura(s.nome), c = [0, 0, 0]; ms.forEach(m => c[m.f]++);
       return `<div class="fz-piso-grupo"><div class="fz-piso-tit">${esc(s.nome)} <span class="fz-piso-cont">${c[2] ? `<b style="color:var(--fz-bad)">${c[2]} alarme</b>` : ''}${c[1] ? `<b style="color:var(--fz-warn)">${c[1]} alerta</b>` : ''}${!c[1] && !c[2] ? 'tudo normal' : ''}</span></div>
         <div class="fz-piso-grid">${ms.map(tile).join('')}</div></div>`;
     }).join('');
+    if (foco) { const t = host.querySelector('[data-cod="' + foco + '"]'); if (t) t.focus(); }
     const abrir = el => { const t = el.closest('.fz-tile-click'); if (t) setSel({ fabrica: 'forzy', motor: t.dataset.cod }); };
     host.onclick = e => abrir(e.target);
     host.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); abrir(e.target); } };
@@ -324,7 +328,9 @@
   };
   // codigo do ativo em analise: o motor da fabrica ou, na bancada, o eixo 1 do cadastro
   const ativoCodigo = () => (sel.fabrica === 'forzy' && sel.motor ? sel.motor : 'BBA-001');
-  window.FZSelecao = { get: getSel, set: setSel, onChange: f => aoMudar.push(f), dados, ativoCodigo };
+  window.FZSelecao = { get: getSel, set: setSel, onChange: f => aoMudar.push(f), dados, ativoCodigo,
+    // ao sair do Diagnostico: desfaz o motor que ele escolheu sozinho
+    soltarAuto: () => { if (auto) setSel({ motor: null }); } };
   window.FZSeletor = { montar };
   // dados que o Diagnostico usa agora (motor da fabrica ou dataset real)
   window.FZDados = dados;

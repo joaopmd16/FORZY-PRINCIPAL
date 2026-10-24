@@ -46,12 +46,12 @@
   // nome da fonte ao vivo
   const liveFonteLbl = () => {
     const f = window.FZDashboard && window.FZDashboard.getFonte && window.FZDashboard.getFonte();
-    return ({ esp32: 'ESP32 ao vivo', ativo: 'Ativo cadastrado', sim: 'Simulado', cloud: 'Forzy Cloud', forzy: 'Dataset Forzy (rede neural)' })[f] || '—';
+    return ({ esp32: 'ESP32 ao vivo', ativo: 'Ativo cadastrado', sim: 'Simulado', cloud: 'Forzy Cloud', forzy: 'Dataset Forzy (rede neural)', fabrica: 'Fábrica Forzy' })[f] || '—';
   };
   // true se a fonte ao vivo esta ativa
   const fonteAoVivoOk = () => {
     const f = window.FZDashboard && window.FZDashboard.getFonte && window.FZDashboard.getFonte();
-    return f === 'esp32' || f === 'ativo' || f === 'sim' || f === 'cloud';
+    return f === 'esp32' || f === 'ativo' || f === 'sim' || f === 'cloud' || f === 'fabrica';
   };
 
   // controles de reproducao

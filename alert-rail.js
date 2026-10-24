@@ -70,6 +70,7 @@
       dica: 'Diagnóstico do eixo + OS pronta pra imprimir',
       run(a) {
         const e = eixoInfo(a);
+        if (!/^fabrica:/.test(String(a.origem || '')) && window.FZSelecao) window.FZSelecao.set({ fabrica: 'bancada' });
         if (window.FZCopiloto && window.FZCopiloto.abrirPara) window.FZCopiloto.abrirPara(e.id, e.cod);
         else if (window.showScreen) window.showScreen('assistente');
       },

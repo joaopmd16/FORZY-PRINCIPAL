@@ -72,6 +72,7 @@
       window.FZChatScreen?.init();
       document.getElementById('navAssistenteDot')?.classList.remove('show');
     }
+    if (key !== 'diagnostico') window.FZSelecao?.soltarAuto();
     if (key === 'diagnostico') {
       window.FZSeletor?.montar(document.getElementById('diagSel'), { exigeMotor: true });
       window.FZFabrica?.faixa(document.getElementById('diagFaixa'));
@@ -146,6 +147,8 @@
     window.FZAlertas.onChange(() => { if (_1a) { _1a = false; return; } reagirDiag(); });
   }
   document.addEventListener('fz-perfil-change', reagirDiag);
+  // os numeros da faixa acompanham a simulacao
+  window.FZFabrica?.onPasso(() => { if (document.getElementById('screen-diagnostico')?.classList.contains('active')) window.FZFabrica.faixa(document.getElementById('diagFaixa')); });
   // o ativo escolhido mudou (aqui ou em outra tela): o Diagnostico passa a analisar esse motor
   document.addEventListener('fz-selecao-change', () => { window.FZFabrica?.faixa(document.getElementById('diagFaixa')); reagirDiag(); });
 
