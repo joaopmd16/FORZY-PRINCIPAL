@@ -235,6 +235,7 @@
   // ---------------------------------------------------------------- seletor (Fabrica > Setor > Motor)
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const seletores = [];
+  const BANCADA = '__bancada'; // "motor" do dataset real
 
   // desenha o seletor dentro de "host". opcoes.exigeMotor: sem a opcao "todos os motores" (Diagnostico)
   function montar(host, opcoes) {
@@ -264,16 +265,24 @@
       const ms = motoresComLeitura(sel.setor);
       h += `<div class="fz-field"><span>Motor</span><select class="fz-select" data-k="motor">` +
         (op.exigeMotor ? '' : `<option value="">${sel.setor ? 'Todos do setor' : 'Todos os motores'}</option>`) +
-        ms.map(m => `<option value="${m.codigo}" ${m.codigo === sel.motor ? 'selected' : ''}>${m.codigo} · ${esc(m.descricao.replace(' · 2 eixos', ''))}${m.f ? ' — ' + NOME[m.f] : ''}</option>`).join('') + '</select></div>';
+        ms.map(m => `<option value="${m.codigo}" ${m.codigo === sel.motor ? 'selected' : ''}>${m.codigo} · ${esc(m.descricao.replace(' · 2 eixos', ''))}${m.f ? ' — ' + NOME[m.f] : ''}</option>`).join('') +
+        `<optgroup label="Dados reais"><option value="${BANCADA}">Bancada · Dataset Forzy (com timeline)</option></optgroup></select></div>`;
     } else {
-      h += '<div class="fz-sel-nota">1 motor · 2 eixos · dados reais coletados pelo sensor</div>';
+      // o dataset real (CSV da Forzy, com timeline) e um motor como os outros
+      h += `<div class="fz-field"><span>Motor</span><select class="fz-select" data-k="motor"><option value="${BANCADA}" selected>Bancada · Dataset Forzy (${window.FORZY ? window.FORZY.meta.n.toLocaleString('pt-BR') : ''} amostras)</option><option value="">← Voltar à Fábrica Forzy</option></select></div>
+        <div class="fz-sel-nota">Dados reais, 2 eixos · a timeline completa está em Monitoramento › Histórico</div>`;
     }
     h += '</div>';
     host.innerHTML = h;
     host.querySelector('[data-k="fabrica"]').addEventListener('change', e => setSel({ fabrica: e.target.value }));
     host.querySelectorAll('[data-k="setor"] button').forEach(b => b.addEventListener('click', () => setSel({ setor: b.dataset.v || null })));
     const mo = host.querySelector('select[data-k="motor"]');
-    if (mo) mo.addEventListener('change', e => setSel({ motor: e.target.value || null }));
+    if (mo) mo.addEventListener('change', e => {
+      const v = e.target.value;
+      if (v === BANCADA) setSel({ fabrica: 'bancada' });
+      else if (sel.fabrica === 'bancada') setSel({ fabrica: 'forzy', motor: null });
+      else setSel({ motor: v || null });
+    });
   }
   // ---------------------------------------------------------------- quadradinhos dos motores (visao geral clicavel)
   const COR = ['var(--fz-ok)', 'var(--fz-warn)', 'var(--fz-bad)'];
