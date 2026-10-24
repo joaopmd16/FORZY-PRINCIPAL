@@ -84,6 +84,9 @@
   // abre o modal P1 (some so ao reconhecer)
   function disparar(payload) {
     if (!payload) return;
+    // alarme de motor da fabrica que nao e o que esta na tela: aviso na faixa, sem travar a apresentacao
+    const fab = /^fabrica:([^:]+)/.exec(String(payload.origem || ''));
+    if (fab && window.FZSelecao && window.FZSelecao.get().motor !== fab[1]) { faixa(payload); return; }
     const chave = chaveDe(payload);
     if (reconhecidas.has(chave)) return;
     if (pendentes.some(p => p._chave === chave)) { render(); return; }
@@ -140,7 +143,7 @@
          <p class="fz-ac-sub">Detectado às ${esc(hora)}.</p>
          ${escala}`
       : `<div class="fz-ac-grid">
-           <div><span>Equipamento</span><b>${esc(e.nome)}${p.origem ? ' · ' + esc(String(p.origem)) : ''}</b></div>
+           <div><span>Equipamento</span><b>${esc(e.nome)}${p.origem ? ' · ' + esc(String(p.origem).replace(/^fabrica:([^:]+).*$/, '$1')) : ''}</b></div>
            <div><span>Variável</span><b>${ehRede ? 'Rede neural (índice de anomalia)' : vv === 'temp' ? 'Temperatura' : 'Vibração (vel. RMS)'}</b></div>
            <div><span>${ehRede ? 'Índice' : 'Valor medido'}</span><b>${val}</b></div>
            <div><span>Momento</span><b>${esc(hora)}</b></div>

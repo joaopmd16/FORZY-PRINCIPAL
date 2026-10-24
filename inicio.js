@@ -180,7 +180,7 @@
 
     const res = el('inicioResumo');
     if (res) { res.hidden = false; res.innerHTML = resumoHtml(s.setor); }
-    const tit = el('inicioTitulo'); if (tit) tit.textContent = s.motor ? 'Motor selecionado' : (s.setor ? 'Motores do setor ' + s.setor : 'Motores da fábrica');
+    const tit = el('inicioTitulo'); if (tit) tit.textContent = s.motor ? 'Motor selecionado: ' + s.motor : (s.setor ? 'Motores do setor ' + s.setor : 'Motores da fábrica');
 
     const box = el('inicioAssets'); if (!box) return;
     box.className = 'fz-fab-box';
