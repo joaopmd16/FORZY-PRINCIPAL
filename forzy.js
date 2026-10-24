@@ -893,7 +893,13 @@
     return _histData;
   }
   // aba Historico
+  // Historico e Baseline ML usam o dataset real da bancada: na fabrica, avisa e oferece trocar
+  function fabAvisoBancada(p, nome){
+    p.innerHTML=`<div class="fz-card"><div class="fz-card-title">${nome} — só na Bancada Forzy</div><div class="fz-card-sub">Esta aba usa o dataset real coletado na bancada (7 mil amostras). Para a Fábrica Forzy, use a Visão Geral, que mostra os motores ao vivo.</div><button class="fz-btn" id="fzIrBancada" style="margin-top:12px">Abrir a Bancada Forzy</button></div>`;
+    p.querySelector('#fzIrBancada').addEventListener('click',()=>window.FZSelecao.set({fabrica:'bancada'}));
+  }
   function renderHist(){
+    if(state.fonte==='fabrica'){ fabAvisoBancada(document.getElementById('fzPanel-hist'), 'Histórico'); return; }
     const p=document.getElementById('fzPanel-hist'); const d=loadHist(); const N=d.idx.length; const cfg=HVAR[hist.variavel];
     if(!N){
       p.innerHTML=`<div class="fz-card"><div class="fz-card-title">Histórico — Forzy Cloud</div>
@@ -972,6 +978,7 @@
   // aba Baseline ML: mostra o veredito da rede neural
   // REVISAR (Vitor): checar se os textos da aba estao claros pro Operador
   function renderMl(){
+    if(state.fonte==='fabrica'){ fabAvisoBancada(document.getElementById('fzPanel-ml'), 'Baseline ML'); return; }
     const p=document.getElementById('fzPanel-ml');
     const m=rede(); const meta=m?m.info():null;
     const live=curReading();
