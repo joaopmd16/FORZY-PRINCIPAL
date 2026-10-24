@@ -230,7 +230,8 @@
   function motorCard(nome, r, iso, prefix){
     const vel=r[prefix+'_vel'], acel=r[prefix+'_acel'], temp=r[prefix+'_temp'];
     const fv=flag(vel,iso.alerta,iso.alarme), fa=flag(acel,ACEL_A,ACEL_AL), ft=flag(temp,TEMP_A,TEMP_AL);
-    const h=health(vel,acel,temp,iso.alarme), hcol = h>=70?C.ok : h>=40?C.warn : C.bad;
+    // fabrica: mesma formula da saude do motor (Inicio e Diagnostico), pra os numeros baterem
+    const h = state.fonte==='fabrica' && window.FZFabrica ? window.FZFabrica.saudeDe({ m1_vel:vel, m2_vel:vel, m1_acel:acel, m2_acel:acel, m1_temp:temp, m2_temp:temp }) : health(vel,acel,temp,iso.alarme), hcol = h>=70?C.ok : h>=40?C.warn : C.bad;
     const card=el('div','fz-card');
     card.innerHTML=`
       <div class="fz-banner" style="background:${FLAG_COL[fv]}">${nome} — ${FLAG_LBL[fv]}</div>

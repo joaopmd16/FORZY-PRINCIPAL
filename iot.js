@@ -542,6 +542,8 @@
   // tenta conectar ao bridge sozinho
   async function tryAutoBridge() {
     if (st.bridge.connected || st.bridge.timer) return;
+    // o bridge Python so existe no computador local: no site publicado nem tenta (evita erro no console)
+    if (!/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) return;
     try {
       const r = await fetch(BRIDGE_URL, { signal: AbortSignal.timeout(1500) });
       const j = await r.json();
