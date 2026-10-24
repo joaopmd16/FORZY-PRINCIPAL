@@ -2356,4 +2356,4 @@ body.fz-conta-operador .fz-so-admin-conta{ display:none !important; }
 .fz-charts-col{ display:grid; grid-template-columns:1fr; gap:22px; }
 
 /* tema claro: botao ativo dos seletores nao pode ser branco sobre branco */
-:root[data-theme="light"] .fz-seg button.active{ background:var(--accent-ink,#14202b); color:#fff; }
+:root[data-theme="light"] .fz-seg button.active{ background:#14202b; color:#fff; }

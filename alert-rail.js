@@ -16,7 +16,7 @@
   // nome e cor do eixo do alarme
   function eixoInfo(a) {
     // alarme da Fabrica Forzy: origem "fabrica:CODIGO" aponta o motor
-    const fab = /^fabrica:(.+)$/.exec(String(a.origem || ''));
+    const fab = /^fabrica:([^:]+)/.exec(String(a.origem || ''));
     const cod = fab ? fab[1] : null;
     const s = String(a.eixo || a.msg || '').toLowerCase();
     if (s.includes('m2') || s.includes('eixo 2')) return { id: 'm2', nome: 'Eixo 2', cod: cod || 'BBA-002' };
