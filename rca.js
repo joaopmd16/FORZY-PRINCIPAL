@@ -28,7 +28,7 @@
 
   // monta a linha do tempo ate o estopim
   function analisar(eixo) {
-    const F = window.FORZY;
+    const F = window.FZDados ? window.FZDados() : window.FORZY;
     if (!F || !F[eixo]) return null;
     const LIM = window.FZCopiloto.LIM;
     const vel = F[eixo].vel, acel = F[eixo].acel, temp = F[eixo].temp;
@@ -177,17 +177,10 @@
   function render() {
     if (!_root) return;
     if (!window.FORZY) { _root.innerHTML = '<div class="fz-card">Dataset não carregado.</div>'; return; }
-    const list = ativos();
-    if (!_ativo && list.length) _ativo = list[0].codigo;
+    _ativo = window.FZSelecao ? window.FZSelecao.ativoCodigo() : _ativo;
 
     _root.innerHTML = `
       <div class="fz-cop-controls fz-card">
-        <label>Ativo
-          <select id="rcAtivo">
-            ${list.length ? list.map(a => `<option value="${esc(a.codigo)}" ${a.codigo === _ativo ? 'selected' : ''}>${esc(a.codigo)} — ${esc(a.descricao || '')}</option>`).join('')
-              : '<option value="">(nenhum ativo cadastrado)</option>'}
-          </select>
-        </label>
         <label>Eixo
           <select id="rcEixo">
             <option value="m1" ${_eixo === 'm1' ? 'selected' : ''}>Eixo 1</option>
@@ -202,7 +195,6 @@
         <div id="rcHist"></div>
       </div>`;
 
-    _root.querySelector('#rcAtivo').addEventListener('change', e => { _ativo = e.target.value; });
     _root.querySelector('#rcEixo').addEventListener('change', e => { _eixo = e.target.value; });
     _root.querySelector('#rcGerar').addEventListener('click', gerar);
     renderHist();

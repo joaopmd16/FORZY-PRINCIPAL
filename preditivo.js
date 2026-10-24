@@ -14,8 +14,9 @@
   }
 
   // regressao linear da vibracao pra prever quando passa o limite
-  function projetar(eixo) {
-    const F = window.FORZY;
+  // ds: dados de outro ativo (ranking da frota); sem ele usa o ativo escolhido
+  function projetar(eixo, ds) {
+    const F = ds || (window.FZDados ? window.FZDados() : window.FORZY);
     if (!F || !F[eixo]) return null;
     const vel = F[eixo].vel, t = F.t || null, n = vel.length;
     const tEnd = t ? t[n - 1] : n;
@@ -44,10 +45,12 @@
     }
 
     const last = n - 1;
+    // Z-score contra o baseline do proprio ativo
+    const zs = (col, v) => { const b = F.baseline && F.baseline[col]; return b && b.std ? Math.abs(v - b.mean) / b.std : 0; };
     const zmax = Math.max(
-      window.FZCopiloto.zscore(eixo + '_vel', F[eixo].vel[last]),
-      window.FZCopiloto.zscore(eixo + '_acel', F[eixo].acel[last]),
-      window.FZCopiloto.zscore(eixo + '_temp', F[eixo].temp[last]),
+      zs(eixo + '_vel', F[eixo].vel[last]),
+      zs(eixo + '_acel', F[eixo].acel[last]),
+      zs(eixo + '_temp', F[eixo].temp[last]),
     );
     const anom = zmax >= 3 ? 'Anomalia' : zmax >= 2 ? 'Atenção' : 'Normal';
 
@@ -130,9 +133,10 @@
       </div>`;
     };
 
-    const melhor = riscoScore(p1) >= riscoScore(p2) ? p1 : p2;
+    // cada ativo da frota usa a propria serie: motores da fabrica tem a deles, o resto usa o dataset real
     const linhasFrota = list.map(a => {
-      const s = riscoScore(melhor);
+      const ds = window.FZFabrica && window.FZFabrica.motor(a.codigo) ? window.FZFabrica.dataset(a.codigo) : window.FORZY;
+      const s = Math.max(riscoScore(projetar('m1', ds)), riscoScore(projetar('m2', ds)));
       const cor = s >= 66 ? 'var(--fz-bad)' : s >= 33 ? 'var(--fz-warn)' : 'var(--fz-ok)';
       return { a, s, cor };
     }).sort((x, y) => y.s - x.s);
@@ -156,14 +160,14 @@
         <div class="fz-card-title">Ranking de risco da frota</div>
         ${list.length ? `<table class="fz-cop-table">
           <thead><tr><th>Ativo</th><th>Descrição</th><th>Score de risco</th><th>Status</th></tr></thead>
-          <tbody>${linhasFrota.map(r => `<tr>
+          <tbody>${linhasFrota.map(r => `<tr${window.FZSelecao && r.a.codigo === window.FZSelecao.ativoCodigo() ? ' style="background:var(--field)"' : ''}>
             <td>${esc(r.a.codigo)}</td><td>${esc(r.a.descricao || '')}</td>
             <td><b style="color:${r.cor}">${r.s}</b> / 100</td>
             <td><span class="fz-cop-tag" style="background:${r.cor}22;color:${r.cor};border:1px solid ${r.cor}">${r.s >= 66 ? 'Alto' : r.s >= 33 ? 'Moderado' : 'Baixo'}</span></td>
           </tr>`).join('')}</tbody></table>`
         : '<p class="fz-cop-sub">Nenhum ativo cadastrado.</p>'}
         <p class="fz-cop-sub">Score = 45% nível atual de vibração + 35% inclinação da tendência + 20% score de anomalia.
-        Enquanto houver um só conjunto de telemetria (Dataset Forzy), todos os ativos usam a mesma série.</p>
+        Cada motor da Fábrica Forzy usa a própria série; os ativos da bancada usam o Dataset Forzy.</p>
       </div>`;
 
     _root.querySelector('#prWin').addEventListener('change', e => { _win = +e.target.value; render(); });
@@ -174,7 +178,7 @@
 
   // resumo em texto pra IA
   function resumoTexto(p1, p2) {
-    const F = window.FORZY || {};
+    const F = (window.FZDados && window.FZDados()) || window.FORZY || {};
     const linha = (p, nome) => {
       if (!p) return nome + ': janela insuficiente.';
       return nome + ': vibracao ' + fmt(p.atual) + ' mm/s, tendencia '

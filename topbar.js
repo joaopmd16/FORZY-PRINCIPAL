@@ -17,12 +17,13 @@
   }
 
   const TELAS = [
-    { label: 'Início',           id: 'screen-inicio',    icon: '·', keywords: ['inicio','home','kpi','ao vivo'] },
-    { label: 'Dashboard',        id: 'screen-dashboard', icon: '·', keywords: ['dashboard','motor','monitoramento','vibração','espectral','operacional','historico','baseline','ml'] },
-    { label: 'Cadastro',         id: 'screen-cadastro',  icon: '·', keywords: ['cadastro','ativo','planta','area','ficha'] },
-    { label: 'Gestão',           id: 'screen-gestao',    icon: '·', keywords: ['gestao','pipeline','rpa','ocr','navegacao'] },
-    { label: 'SCADA',            id: 'screen-scada',     icon: '·', keywords: ['scada','planta','2d','3d','canvas'] },
-    { label: 'IoT ESP32',        id: 'screen-iot',       icon: '·', keywords: ['iot','esp32','serial','sensor','vibração'] },
+    { label: 'Início',           id: 'screen-inicio',      icon: '·', keywords: ['inicio','home','painel','fabrica','setor','ao vivo'] },
+    { label: 'Monitoramento',    id: 'screen-dashboard',   icon: '·', keywords: ['dashboard','motor','monitoramento','vibração','espectral','operacional','historico','baseline','ml'] },
+    { label: 'Ativos',           id: 'screen-cadastro',    icon: '·', keywords: ['cadastro','ativo','planta','area','ficha','endpoint'] },
+    { label: 'Diagnóstico',      id: 'screen-diagnostico', icon: '·', keywords: ['diagnostico','analise','causa raiz','projecao','falha','ordem de servico','os'] },
+    { label: 'Planta (SCADA)',   id: 'screen-scada',       icon: '·', keywords: ['scada','planta','2d','3d','canvas'] },
+    { label: 'Sensores & Automação', id: 'screen-iot',     icon: '·', keywords: ['iot','esp32','serial','sensor','rpa','pipeline'] },
+    { label: 'Assistente IA',    id: 'screen-assistente',  icon: '·', keywords: ['assistente','ia','chat'] },
   ];
 
   // lista o que a busca pode achar
@@ -43,7 +44,7 @@
         ativos.forEach(a => {
           const haystack = [a.codigo, a.tag, a.descricao, a.fabricante, a.localizacao_descricao].join(' ').toLowerCase();
           if (haystack.includes(q)) {
-            resultados.push({ tipo: 'ativo', label: `${a.codigo} — ${a.descricao || a.tag || ''}`, id: 'screen-cadastro', icon: '·', ativo: a.codigo });
+            resultados.push({ tipo: 'ativo', label: `${a.codigo} — ${a.descricao || a.tag || ''}`, id: a.origem === 'demo' ? 'screen-inicio' : 'screen-cadastro', icon: '·', ativo: a.codigo });
           }
         });
       }
@@ -88,6 +89,8 @@
     res.querySelectorAll('.tsri').forEach(el => {
       el.addEventListener('click', () => {
         const id = el.dataset.id;
+        // motor da Fabrica Forzy: escolhe ele no seletor (Inicio, Monitoramento e Diagnostico seguem)
+        if (el.dataset.ativo && window.FZFabrica && window.FZFabrica.motor(el.dataset.ativo)) window.FZSelecao.set({ fabrica: 'forzy', motor: el.dataset.ativo });
         if (window.showScreen) window.showScreen(id);
         document.getElementById('topbar-search').value = '';
         res.style.display = 'none';

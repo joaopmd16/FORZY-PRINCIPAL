@@ -15,7 +15,6 @@
     };
   }
   let db = load();
-  garantirDemo(db);
 
   // le o banco do localStorage
   function load() {
@@ -64,45 +63,51 @@
 
 
   // ---- DADOS FICTICIOS (so pra demonstracao e entendimento) ----
-  // Fabrica de exemplo: 3 pisos x 3 motores, cada motor com 2 eixos. NAO sao equipamentos reais.
-  // Criada uma unica vez (db.demo_semeado); se apagar os ativos, ela nao volta sozinha.
-  // REVISAR (Arthur): confirmar com a Forzy os nomes dos pisos e dos motores antes da apresentacao
-  // tira "DEMO" e "FICTICIO" dos nomes de quem foi criado na versao anterior (so a fonte de dados diz que e demo)
-  function migrarNomesDemo(d) {
-    let mudou = false;
-    d.ativos_industrial.forEach(a => {
-      if (a.origem !== 'demo' || !/^DEMO-/.test(a.codigo)) return;
-      a.codigo = a.codigo.replace('DEMO-', ''); a.tag = String(a.tag || '').replace('DM-', '');
-      a.descricao = String(a.descricao || '').replace('(FICTÍCIO) ', ''); mudou = true;
-    });
-    d.plantas.forEach(p => { if (p.nome === 'Fábrica Demo (FICTÍCIA)') { p.nome = 'Fábrica'; p.descricao = 'Fábrica de exemplo com 3 pisos'; mudou = true; } });
-    d.areas.forEach(a => { if (/^FICTÍCIO · /.test(a.descricao || '')) { a.descricao = a.descricao.replace('FICTÍCIO · ', ''); a.descricao = a.descricao.charAt(0).toUpperCase() + a.descricao.slice(1); mudou = true; } });
-    if (mudou) persist(d);
-  }
+  // Fabrica Forzy: 6 setores x 3 motores, cada motor com 2 eixos. NAO sao equipamentos reais.
+  // O que cada motor "faz" (vibracao, temperatura) esta em fabrica.js. Aqui so o cadastro.
+  // Versao do cadastro demo: se subir, a fabrica antiga e trocada pela nova uma unica vez.
+  // REVISAR (Arthur): confirmar com a Forzy os nomes dos setores e dos motores antes da apresentacao
+  const DEMO_VERSAO = 2;
+  const SETORES = [
+    { cod: 'UTL', nome: 'Utilidades', desc: 'Água gelada, ar comprimido e resfriamento',
+      mot: [['Bomba de água gelada', 15, 'WEG'], ['Compressor de ar', 22, 'WEG'], ['Bomba da torre de resfriamento', 11, 'WEG']] },
+    { cod: 'USI', nome: 'Usinagem', desc: 'Centros de usinagem e refrigeração',
+      mot: [['Spindle do centro de usinagem', 7.5, 'Siemens'], ['Bomba de refrigerante', 3, 'Siemens'], ['Exaustor de névoa de óleo', 2.2, 'Siemens']] },
+    { cod: 'PIN', nome: 'Pintura', desc: 'Cabine, estufa e exaustão',
+      mot: [['Ventilador da estufa', 5.5, 'ABB'], ['Bomba de tinta', 4, 'ABB'], ['Exaustor da cabine', 7.5, 'ABB']] },
+    { cod: 'MON', nome: 'Montagem', desc: 'Linha de montagem e movimentação',
+      mot: [['Esteira principal', 5.5, 'WEG'], ['Talha elétrica', 3.7, 'WEG'], ['Unidade hidráulica da prensa', 15, 'WEG']] },
+    { cod: 'EFL', nome: 'Efluentes', desc: 'Tratamento de efluentes',
+      mot: [['Bomba de recalque', 11, 'WEG'], ['Bomba de lodo', 7.5, 'WEG'], ['Soprador de aeração', 18.5, 'WEG']] },
+    { cod: 'LOG', nome: 'Logística', desc: 'Expedição e armazenagem',
+      mot: [['Empilhadeira de esteira', 4, 'ABB'], ['Exaustor do galpão', 5.5, 'ABB'], ['Elevador de cargas', 7.5, 'ABB']] },
+  ];
+  // apaga a fabrica demo antiga (origem "demo") e cria a nova
   function garantirDemo(d) {
-    if (d.demo_semeado) { migrarNomesDemo(d); return; }
-    d.demo_semeado = true;
-    const pl = { id: ++d.seq.plantas, nome: 'Fábrica', descricao: 'Fábrica de exemplo com 3 pisos', criado_em: nowISO() };
+    if (d.demo_versao === DEMO_VERSAO) return;
+    d.ativos_industrial = d.ativos_industrial.filter(a => a.origem !== 'demo');
+    const velhas = d.plantas.filter(p => /^F[aá]brica( Demo.*| Forzy)?$/.test(p.nome)).map(p => p.id);
+    d.areas = d.areas.filter(a => !velhas.includes(a.planta_id));
+    d.plantas = d.plantas.filter(p => !velhas.includes(p.id));
+    d.demo_semeado = true; d.demo_versao = DEMO_VERSAO;
+    const pl = { id: ++d.seq.plantas, nome: 'Fábrica Forzy', descricao: 'Fábrica de exemplo com 6 setores e 18 motores (dados simulados)', criado_em: nowISO() };
     d.plantas.push(pl);
-    const PISOS = [
-      { nome: 'Piso 1 — Motores Verticais', desc: 'Monitoramento de motores verticais', mot: ['Bomba vertical de poço', 'Agitador do tanque', 'Bomba de torre de resfriamento'], kw: [11, 7.5, 15], fab: 'WEG' },
-      { nome: 'Piso 2 — Bombas de Processo', desc: 'Bombas centrífugas de processo', mot: ['Bomba de recalque A', 'Bomba de recalque B', 'Bomba dosadora'], kw: [7.5, 7.5, 3], fab: 'Siemens' },
-      { nome: 'Piso 3 — Ventilação e Exaustão', desc: 'Exaustores e ventiladores', mot: ['Exaustor principal', 'Ventilador de insuflamento', 'Exaustor de emergência'], kw: [5.5, 4, 5.5], fab: 'ABB' },
-    ];
-    PISOS.forEach((pi, i) => {
-      const ar = { id: ++d.seq.areas, planta_id: pl.id, nome: pi.nome, descricao: pi.desc };
+    SETORES.forEach(se => {
+      const ar = { id: ++d.seq.areas, planta_id: pl.id, nome: se.nome, descricao: se.desc };
       d.areas.push(ar);
-      pi.mot.forEach((nome, j) => {
-        d.ativos_industrial.push({ id: ++d.seq.ativos, criado_em: nowISO(), codigo: 'P' + (i + 1) + '-M' + (j + 1), tag: 'P' + (i + 1) + '-M' + (j + 1),
-          origem: 'demo', area_id: ar.id, descricao: nome + ' · 2 eixos', fabricante: pi.fab, potencia_kw: pi.kw[j], tensao_v: 380,
-          corrente_nom: +(pi.kw[j] * 2.03).toFixed(1), ip_rating: 'IP55', status: 'ativo', latitude: -23.55, longitude: -46.63,
-          localizacao_descricao: pi.nome + ' · motor ' + (j + 1), data_install: '2025-01-15' });
+      se.mot.forEach(([nome, kw, fab], j) => {
+        const cod = se.cod + '-M' + (j + 1);
+        d.ativos_industrial.push({ id: ++d.seq.ativos, criado_em: nowISO(), codigo: cod, tag: cod,
+          origem: 'demo', area_id: ar.id, descricao: nome + ' · 2 eixos', fabricante: fab, potencia_kw: kw, tensao_v: 380,
+          corrente_nom: +(kw * 2.03).toFixed(1), ip_rating: 'IP55', status: 'ativo', latitude: -23.55, longitude: -46.63,
+          localizacao_descricao: se.nome + ' · motor ' + (j + 1), data_install: '2025-01-15' });
       });
     });
-    d.log_execucoes.push({ id: ++d.seq.logs, automacao: 'Carga Fábrica de exemplo', status: 'sucesso', registros_proc: 9, registros_erro: 0,
-      detalhes: '3 pisos, 9 motores (2 eixos cada)', iniciado_em: nowISO() });
+    d.log_execucoes.push({ id: ++d.seq.logs, automacao: 'Carga Fábrica Forzy', status: 'sucesso', registros_proc: 18, registros_erro: 0,
+      detalhes: '6 setores, 18 motores (2 eixos cada)', iniciado_em: nowISO() });
     persist(d);
   }
+  garantirDemo(db);
 
   // copia profunda do objeto
   const clone = o => JSON.parse(JSON.stringify(o));
@@ -261,7 +266,7 @@
   }
 
   // apaga tudo e recria o seed
-  function reset() { db = seed(blank()); save(); }
+  function reset() { db = seed(blank()); garantirDemo(db); save(); }
   // texto do status
   function statusLabel(s) { return { ativo: 'Ativo', manutencao: 'Manutenção', inativo: 'Inativo' }[s] || s; }
   // cor do status

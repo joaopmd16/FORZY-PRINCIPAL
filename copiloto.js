@@ -1,7 +1,8 @@
 /* copiloto.js: tela do Copiloto de Manutencao (diagnostico e Ordem de Servico) */
 
 (function () {
-  const F = window.FORZY;
+  // dados do ativo escolhido: motor da fabrica ou dataset real (le a cada uso, entao acompanha a escolha)
+  const F = new Proxy({}, { get: (_, k) => ((window.FZDados && window.FZDados()) || window.FORZY)[k] });
 
   const LIM = {
     vel:  { a: 1.8,  al: 4.5,  unit: 'mm/s' },
@@ -250,8 +251,7 @@
     if (!reading) { _root.innerHTML = '<div class="fz-card">Dataset não carregado.</div>'; return; }
     _diag = diagnosticar(reading, _eixo);
 
-    const ativos = ativosDisponiveis();
-    if (!_ativo && ativos.length) _ativo = ativos[0].codigo;
+    _ativo = window.FZSelecao ? window.FZSelecao.ativoCodigo() : _ativo;
 
     const corPrio = _diag.prioridade === 'P1' ? 'var(--fz-bad)' : _diag.prioridade === 'P2' ? 'var(--fz-warn)' : 'var(--fz-ok)';
 
@@ -292,13 +292,6 @@
               <option value="m2" ${_eixo === 'm2' ? 'selected' : ''}>Eixo 2</option>
             </select>
           </label>
-          <label>Ativo
-            <select id="copAtivo">
-              ${ativos.length
-                ? ativos.map(a => `<option value="${esc(a.codigo)}" ${a.codigo === _ativo ? 'selected' : ''}>${esc(a.codigo)} — ${esc(a.descricao || '')}</option>`).join('')
-                : '<option value="">(nenhum ativo cadastrado)</option>'}
-            </select>
-          </label>
           <button class="fz-btn" id="copRefresh">Recalcular</button>
         </div>
         <div class="fz-card fz-cop-diag">
@@ -316,7 +309,6 @@
         </div>
       `;
       _root.querySelector('#copEixo').addEventListener('change', e => { _eixo = e.target.value; render(); });
-      _root.querySelector('#copAtivo').addEventListener('change', e => { _ativo = e.target.value; });
       _root.querySelector('#copRefresh').addEventListener('click', render);
       _root.querySelector('#copGerar').addEventListener('click', gerarOS);
       renderHist();
@@ -330,13 +322,6 @@
           <select id="copEixo">
             <option value="m1" ${_eixo === 'm1' ? 'selected' : ''}>Eixo 1</option>
             <option value="m2" ${_eixo === 'm2' ? 'selected' : ''}>Eixo 2</option>
-          </select>
-        </label>
-        <label>Ativo
-          <select id="copAtivo">
-            ${ativos.length
-              ? ativos.map(a => `<option value="${esc(a.codigo)}" ${a.codigo === _ativo ? 'selected' : ''}>${esc(a.codigo)} — ${esc(a.descricao || '')}</option>`).join('')
-              : '<option value="">(nenhum ativo cadastrado)</option>'}
           </select>
         </label>
         <button class="fz-btn" id="copRefresh">Recalcular diagnóstico</button>
@@ -381,7 +366,6 @@
     `;
 
     _root.querySelector('#copEixo').addEventListener('change', e => { _eixo = e.target.value; render(); });
-    _root.querySelector('#copAtivo').addEventListener('change', e => { _ativo = e.target.value; });
     _root.querySelector('#copRefresh').addEventListener('click', render);
     _root.querySelector('#copGerar').addEventListener('click', gerarOS);
     renderHist();
@@ -620,6 +604,7 @@
   // abre a aba de OS ja no eixo e ativo do alarme
   function abrirPara(eixo, ativoCod) {
     if (eixo === 'm1' || eixo === 'm2') _eixo = eixo;
+    if (ativoCod && window.FZFabrica && window.FZFabrica.motor(ativoCod)) window.FZSelecao.set({ fabrica: 'forzy', motor: ativoCod });
     if (ativoCod) _ativo = ativoCod;
     _os = null;
     if (typeof window.showScreen === 'function') window.showScreen('diagnostico');

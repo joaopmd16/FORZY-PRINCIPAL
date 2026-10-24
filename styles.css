@@ -2302,13 +2302,55 @@ body.fz-conta-operador .fz-so-admin-conta{ display:none !important; }
 .fz-tabs-lbl { align-self: center; flex: none; padding: 0 8px; font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-3); }
 .fz-tabs-sep { flex: none; width: 1px; margin: 6px 6px; background: var(--hairline); }
 
-/* ===== Inicio: visualizacoes da Fabrica Demo (compacta, por piso, detalhada, lista) ===== */
-#inicioAssets.fz-vista-compacta{ grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:12px; }
-#inicioAssets.fz-vista-piso,#inicioAssets.fz-vista-lista{ grid-template-columns:1fr; }
+/* ===== Fabrica Forzy: seletor Fabrica > Setor > Motor, quadradinhos e painel do motor ===== */
+.fz-sel{ display:flex; flex-wrap:wrap; align-items:flex-end; gap:14px 22px; background:var(--card); border-radius:var(--radius-inner); padding:14px 18px; box-shadow:var(--shadow); margin:14px 0; }
+.fz-sel .fz-select{ min-width:200px; }
+.fz-sel-nota{ align-self:center; font-size:13px; color:var(--text-2); }
+.fz-resumo{ display:flex; flex-wrap:wrap; align-items:center; gap:8px 18px; margin:0 2px 6px; font-size:13px; color:var(--text-2); }
+.fz-resumo[hidden],.fz-progress[hidden]{ display:none; }
+.fz-res-tit{ font-weight:700; color:var(--text); }
+.fz-res-chip{ display:inline-flex; align-items:center; gap:6px; }
+.fz-res-chip i{ width:9px; height:9px; border-radius:50%; display:inline-block; }
+.fz-res-chip b{ color:var(--text); }
+.fz-fab-box{ display:flex; flex-direction:column; gap:16px; }
+#inicioTiles{ display:flex; flex-direction:column; gap:18px; }
 .fz-tile{ padding:12px 14px; }
 .fz-tile .a-status{ font-size:15px; margin:4px 0; }
 .fz-tile .a-read{ font-size:12px; }
+.fz-tile .a-desc{ font-size:12px; color:var(--text-2); margin-top:2px; min-height:2.6em; line-height:1.3; }
+.fz-tile-click{ cursor:pointer; transition:transform .12s, box-shadow .12s; }
+.fz-tile-click:hover,.fz-tile-click:focus-visible{ transform:translateY(-2px); outline:none; box-shadow:0 6px 18px rgba(0,0,0,.25); }
 .fz-piso-grupo{ display:flex; flex-direction:column; gap:8px; }
-.fz-piso-tit{ font-size:12px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--text-2); }
-.fz-piso-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:12px; }
-.fz-lista-fab{ background:var(--card); border-radius:var(--radius-inner); padding:8px 16px; box-shadow:var(--shadow); overflow:auto; }
+.fz-piso-tit{ font-size:12px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--text-2); display:flex; gap:12px; align-items:baseline; }
+.fz-piso-cont{ font-size:11px; font-weight:600; letter-spacing:0; text-transform:none; display:inline-flex; gap:10px; }
+.fz-piso-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(170px,1fr)); gap:12px; }
+.fz-motor-head{ display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; }
+.fz-motor-cod{ font-size:22px; font-weight:800; display:flex; align-items:center; gap:10px; }
+.fz-motor-nome{ font-size:13px; color:var(--text-2); margin-top:4px; }
+.fz-motor-saude{ text-align:right; }
+.fz-saude-num{ font-size:38px; font-weight:800; line-height:1; }
+.fz-ops{ display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin:16px 0; }
+.fz-op{ background:var(--field); border-radius:10px; padding:10px 14px; }
+.fz-op-lbl{ font-size:10.5px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--label); }
+.fz-op-val{ font-size:20px; font-weight:700; margin-top:4px; }
+.fz-op-val small{ font-size:12px; font-weight:600; color:var(--text-2); }
+.fz-motor-acoes{ display:flex; flex-wrap:wrap; gap:10px; }
+.fz-eixo-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; font-size:15px; }
+.fz-met{ padding:10px 0; border-top:1px solid var(--hairline); }
+.fz-met:first-of-type{ border-top:0; }
+.fz-met-top{ display:flex; justify-content:space-between; align-items:baseline; }
+.fz-met-lbl{ font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--label); }
+.fz-met-val{ font-size:22px; font-weight:800; }
+.fz-met-val small{ font-size:12px; font-weight:600; color:var(--text-2); }
+.fz-met .a-spark{ width:100%; height:48px; margin-top:6px; display:block; }
+.fz-met .a-thresh{ stroke:var(--fz-bad); stroke-width:1; stroke-dasharray:4 3; opacity:.55; vector-effect:non-scaling-stroke; }
+.fz-met-foot{ font-size:11px; color:var(--text-3); margin-top:2px; }
+.fz-diag-faixa{ display:flex; flex-wrap:wrap; align-items:center; gap:10px 26px; background:var(--card); border-radius:var(--radius-inner); padding:12px 18px; box-shadow:var(--shadow); margin:0 0 14px; font-size:13px; }
+.fz-diag-faixa .dg-tit{ font-size:16px; font-weight:800; }
+.fz-diag-faixa .dg-sub{ color:var(--text-2); font-size:12px; }
+.fz-diag-faixa .dg-m{ display:flex; flex-direction:column; }
+.fz-diag-faixa .dg-m span{ font-size:10.5px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--label); }
+.fz-diag-faixa .dg-m b{ font-size:15px; }
+
+/* graficos do Historico Recente: um embaixo do outro, pra ficarem legiveis */
+.fz-charts-col{ display:grid; grid-template-columns:1fr; gap:22px; }

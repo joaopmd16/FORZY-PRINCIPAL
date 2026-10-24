@@ -73,6 +73,8 @@
       document.getElementById('navAssistenteDot')?.classList.remove('show');
     }
     if (key === 'diagnostico') {
+      window.FZSeletor?.montar(document.getElementById('diagSel'), { exigeMotor: true });
+      window.FZFabrica?.faixa(document.getElementById('diagFaixa'));
       const atual = document.querySelector('#fzDiagTabs .fz-tab.active');
       ativarAbaDiag(atual ? atual.dataset.dtab : null);
     }
@@ -144,6 +146,8 @@
     window.FZAlertas.onChange(() => { if (_1a) { _1a = false; return; } reagirDiag(); });
   }
   document.addEventListener('fz-perfil-change', reagirDiag);
+  // o ativo escolhido mudou (aqui ou em outra tela): o Diagnostico passa a analisar esse motor
+  document.addEventListener('fz-selecao-change', () => { window.FZFabrica?.faixa(document.getElementById('diagFaixa')); reagirDiag(); });
 
   // ao abrir o site: sem sessao vai pro login
   if (window.FZAuth && !window.FZAuth.logado()) showLogin();

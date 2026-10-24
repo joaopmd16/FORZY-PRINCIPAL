@@ -15,10 +15,13 @@
 
   // nome e cor do eixo do alarme
   function eixoInfo(a) {
+    // alarme da Fabrica Forzy: origem "fabrica:CODIGO" aponta o motor
+    const fab = /^fabrica:(.+)$/.exec(String(a.origem || ''));
+    const cod = fab ? fab[1] : null;
     const s = String(a.eixo || a.msg || '').toLowerCase();
-    if (s.includes('m2') || s.includes('eixo 2')) return { id: 'm2', nome: 'Eixo 2', cod: 'BBA-002' };
-    if (s.includes('m1') || s.includes('eixo 1')) return { id: 'm1', nome: 'Eixo 1', cod: 'BBA-001' };
-    return { id: 'm1', nome: 'Eixo 1', cod: 'BBA-001' };
+    if (s.includes('m2') || s.includes('eixo 2')) return { id: 'm2', nome: 'Eixo 2', cod: cod || 'BBA-002' };
+    if (s.includes('m1') || s.includes('eixo 1')) return { id: 'm1', nome: 'Eixo 1', cod: cod || 'BBA-001' };
+    return { id: 'm1', nome: 'Eixo 1', cod: cod || 'BBA-001' };
   }
 
   // frase curta do alarme (visao Operador)
@@ -44,7 +47,9 @@
       id: 'mon', icone: 'activity', rotulo: 'Abrir no Monitoramento',
       dica: 'Gráficos e gauges da fonte que gerou o alarme',
       soAdmin: true,
-      run() {
+      run(a) {
+        const e = eixoInfo(a);
+        if (window.FZFabrica && window.FZFabrica.motor(e.cod)) window.FZSelecao.set({ fabrica: 'forzy', motor: e.cod });
         if (window.showScreen) window.showScreen('dashboard');
         document.querySelector('#fzTabs .fz-tab[data-tab="mon"]')?.click();
       },
@@ -53,6 +58,8 @@
       id: 'ia', icone: 'bot', rotulo: 'Perguntar ao Assistente',
       dica: 'Manda o alarme pra IA explicar a causa provável',
       run(a) {
+        const e = eixoInfo(a);
+        if (window.FZFabrica && window.FZFabrica.motor(e.cod)) window.FZSelecao.set({ fabrica: 'forzy', motor: e.cod });
         if (window.FZAssistente && window.FZAssistente.abrirComContexto) {
           window.FZAssistente.abrirComContexto(a);
         } else if (window.showScreen) window.showScreen('assistente');

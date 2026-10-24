@@ -15,7 +15,7 @@
   }
   // hora do maior pico de vibracao
   function horaPico(idx) {
-    const F = window.FORZY;
+    const F = window.FZDados ? window.FZDados() : window.FORZY;
     try {
       const seg = (F.t && F.t[idx] != null) ? F.t[idx] : 0;
       return new Date(Date.parse(F.meta.t0) + seg * 1000).toLocaleString('pt-BR');
@@ -74,7 +74,7 @@
 
   // mini grafico de uma grandeza
   function sparkGrandeza(col) {
-    const F = window.FORZY; if (!F) return '';
+    const F = window.FZDados ? window.FZDados() : window.FORZY; if (!F) return '';
     const src = F[_eixo] && F[_eixo][col]; if (!src) return '';
     const arr = src.slice(-140);
     const lim = window.FZCopiloto.LIM[col] || { a: 0, al: 0 };
@@ -159,19 +159,12 @@
     if (!mom.r) { _root.innerHTML = '<div class="fz-card">Dataset não carregado.</div>'; return; }
     _diag = window.FZCopiloto.diagnosticar(mom.r, _eixo);
 
-    const list = ativos();
-    if (!_ativo && list.length) _ativo = list[0].codigo;
+    _ativo = window.FZSelecao ? window.FZSelecao.ativoCodigo() : _ativo;
     const cor = corDaPrioridade(_diag.prioridade);
     const momTxt = mom.tag + (mom.idx != null && horaPico(mom.idx) ? ' · ' + horaPico(mom.idx) : '');
 
     _root.innerHTML = `
       <div class="fz-cop-controls fz-card">
-        <label>Ativo
-          <select id="xvAtivo">
-            ${list.length ? list.map(a => `<option value="${esc(a.codigo)}" ${a.codigo === _ativo ? 'selected' : ''}>${esc(a.codigo)} — ${esc(a.descricao || '')}</option>`).join('')
-              : '<option value="">(nenhum ativo cadastrado)</option>'}
-          </select>
-        </label>
         <label>Eixo
           <select id="xvEixo">
             <option value="m1" ${_eixo === 'm1' ? 'selected' : ''}>Eixo 1</option>
@@ -208,7 +201,6 @@
       </div>
     `;
 
-    _root.querySelector('#xvAtivo').addEventListener('change', e => { _ativo = e.target.value; render(); });
     _root.querySelector('#xvEixo').addEventListener('change', e => { _eixo = e.target.value; _sel = null; render(); });
     _root.querySelector('#xvMomento').addEventListener('change', e => { _momento = e.target.value; render(); });
     _root.querySelector('#xvExplode').addEventListener('click', () => { _explodido = !_explodido; render(); });
@@ -235,6 +227,7 @@
   // abre ja no ativo do alarme
   function abrirPara(eixo, ativoCod) {
     if (eixo === 'm1' || eixo === 'm2') _eixo = eixo;
+    if (ativoCod && window.FZFabrica && window.FZFabrica.motor(ativoCod)) window.FZSelecao.set({ fabrica: 'forzy', motor: ativoCod });
     if (ativoCod) _ativo = ativoCod;
     _sel = null;
     _explodido = true;

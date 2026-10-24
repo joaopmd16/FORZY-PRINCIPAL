@@ -502,8 +502,11 @@
   // leitura atual da fonte escolhida
   function curReading(){
     if(state.fonte==='sim') return state.simReading || readingAt(F.meta.n-1);
-    // fabrica demo e ficticia: nao alimenta o selo nem os alarmes globais (usa o dataset real)
-    if(state.fonte==='fabrica') return readingAt(state.fidx);
+    // fabrica: o motor escolhido; sem motor, o pior do setor (ou da fabrica)
+    if(state.fonte==='fabrica'){
+      const sl=window.FZSelecao.get(), m = sl.motor ? window.FZFabrica.motores().find(x=>x.codigo===sl.motor) : window.FZFabrica.piorMotor(sl.setor);
+      return m && m.r ? m.r : ZERO_R;
+    }
     if(state.fonte==='ativo'){ const ls=ativoLeituras(); return ls.length ? ativoReadingFrom(ls[ls.length-1]) : ZERO_R; }
     if(state.fonte==='esp32'){ const h=window.FZIoT&&window.FZIoT.getLast(); return h ? esp32ReadingFrom(h) : ZERO_R; }
     if(state.fonte==='cloud'){ const w=cloudWindow(); return w.length ? w[w.length-1] : ZERO_R; }
@@ -522,65 +525,45 @@
     if(!state.simHist) state.simHist=[]; state.simHist.push(state.simReading); if(state.simHist.length>120) state.simHist.shift();
   }
 
-  // ---- FABRICA DEMO (FICTICIA) ----
-  // 3 pisos x 3 motores x 2 eixos = 18 leituras simuladas. Serve so pra demonstrar o Monitoramento por setor.
-  // Perfil de cada motor: vibracao base (mm/s) do eixo 1 e 2 e temperatura base (C). Alguns ja nascem em atencao/critico.
-  // REVISAR (Vitor): ajustar os perfis se quiserem mostrar outro cenario na apresentacao
-  const FAB_PERFIL = {
-    'P1-M1':[0.8,0.9,31], 'P1-M2':[1.1,1.0,32], 'P1-M3':[2.6,2.2,37],
-    'P2-M1':[0.7,0.8,30], 'P2-M2':[4.9,3.1,46], 'P2-M3':[1.0,1.2,31],
-    'P3-M1':[2.2,1.9,38], 'P3-M2':[0.6,0.7,29], 'P3-M3':[0.9,1.0,30],
-  };
-  const fab = { hist:{}, rand:null, piso:0 };
-  // motores fictícios agrupados por piso
-  function fabPisos(){
-    const at = window.FZStore ? window.FZStore.getAtivosIndustrial().filter(a=>a.origem==='demo') : [];
-    const nomes = [...new Set(at.map(a=>a.area_nome))].sort();
-    return nomes.map(n=>({ nome:n, motores:at.filter(a=>a.area_nome===n).sort((a,b)=>a.codigo.localeCompare(b.codigo)) }));
+  // ---- FABRICA FORZY (simulada) ----
+  // Os dados vem de fabrica.js (gera sozinho, o tempo todo). Aqui fica so a tela do Monitoramento da fabrica.
+  // motores que a tela mostra: o escolhido, ou os do setor
+  function fabMotoresDaTela(){
+    const s = window.FZSelecao.get();
+    return s.motor ? window.FZFabrica.motores().filter(m=>m.codigo===s.motor) : window.FZFabrica.motores(s.setor);
   }
-  // gera uma leitura nova (2 eixos) pra cada motor
-  function fabStep(){
-    if(!fab.rand) fab.rand = rng(777);
-    const t = Date.now()/20000;
-    fabPisos().forEach(pi=>pi.motores.forEach(m=>{
-      const p = FAB_PERFIL[m.codigo] || [1,1,38];
-      const eixo = (v,k)=>{ const vel=Math.max(0.1, v*(1+0.06*Math.sin(t+k))+gauss(fab.rand)*0.08*Math.max(1,v/2));
-        return { vel, acel:Math.max(0.01, 0.03+vel*0.035+gauss(fab.rand)*0.008), temp:p[2]+(k?-1.5:0)+gauss(fab.rand)*0.5 }; };
-      const a=eixo(p[0],0), b=eixo(p[1],1);
-      const r = { m1_vel:a.vel, m1_acel:a.acel, m1_temp:a.temp, m2_vel:b.vel, m2_acel:b.acel, m2_temp:b.temp };
-      const h = fab.hist[m.codigo] || (fab.hist[m.codigo]=[]);
-      h.push(r); if(h.length>120) h.shift();
-    }));
+  // graficos de velocidade, aceleracao e temperatura dos 2 eixos de um motor
+  function fabHistCard(h, iso){
+    const hc=el('div','fz-card'); hc.innerHTML='<div class="fz-card-title">Histórico Recente</div><div class="fz-card-sub">Últimos '+h.length+' pontos · um ponto a cada 2 s</div>'+legend([{name:'Eixo 1',color:C.m1},{name:'Eixo 2',color:C.m2}]);
+    const charts=el('div','fz-charts-col');
+    const xlab = i => '-'+((h.length-1-i)*2)+'s';
+    [['vel','Velocidade RMS','mm/s',iso.alerta,iso.alarme],['acel','Aceleração','g',ACEL_A,ACEL_AL],['temp','Temperatura','°C',TEMP_A,TEMP_AL]].forEach(([k,title,unit,la,lal])=>{
+      const box=el('div'); box.innerHTML=`<div class="fz-section-label">${title} (${unit})</div>`; const ch=el('div','fz-chart fz-chart-live'); box.appendChild(ch); charts.appendChild(box);
+      lineChart(ch,{ n:h.length, height:200, unit:' '+unit, dec:k==='temp'?1:3, xLabel:xlab,
+        series:[{name:'Eixo 1',color:C.m1,data:h.map(o=>o['m1_'+k])},{name:'Eixo 2',color:C.m2,data:h.map(o=>o['m2_'+k])}],
+        thresholds:[{y:la,color:C.warn},{y:lal,color:C.bad}] });
+    });
+    hc.appendChild(charts); return hc;
   }
-  // garante historico inicial pra os graficos nao abrirem vazios
-  function fabGarantir(){ if(!Object.keys(fab.hist).length){ for(let i=0;i<40;i++) fabStep(); } }
-  // campo "Piso" que aparece na barra da fonte de dados quando a fonte e a fabrica
-  function fabPisoField(){
-    if(state.fonte!=='fabrica') return '';
-    const pisos = fabPisos();
-    return `<div class="fz-field"><span>Piso</span><div class="fz-seg" data-act="piso">${pisos.map((x,i)=>`<button data-v="${i}" class="${i===fab.piso?'active':''}">${escHtml(x.nome)}</button>`).join('')}</div></div>`;
-  }
-  // liga os botoes do campo Piso
-  function fabLigarPiso(sb){
-    sb.querySelectorAll('[data-act="piso"] button').forEach(b=>b.addEventListener('click',()=>{ fab.piso=+b.dataset.v; renderSourceBar(); rerenderActive(true); }));
-  }
-  // tela do Monitoramento da fabrica demo: escolhe o piso e mostra os 3 motores (6 eixos) ao vivo
+  // tela do Monitoramento da fabrica: visao geral clicavel + os motores do setor (ou o motor escolhido) ao vivo
   function renderFabrica(p, iso){
-    fabGarantir();
-    const pisos = fabPisos(); const scrollY = window.scrollY;
+    const scrollY = window.scrollY, s = window.FZSelecao.get();
     p.innerHTML='';
-    if(!pisos.length){ p.innerHTML='<div class="fz-card"><div class="fz-empty">Fábrica demo não encontrada. Recarregue a página.</div></div>'; return; }
-    if(fab.piso>=pisos.length) fab.piso=0;
-    const piso = pisos[fab.piso];
-
-
-    piso.motores.forEach(m=>{
-      const h = fab.hist[m.codigo] || []; const r = h.length?h[h.length-1]:ZERO_R;
+    if(!window.FZFabrica || !window.FZFabrica.setores().length){ p.innerHTML='<div class="fz-card"><div class="fz-empty">Fábrica Forzy não encontrada. Recarregue a página.</div></div>'; return; }
+    if(!s.motor){
+      const vg=el('div','fz-card');
+      vg.innerHTML='<div class="fz-card-title">'+(s.setor?'Setor '+escHtml(s.setor):'Fábrica Forzy · todos os setores')+'</div><div class="fz-card-sub">Clique num motor para ver todos os detalhes dele.</div><div id="fzFabTiles"></div>';
+      p.appendChild(vg); window.FZFabrica.tiles(vg.querySelector('#fzFabTiles'), s.setor);
+      if(!s.setor){ if(window.lucide) lucide.createIcons(); window.scrollTo(0, scrollY); manageMonTimer(); return; }
+    }
+    const lista = fabMotoresDaTela();
+    lista.forEach(m=>{
+      const h = m.hist, r = m.r || ZERO_R;
       const sec = el('div','fz-card');
-      sec.innerHTML = `<div class="fz-card-title">${escHtml(m.codigo)} · ${escHtml(m.descricao)}</div><div class="fz-card-sub">${m.potencia_kw} kW · ${escHtml(m.fabricante)} · 2 eixos</div>`;
+      sec.innerHTML = `<div class="fz-card-title">${escHtml(m.codigo)} · ${escHtml(m.descricao.replace(' · 2 eixos',''))}</div><div class="fz-card-sub">${escHtml(m.setor)} · ${m.potencia_kw} kW · ${escHtml(m.fabricante)} · 2 eixos · ${r.rpm||'—'} rpm · ${fmt(r.corrente,1)} A · carga ${r.carga||'—'}%</div>`;
       p.appendChild(sec);
       const getWin = col => h.map(o=>o[col]);
-      const xlab = i => '-'+(h.length-1-i)+'s';
+      const xlab = i => '-'+((h.length-1-i)*2)+'s';
       const row = el('div','fz-row2');
       [['Eixo 1','m1'],['Eixo 2','m2']].forEach(([lbl,pre])=>{
         const c = motorCard(m.codigo+' · '+lbl, r, iso, pre); c.classList.add('fz-card-clicavel');
@@ -588,6 +571,7 @@
         row.appendChild(c);
       });
       p.appendChild(row);
+      if(s.motor) p.appendChild(fabHistCard(h, iso));
     });
 
     if(window.lucide) lucide.createIcons();
@@ -692,7 +676,7 @@
 
     const singleSensor = isAtivo || isEsp32;
     const hc=el('div','fz-card'); hc.innerHTML='<div class="fz-card-title">Histórico Recente</div><div class="fz-card-sub">Janela deslizante — últimos 120 pontos</div>'+legend(singleSensor?[{name:'ESP32',color:C.m1}]:[{name:'Eixo 1',color:C.m1},{name:'Eixo 2',color:C.m2}]);
-    const charts=el('div','fz-row3');
+    const charts=el('div','fz-charts-col');
     const specs=[['vel','Velocidade RMS','mm/s',iso.alerta,iso.alarme],['acel','Aceleração','g',ACEL_A,ACEL_AL],['temp','Temperatura','°C',TEMP_A,TEMP_AL]];
     specs.forEach(([k,title,unit,la,lal])=>{ const box=el('div'); box.innerHTML=`<div class="fz-section-label">${title} (${unit})</div>`; const ch=el('div','fz-chart fz-chart-live'); box.appendChild(ch); charts.appendChild(box);
       lineChart(ch,{ n:nWin, height:200, unit:' '+unit, dec: k==='temp'?1:3, xLabel:xlab,
@@ -719,7 +703,7 @@
   function manageMonTimer(){
     if(state.monTimer){ clearInterval(state.monTimer); state.monTimer=null; }
     const active = state.tab==='mon' && document.getElementById('screen-dashboard').classList.contains('active');
-    if(state.auto && active){ state.monTimer=setInterval(()=>{ if(state.fonte==='sim'){ simStep(); } else if(state.fonte==='fabrica'){ fabStep(); } else if(state.fonte==='forzy'){ state.fidx=(state.fidx+state.step)%F.meta.n; } renderMon(); updateEsp32Btn(); }, state.interval); }
+    if(state.auto && active){ state.monTimer=setInterval(()=>{ if(state.fonte==='sim'){ simStep(); } else if(state.fonte==='forzy'){ state.fidx=(state.fidx+state.step)%F.meta.n; } renderMon(); updateEsp32Btn(); updateLiveBadge(); }, state.interval); }
   }
 
   const esp = { motor:'m1', rpm:1780, janela:256, harm:true, bandas:true };
@@ -1169,51 +1153,41 @@
   // atualiza o selo ao vivo da rede neural
   function updateLiveBadge(){
     const b=document.getElementById('fzLiveBadge'); if(!b)return;
+    if(state.fonte==='fabrica' && window.FZFabrica){
+      const sl=window.FZSelecao.get(), m=sl.motor?window.FZFabrica.motores().find(x=>x.codigo===sl.motor):window.FZFabrica.piorMotor(sl.setor);
+      const f=m?m.f:0, nome=['Normal','Alerta','Alarme'][f], cor=[C.ok,C.warn,C.bad][f];
+      b.innerHTML=`<span class="fz-badge" style="background:${cor}22;color:${cor};border:1px solid ${cor}" title="${m?escHtml(m.codigo):''}">${nome.toUpperCase()}</span>`;
+      return;
+    }
     const [cl,co,,r]=veredito(curReading());
     const tip = r ? 'Rede neural · índice '+fmt(r.indice,2)+(r.motivo?' ('+r.motivo+')':'') : 'Z-score';
     b.innerHTML=`<span class="fz-badge" style="background:${co}22;color:${co};border:1px solid ${co}" title="${escHtml(tip)}">${escHtml(cl.toUpperCase())}</span>`;
   }
-  // barra de escolha da fonte de dados
+  // liga o estado da tela ao ativo escolhido: fabrica Forzy = fonte "fabrica"; bancada = dataset, ativo cadastrado ou cloud
+  function sincronizarFonte(){
+    if(!window.FZSelecao) return;
+    if(window.FZSelecao.get().fabrica==='forzy'){ if(state.fonte!=='fabrica'){ state.fonteBancada=state.fonte; state.fonte='fabrica'; } }
+    else if(state.fonte==='fabrica') state.fonte = state.fonteBancada || 'forzy';
+  }
+  // barra de escolha: Fabrica > Setor > Motor (e, na bancada, de onde vem o dado)
   function renderSourceBar(){
     const sb=document.getElementById('fzSourceBar');
     const ativos=ativosReais();
+    sincronizarFonte();
     if(state.fonte==='ativo' && !state.ativoCod && ativos.length) state.ativoCod=ativos[0].codigo;
-    const esp32Connected = window.FZIoT && window.FZIoT.isConnected();
     const cloudLoaded = window.FZCloud && window.FZCloud.isLoaded();
-
-    const isV2 = !!document.querySelector('.nav-group-flat');
-
-    if(!isV2){
-
-      sb.innerHTML=`
-        <div class="fz-field"><span>Fonte de dados</span><div class="fz-seg" data-act="fonte">
-          ${[['forzy','Dataset Forzy (rede neural)'],['ativo','Ativo Cadastrado'],['fabrica','Fábrica Demo (fictícia)']].map(([v,l])=>`<button data-v="${v}" class="${v==state.fonte?'active':''}">${l}</button>`).join('')}
-          <button data-v="cloud" class="${'cloud'==state.fonte?'active':''}" style="${cloudLoaded?'color:var(--fz-ok)':'opacity:.55'}" title="S1/S2 via daily_bridge.py — só a aba Monitoramento usa essa fonte">
-            ⬤ Forzy Cloud
-          </button>
-        </div></div>
-        ${fabPisoField()}
-        ${state.fonte==='ativo'?`<div class="fz-field"><span>Ativo</span><select class="fz-select" data-act="ativocod">${ativos.length?ativos.map(a=>`<option value="${a.codigo}" ${a.codigo==state.ativoCod?'selected':''}>${a.codigo}${a.tag?' · '+a.tag:''}</option>`).join(''):'<option value="">— nenhum ativo criado —</option>'}</select></div>`:''}
-        <div class="fz-field"><span>Norma ISO</span><select class="fz-select" data-act="norma">${Object.keys(NORMAS).map(k=>`<option ${k==state.norma?'selected':''}>${k}</option>`).join('')}</select><span class="fz-badge fz-badge-isa-sb" title="ISA-18.2:2016 — Management of Alarm Systems">ISA-18.2</span></div>
-        <div class="fz-field" style="margin-left:auto"><span>Estado atual</span><div id="fzLiveBadge"></div></div>`;
-      sb.querySelector('[data-act="fonte"]').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{ state.fonte=b.dataset.v; if(state.fonte==='sim'){ simStep(); } if(state.fonte==='ativo' && !state.ativoCod){ state.ativoCod=ativos[0]?ativos[0].codigo:null; } renderSourceBar(); rerenderActive(true); }));
-      const acs0=sb.querySelector('[data-act="ativocod"]'); if(acs0) acs0.addEventListener('change',e=>{ state.ativoCod=e.target.value; rerenderActive(true); });
-      sb.querySelector('[data-act="norma"]').addEventListener('change',e=>{ state.norma=e.target.value; rerenderActive(true); });
-      fabLigarPiso(sb);
-      updateLiveBadge();
-      return;
-    }
+    const na = window.FZSelecao.get().fabrica==='bancada';
 
     const FONTES=[
       ['forzy','Dataset Forzy (rede neural)', true],
-      ['ativo','Ativo Cadastrado', true],
-      ['fabrica','Fábrica Demo (fictícia)', true],
+      ['ativo','Ativo Cadastrado (endpoint / ESP32)', true],
       ['cloud','Forzy Cloud', cloudLoaded],
     ];
     const cur = FONTES.find(f=>f[0]===state.fonte) || FONTES[0];
     sb.innerHTML=`
-      <div class="fz-field">
-        <span title="De onde vêm os números dos gráficos abaixo. Para organizar os ativos por planta/área, use Ativos → Plantas &amp; Áreas.">Fonte de dados ⓘ</span>
+      <div id="fzSelHost"></div>
+      ${na?`<div class="fz-field">
+        <span title="De onde vêm os números dos gráficos abaixo.">Fonte dos dados ⓘ</span>
         <div class="fz-fonte-picker" data-act="fonte">
           <button class="fz-fonte-current" data-act="toggle-fonte" type="button">
             <span class="fz-fonte-dot" style="background:${cur[2]?'var(--fz-ok)':'var(--text-3)'}"></span>
@@ -1221,12 +1195,11 @@
             <i data-lucide="chevron-down"></i>
           </button>
           <div class="fz-fonte-drop" id="fzFonteDrop">
-            ${FONTES.filter(f=>f[0]!==state.fonte).map(([v,l,on])=>`<button data-v="${v}" ${v==='cloud'?'title="S1/S2 via daily_bridge.py — só a aba Monitoramento usa essa fonte"':v==='ativo'?'title="Mostra as leituras de UM ativo cadastrado, escolhido no campo Ativo ao lado. Pra ver a organização por planta e área, vá em Ativos → Plantas & Áreas."':''}><span class="fz-fonte-dot" style="background:${on?'var(--fz-ok)':'var(--text-3)'}"></span>${l}</button>`).join('')}
+            ${FONTES.filter(f=>f[0]!==state.fonte).map(([v,l,on])=>`<button data-v="${v}" ${v==='cloud'?'title="S1/S2 via daily_bridge.py — só a aba Monitoramento usa essa fonte"':''}><span class="fz-fonte-dot" style="background:${on?'var(--fz-ok)':'var(--text-3)'}"></span>${l}</button>`).join('')}
           </div>
         </div>
-      </div>
-      ${fabPisoField()}
-        ${state.fonte==='ativo'?`<div class="fz-field"><span>Ativo</span><select class="fz-select" data-act="ativocod">${ativos.length?ativos.map(a=>`<option value="${a.codigo}" ${a.codigo==state.ativoCod?'selected':''}>${a.codigo}${a.tag?' · '+a.tag:''}</option>`).join(''):'<option value="">— nenhum ativo criado —</option>'}</select></div>`:''}
+      </div>`:''}
+      ${na&&state.fonte==='ativo'?`<div class="fz-field"><span>Ativo</span><select class="fz-select" data-act="ativocod">${ativos.length?ativos.map(a=>`<option value="${a.codigo}" ${a.codigo==state.ativoCod?'selected':''}>${a.codigo}${a.tag?' · '+a.tag:''}</option>`).join(''):'<option value="">— nenhum ativo criado —</option>'}</select></div>`:''}
       <div class="fz-field" style="margin-left:auto"><span>Estado atual</span><div id="fzLiveBadge"></div></div>
       <div class="fz-norm-wrap">
         <button class="fz-btn ghost fz-norm-gear" id="fzNormGear" type="button" title="Norma ISO / ISA-18.2"><i data-lucide="settings-2"></i></button>
@@ -1235,19 +1208,21 @@
           <span class="fz-badge fz-badge-isa-sb" title="ISA-18.2:2016 — Management of Alarm Systems">ISA-18.2</span>
         </div>
       </div>`;
+    window.FZSeletor.montar(sb.querySelector('#fzSelHost'));
     const picker = sb.querySelector('.fz-fonte-picker');
-    picker.querySelector('[data-act="toggle-fonte"]').addEventListener('click', e=>{ e.stopPropagation(); document.querySelectorAll('.fz-norm-pop.open').forEach(p=>p.classList.remove('open')); picker.classList.toggle('open'); });
-    picker.querySelectorAll('.fz-fonte-drop button').forEach(b=>b.addEventListener('click',e=>{
-      e.stopPropagation();
-      state.fonte=b.dataset.v; picker.classList.remove('open');
-      if(state.fonte==='sim'){ simStep(); }
-      if(state.fonte==='ativo' && !state.ativoCod){ state.ativoCod=ativos[0]?ativos[0].codigo:null; }
-      renderSourceBar(); rerenderActive(true);
-    }));
+    if(picker){
+      picker.querySelector('[data-act="toggle-fonte"]').addEventListener('click', e=>{ e.stopPropagation(); document.querySelectorAll('.fz-norm-pop.open').forEach(p=>p.classList.remove('open')); picker.classList.toggle('open'); });
+      picker.querySelectorAll('.fz-fonte-drop button').forEach(b=>b.addEventListener('click',e=>{
+        e.stopPropagation();
+        state.fonte=b.dataset.v; state.fonteBancada=state.fonte; picker.classList.remove('open');
+        if(state.fonte==='ativo' && !state.ativoCod){ state.ativoCod=ativos[0]?ativos[0].codigo:null; }
+        renderSourceBar(); rerenderActive(true);
+      }));
+    }
     const acs=sb.querySelector('[data-act="ativocod"]'); if(acs) acs.addEventListener('change',e=>{ state.ativoCod=e.target.value; rerenderActive(true); });
     sb.querySelector('[data-act="norma"]').addEventListener('change',e=>{ state.norma=e.target.value; rerenderActive(true); });
     const gear = sb.querySelector('#fzNormGear'), pop = sb.querySelector('#fzNormPop');
-    gear.addEventListener('click', e=>{ e.stopPropagation(); picker.classList.remove('open'); pop.classList.toggle('open'); });
+    gear.addEventListener('click', e=>{ e.stopPropagation(); if(picker) picker.classList.remove('open'); pop.classList.toggle('open'); });
     if(!document.body.dataset.fzSbOutsideBound){
       document.body.dataset.fzSbOutsideBound='1';
       document.addEventListener('click', ()=>{
@@ -1255,7 +1230,6 @@
         document.querySelectorAll('.fz-norm-pop.open').forEach(p=>p.classList.remove('open'));
       });
     }
-    fabLigarPiso(sb);
     if(window.lucide) lucide.createIcons();
     updateLiveBadge();
   }
@@ -1421,13 +1395,15 @@
   function init(){
     if(!document.getElementById('fzTabs')) return;
     renderToolbar(); renderSourceBar();
+    // o ativo escolhido em qualquer tela (Inicio, Diagnostico, aqui) vale pra todas
+    window.FZSelecao.onChange(()=>{ sincronizarFonte(); if(document.getElementById('screen-dashboard').classList.contains('active')){ renderSourceBar(); rerenderActive(true); } else { state.rendered={}; } });
     document.querySelectorAll('#fzTabs .fz-tab[data-tab]').forEach(b=>b.addEventListener('click',()=>showTab(b.dataset.tab)));
     showTab('mon');
 
     new MutationObserver(()=>{ RENDER[state.tab](); }).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
 
     const dash=document.getElementById('screen-dashboard');
-    new MutationObserver(()=>{ const active=dash.classList.contains('active'); if(!active){ if(state.monTimer){clearInterval(state.monTimer);state.monTimer=null;} histPlay(false); } else { if(state.tab==='mon') manageMonTimer(); } }).observe(dash,{attributes:true,attributeFilter:['class']});
+    new MutationObserver(()=>{ const active=dash.classList.contains('active'); if(!active){ if(state.monTimer){clearInterval(state.monTimer);state.monTimer=null;} histPlay(false); } else { renderSourceBar(); rerenderActive(true); } }).observe(dash,{attributes:true,attributeFilter:['class']});
   }
 
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init); else init();
@@ -1435,10 +1411,10 @@
   window.FZDashboard = {
     getCurrentReading: () => curReading(),
     getFonte: () => state.fonte,
-    // leitura atual dos 9 motores da fabrica (a topbar usa pra disparar alarme/popup/sininho)
-    fabricaMotores: () => { fabGarantir(); return fabPisos().flatMap(pi=>pi.motores.map(m=>{ const h=fab.hist[m.codigo]||[]; return { codigo:m.codigo, descricao:m.descricao, piso:pi.nome, r:h.length?h[h.length-1]:null, hist:h.slice() }; })); },
-    // avanca a simulacao da fabrica um passo (o Inicio chama no proprio timer)
-    fabricaPasso: () => fabStep(),
+    // mostra o motor da fabrica na tela de Monitoramento
+    abrirMotor: (codigo) => { window.FZSelecao.set({ fabrica:'forzy', motor:codigo }); if(typeof window.showScreen==='function') window.showScreen('dashboard'); showTab('mon'); },
+    // leitura atual dos motores da fabrica (a topbar usa pra disparar alarme/popup/sininho)
+    fabricaMotores: () => window.FZFabrica.motores(),
     abrirAtivo: (codigo) => {
       state.fonte='ativo'; state.ativoCod=codigo; state.tab='mon';
       if(typeof window.showScreen==='function') window.showScreen('dashboard');
