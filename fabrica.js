@@ -209,6 +209,7 @@
     return s;
   })();
   const aoMudar = [];
+  let setorAntes = null;
   let auto = false; // motor escolhido sozinho pelo Diagnostico (nao pela pessoa)
   const getSel = () => ({ ...sel });
   // muda a selecao (troca de fabrica zera setor/motor; escolher motor acerta o setor)
@@ -249,7 +250,7 @@
     const { host, op } = ref;
     if (op.exigeMotor && !host.offsetParent) return; // tela escondida: nao mexe na selecao dos outros
     if (op.exigeMotor && sel.fabrica === 'forzy' && !sel.motor) {
-      const p = piorMotor(sel.setor); if (p) { setSel({ motor: p.codigo }); auto = true; if (!forcar) return; }
+      const p = piorMotor(sel.setor); if (p) { const antes = sel.setor; setSel({ motor: p.codigo }); auto = true; setorAntes = antes; if (!forcar) return; }
     }
     const foco = host.contains(document.activeElement) && document.activeElement.tagName === 'SELECT';
     if (foco && !forcar) return;
@@ -330,7 +331,7 @@
   const ativoCodigo = () => (sel.fabrica === 'forzy' && sel.motor ? sel.motor : 'BBA-001');
   window.FZSelecao = { get: getSel, set: setSel, onChange: f => aoMudar.push(f), dados, ativoCodigo,
     // ao sair do Diagnostico: desfaz o motor que ele escolheu sozinho
-    soltarAuto: () => { if (auto) setSel({ motor: null }); } };
+    soltarAuto: () => { if (auto) setSel({ motor: null, setor: setorAntes }); } };
   window.FZSeletor = { montar };
   // dados que o Diagnostico usa agora (motor da fabrica ou dataset real)
   window.FZDados = dados;
